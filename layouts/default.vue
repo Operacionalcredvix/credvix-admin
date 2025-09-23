@@ -14,8 +14,8 @@
             </NuxtLink>
           </li>
 
-          <li>
-            <UAccordion :items="cadastroItems" variant="ghost" :ui="{ 'item': { 'padding': 'p-0' } }">
+          <li v-for="menu in menuItems" :key="menu.label">
+            <UAccordion :items="[menu]" variant="ghost" :ui="{ 'item': { 'padding': 'p-0' } }">
               <template #default="{ item, open }">
                 <UButton color="gray" variant="ghost" class="nav-link w-full justify-between">
                   <div class="flex items-center gap-3">
@@ -25,7 +25,7 @@
                   <UIcon name="i-heroicons-chevron-right" class="transition-transform" :class="[open && 'rotate-90']" />
                 </UButton>
               </template>
-              
+
               <template #item="{ item }">
                 <ul class="pl-8 py-2 space-y-2">
                   <li v-for="link in item.links" :key="link.to">
@@ -70,16 +70,36 @@ const supabase = useSupabaseClient();
 const router = useRouter();
 const { profile } = useProfile();
 
-// Define a estrutura do nosso submenu de Cadastros
-const cadastroItems = [
+// Estrutura completa dos itens do menu principal
+const menuItems = [
   {
     label: 'Cadastros',
     icon: 'i-heroicons-archive-box',
-    slot: 'item', // Usaremos um slot customizado para renderizar os links
+    defaultOpen: true, // Para o menu começar aberto
+    slot: 'item',
     links: [
       { label: 'Lojas', to: '/lojas' },
       { label: 'Funcionários', to: '/funcionarios' },
       { label: 'Clientes', to: '/clientes' }
+    ]
+  },
+  {
+    label: 'RH',
+    icon: 'i-heroicons-briefcase',
+    slot: 'item',
+    links: [
+      { label: 'Vagas', to: '/rh/vagas' },
+      { label: 'Currículos', to: '/rh/curriculos' }
+      // Futuramente: Relatórios de RH, etc.
+    ]
+  },
+  {
+    label: 'Backoffice',
+    icon: 'i-heroicons-banknotes',
+    slot: 'item',
+    links: [
+      { label: 'Contratos', to: '/backoffice/contratos' }
+      // Futuramente: Metas, Produtos, Bancos, etc.
     ]
   }
 ];
@@ -98,6 +118,7 @@ const handleLogout = async () => {
 .nav-link {
   @apply flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-left;
 }
+
 .nav-link.router-link-exact-active {
   @apply bg-primary-500 text-white;
 }
@@ -105,6 +126,7 @@ const handleLogout = async () => {
 .nav-link-sub {
   @apply flex items-center text-sm px-4 py-1.5 rounded-lg hover:bg-gray-700 transition-colors text-gray-300;
 }
+
 .nav-link-sub.router-link-exact-active {
   @apply bg-primary-700 text-white;
 }
