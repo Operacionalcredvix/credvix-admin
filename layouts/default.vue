@@ -13,22 +13,36 @@
               <UIcon name="i-heroicons-home" /> <span>Dashboard</span>
             </NuxtLink>
           </li>
+
           <li>
-            <NuxtLink to="/funcionarios" class="nav-link">
-              <UIcon name="i-heroicons-user-group" /> <span>Funcionários</span>
-            </NuxtLink>
+            <UAccordion :items="cadastroItems" variant="ghost" :ui="{ 'item': { 'padding': 'p-0' } }">
+              <template #default="{ item, open }">
+                <UButton color="gray" variant="ghost" class="nav-link w-full justify-between">
+                  <div class="flex items-center gap-3">
+                    <UIcon :name="item.icon" />
+                    <span>{{ item.label }}</span>
+                  </div>
+                  <UIcon name="i-heroicons-chevron-right" class="transition-transform" :class="[open && 'rotate-90']" />
+                </UButton>
+              </template>
+              
+              <template #item="{ item }">
+                <ul class="pl-8 py-2 space-y-2">
+                  <li v-for="link in item.links" :key="link.to">
+                    <NuxtLink :to="link.to" class="nav-link-sub">
+                      {{ link.label }}
+                    </NuxtLink>
+                  </li>
+                </ul>
+              </template>
+            </UAccordion>
           </li>
         </ul>
       </nav>
 
       <div v-if="profile" class="mt-auto border-t border-gray-700 pt-4">
         <NuxtLink to="/perfil" class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-700">
-          <UAvatar
-            :src="profile.avatar_url"
-            :alt="profile.nome_completo"
-            icon="i-heroicons-user"
-            size="md"
-          />
+          <UAvatar :src="profile.avatar_url" :alt="profile.nome_completo" icon="i-heroicons-user" size="md" />
           <div class="flex-1 overflow-hidden">
             <p class="text-sm font-semibold truncate">{{ profile.nome_completo }}</p>
             <p class="text-xs text-gray-400">{{ profile.perfis?.nome }}</p>
@@ -54,9 +68,21 @@
 <script setup>
 const supabase = useSupabaseClient();
 const router = useRouter();
-
-// Usa o nosso novo composable para obter o perfil
 const { profile } = useProfile();
+
+// Define a estrutura do nosso submenu de Cadastros
+const cadastroItems = [
+  {
+    label: 'Cadastros',
+    icon: 'i-heroicons-archive-box',
+    slot: 'item', // Usaremos um slot customizado para renderizar os links
+    links: [
+      { label: 'Lojas', to: '/lojas' },
+      { label: 'Funcionários', to: '/funcionarios' },
+      { label: 'Clientes', to: '/clientes' }
+    ]
+  }
+];
 
 const handleLogout = async () => {
   const { error } = await supabase.auth.signOut();
@@ -70,9 +96,16 @@ const handleLogout = async () => {
 
 <style scoped lang="postcss">
 .nav-link {
-  @apply flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors;
+  @apply flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-left;
 }
 .nav-link.router-link-exact-active {
   @apply bg-primary-500 text-white;
+}
+
+.nav-link-sub {
+  @apply flex items-center text-sm px-4 py-1.5 rounded-lg hover:bg-gray-700 transition-colors text-gray-300;
+}
+.nav-link-sub.router-link-exact-active {
+  @apply bg-primary-700 text-white;
 }
 </style>
