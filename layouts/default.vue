@@ -78,9 +78,12 @@ const menuItems = [
     defaultOpen: true, // Para o menu começar aberto
     slot: 'item',
     links: [
+      { label: 'Bancos', to: '/cadastros/bancos' },
       { label: 'Lojas', to: '/lojas' },
       { label: 'Funcionários', to: '/funcionarios' },
-      { label: 'Clientes', to: '/clientes' }
+      { label: 'Clientes', to: '/clientes' },
+       { label: 'Produtos', to: '/cadastros/produtos' },
+      { label: 'Bancos e Tabelas', to: '/cadastros/banco-tabelas' }
     ]
   },
   {
