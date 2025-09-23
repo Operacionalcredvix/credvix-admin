@@ -15,7 +15,7 @@
         </div>
       </template>
 
-      <UTable :rows="filteredRows" :columns="columns" :loading="pending">
+      <UTable :rows="filteredRows || []" :columns="columns" :loading="pending">
         <template #is_active-data="{ row }">
           <UBadge :label="row.is_active ? 'Ativa' : 'Inativa'" :color="row.is_active ? 'primary' : 'red'" variant="subtle" />
         </template>
