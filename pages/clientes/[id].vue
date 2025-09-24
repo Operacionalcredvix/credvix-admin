@@ -3,48 +3,61 @@
     <p>A carregar dados do cliente...</p>
   </div>
   <div v-else-if="cliente">
-    <div class="mb-6">
-      <NuxtLink to="/clientes" class="text-primary-500 hover:underline">CRM</NuxtLink>
-      <span class="mx-2 text-gray-400">/</span>
-      <span class="text-gray-600">Detalhes do Cliente</span>
-    </div>
-
-    <UCard>
+    <header class="mb-6 flex justify-between items-center">
+      <div class="flex items-center gap-2 text-sm text-gray-500">
+        <NuxtLink to="/clientes" class="text-primary-500 hover:underline">Gestão de Clientes</NuxtLink>
+        <span class="mx-2">/</span>
+        <span class="text-gray-600">Detalhes do Cliente</span>
+      </div>
+      <UButton icon="i-heroicons-arrow-left-circle" size="md" color="gray" to="/clientes">
+        Voltar para a Lista
+      </UButton>
+    </header>
+    
+    <UCard class="mb-8">
       <div class="space-y-6">
         <div>
           <h2 class="text-2xl font-bold text-gray-800">Detalhes do Cliente</h2>
           <p class="text-gray-500">Informações de contato e financeiras do cliente.</p>
         </div>
-
+        
         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 border-t pt-6">
           <div><strong>Nome Completo:</strong><p>{{ cliente.nome_completo }}</p></div>
           <div><strong>CPF:</strong><p>{{ cliente.cpf }}</p></div>
           <div><strong>Email:</strong><p>{{ cliente.email || 'Não informado' }}</p></div>
-          <div><strong>Telefone:</strong><p>{{ cliente.telefone || 'Não informado' }}</p></div>
-          <div class="md:col-span-2"><strong>Endereço:</strong><p>{{ cliente.endereco || 'Não informado' }}</p></div>
+          <div><strong>Telefone 1:</strong><p>{{ cliente.telefone || 'Não informado' }}</p></div>
+          <div><strong>Telefone 2:</strong><p>{{ cliente.telefone_2 || 'Não informado' }}</p></div>
+          <div class="md:col-span-2"><strong>Endereço:</strong><p>{{ cliente.endereco_completo || 'Não informado' }}</p></div>
         </div>
-      </div>
-
-      <div class="mt-8">
-        <div class="flex justify-between items-center border-t pt-6">
-          <h3 class="text-xl font-semibold text-gray-800">Contas Bancárias</h3>
-          <UButton icon="i-heroicons-plus" label="Adicionar Nova Conta" color="gray" />
-        </div>
-        <UTable :rows="cliente.clientes_contas_bancarias || []" :columns="contasColumns" class="mt-4" />
-      </div>
-
-      <div class="mt-8">
-        <div class="flex justify-between items-center border-t pt-6">
-          <h3 class="text-xl font-semibold text-gray-800">Lista de Contratos</h3>
-        </div>
-        <UTable :rows="cliente.contratos || []" :columns="contratosColumns" class="mt-4">
-          <template #status-data="{ row }">
-            <UBadge :label="row.status" :color="statusColor(row.status)" variant="subtle" />
-          </template>
-        </UTable>
       </div>
     </UCard>
+
+    <div>
+      <div class="border-t pt-6">
+        <h3 class="text-xl font-semibold text-gray-800">Histórico de Contratos</h3>
+      </div>
+      <div v-if="contratosPorLoja.length > 0" class="space-y-6 mt-4">
+        <UCard v-for="loja in contratosPorLoja" :key="loja.loja_id">
+          <template #header>
+            <p class="font-semibold">Loja de Origem do Contrato: {{ loja.nome_loja }}</p>
+          </template>
+          <UTable :rows="loja.contratos" :columns="contratosColumns">
+            <template #data_contrato-data="{ row }">
+              <span>{{ new Date(row.data_contrato).toLocaleDateString('pt-BR') }}</span>
+            </template>
+            <template #valor_total-data="{ row }">
+              <span>{{ new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.valor_total) }}</span>
+            </template>
+            <template #status-data="{ row }">
+              <UBadge :label="row.status" :color="statusColor(row.status)" variant="subtle" />
+            </template>
+          </UTable>
+        </UCard>
+      </div>
+      <p v-else class="text-gray-500 mt-4">Nenhum contrato encontrado para este cliente.</p>
+    </div>
   </div>
+
   <div v-else>
     <h1 class="text-2xl font-bold">Cliente não encontrado.</h1>
     <NuxtLink to="/clientes" class="text-primary-500 hover:underline mt-4 inline-block">Voltar para a lista de clientes</NuxtLink>
@@ -62,34 +75,64 @@ const { data: cliente, pending } = await useAsyncData(`cliente-${clienteId}`, as
     .from('clientes')
     .select(`
       *,
-      clientes_contas_bancarias(*, bancos(nome_instituicao)),
-      contratos(*, produtos(nome))
+      contratos(*, produtos(nome), lojas(nome))
     `)
     .eq('id', clienteId)
     .single();
   return data;
 });
 
-// --- DEFINIÇÃO DAS COLUNAS DAS TABELAS INTERNAS ---
-const contasColumns = [
-  { key: 'bancos.nome_instituicao', label: 'Banco' },
-  { key: 'conta', label: 'Número da Conta' },
-  { key: 'tipo', label: 'Tipo' }
-];
-
+// --- DEFINIÇÃO DAS COLUNAS DA TABELA DE CONTRATOS ---
 const contratosColumns = [
+  { key: 'numero_contrato', label: 'Nº Contrato' },
   { key: 'produtos.nome', label: 'Produto' },
-  { key: 'data', label: 'Data', sortable: true },
+  { key: 'data_contrato', label: 'Data', sortable: true },
   { key: 'valor_total', label: 'Valor Total', sortable: true },
   { key: 'status', label: 'Status' }
 ];
 
+// --- LÓGICA COMPUTADA ---
+// Agrupa os contratos por loja
+const contratosPorLoja = computed(() => {
+  if (!cliente.value?.contratos) return [];
+  
+  const agrupado = cliente.value.contratos.reduce((acc, contrato) => {
+    const lojaId = contrato.loja_id;
+    if (!acc[lojaId]) {
+      acc[lojaId] = {
+        loja_id: lojaId,
+        nome_loja: contrato.lojas?.nome || 'Loja não identificada',
+        contratos: []
+      };
+    }
+    acc[lojaId].contratos.push(contrato);
+    return acc;
+  }, {});
+
+  return Object.values(agrupado);
+});
+
+// Concatena o endereço para exibição
+const endereco_completo = computed(() => {
+    if (!cliente.value) return 'Não informado';
+    const parts = [
+        cliente.value.endereco,
+        cliente.value.numero_endereco,
+        cliente.value.complemento_endereco,
+        cliente.value.bairro,
+        cliente.value.cidade,
+        cliente.value.estado,
+        cliente.value.cep
+    ].filter(Boolean); // Remove partes vazias
+    return parts.join(', ');
+});
+
 // Função para dar cor aos status dos contratos
 const statusColor = (status) => {
   switch (status) {
-    case 'Aprovado': return 'primary';
-    case 'Pendente': return 'amber';
-    case 'Cancelado': return 'red';
+    case 'Aprovado': case 'Pago': return 'primary';
+    case 'Pendente': case 'Em Análise': return 'amber';
+    case 'Reprovado': case 'Cancelado': return 'red';
     default: return 'gray';
   }
 };

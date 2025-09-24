@@ -59,7 +59,7 @@
       </div>
     </aside>
 
-    <main class="flex-1 p-8 overflow-y-auto">
+    <main class="flex-1 p-8 overflow-y-auto bg-gray-100">
       <slot />
     </main>
   </div>
