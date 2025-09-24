@@ -112,12 +112,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue';
+import { ref, reactive, computed, watch } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
 
 const supabase = useSupabaseClient();
 const toast = useToast();
-const { profile } = useProfile();
 
 // --- ESTADO DA PÁGINA ---
 const isModalOpen = ref(false);
@@ -178,7 +177,6 @@ const formatPhone = (phone) => {
 watch(() => formData.telefone, (newPhone) => { formData.telefone = formatPhone(newPhone); });
 watch(() => formData.telefone_secundario, (newPhone) => { formData.telefone_secundario = formatPhone(newPhone); });
 
-
 // --- TABELA ---
 const columns = [
   { key: 'nome_completo', label: 'Nome Completo', sortable: true },
@@ -188,7 +186,7 @@ const columns = [
   { key: 'actions', label: 'Ações' }
 ];
 
-// --- LÓGICA DE BUSCA DE DADOS ---
+// --- LÓGICA DE BUSCA DE DADOS OTIMIZADA ---
 const fetchInitialClients = async () => {
   pending.value = true;
   const { data, error } = await supabase
@@ -225,7 +223,6 @@ watch(searchTerm, useDebounceFn((newSearchTerm) => {
   }
 }, 300));
 
-
 // --- LÓGICA DO FORMULÁRIO ---
 const openModal = (cliente = null) => {
   cpfError.value = '';
@@ -235,12 +232,12 @@ const openModal = (cliente = null) => {
 };
 
 const isValidCPF = (cpf) => {
-    if (typeof cpf !== 'string') return false;
-    cpf = cpf.replace(/[^\d]/g, '');
-    if (cpf.length !== 11 || !!cpf.match(/(\d)\1{10}/)) return false;
-    const cpfDigits = cpf.split('').map(el => +el);
-    const rest = (count) => (cpfDigits.slice(0, count - 12).reduce((soma, el, index) => soma + el * (count - index), 0) * 10) % 11 % 10;
-    return rest(10) === cpfDigits[9] && rest(11) === cpfDigits[10];
+  if (typeof cpf !== 'string') return false;
+  cpf = cpf.replace(/[^\d]/g, '');
+  if (cpf.length !== 11 || !!cpf.match(/(\d)\1{10}/)) return false;
+  const cpfDigits = cpf.split('').map(el => +el);
+  const rest = (count) => (cpfDigits.slice(0, count - 12).reduce((soma, el, index) => soma + el * (count - index), 0) * 10) % 11 % 10;
+  return rest(10) === cpfDigits[9] && rest(11) === cpfDigits[10];
 };
 
 const validateCpf = () => {
@@ -304,7 +301,7 @@ const handleFormSubmit = async () => {
       toast.add({ title: 'Sucesso!', description: 'Novo cliente criado.' });
     }
     isModalOpen.value = false;
-    await fetchInitialClients(); // Recarrega a lista inicial após salvar
+    await fetchInitialClients();
   } catch (error) {
     toast.add({ title: 'Erro!', description: error.message, color: 'red' });
   } finally {
