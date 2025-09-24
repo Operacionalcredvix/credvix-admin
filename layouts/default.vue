@@ -79,10 +79,9 @@ const menuItems = [
     slot: 'item',
     links: [
       { label: 'Bancos', to: '/cadastros/bancos' },
-      { label: 'Lojas', to: '/lojas' },
-      { label: 'Funcionários', to: '/funcionarios' },
-      { label: 'Clientes', to: '/clientes' },
-       { label: 'Produtos', to: '/cadastros/produtos' },
+      { label: 'Lojas', to: '/cadastros/lojas' },
+      { label: 'Funcionários', to: '/cadastros/funcionarios' },
+      { label: 'Produtos', to: '/cadastros/produtos' },
       { label: 'Bancos e Tabelas', to: '/cadastros/banco-tabelas' }
     ]
   },
@@ -101,6 +100,7 @@ const menuItems = [
     icon: 'i-heroicons-banknotes',
     slot: 'item',
     links: [
+      { label: 'Clientes', to: '/backoffice/clientes' },
       { label: 'Contratos', to: '/backoffice/contratos' }
       // Futuramente: Metas, Produtos, Bancos, etc.
     ]
