@@ -1,10 +1,11 @@
-<template>
+<template #actions-data="{ row }">
   <div>
     <header class="mb-8 flex justify-between items-center">
       <h1 class="text-3xl font-bold">Gestão de Contratos</h1>
       <UButton icon="i-heroicons-plus-circle" size="lg" to="/backoffice/contratos/novo">
         Novo Contrato
       </UButton>
+      <UButton size="sm" color="gray" variant="ghost" :to="`/backoffice/contratos/${row.id}`" label="Detalhes" />
     </header>
 
     <UCard class="mb-8">
@@ -87,10 +88,23 @@ const columns = [
 
 // --- CARREGAMENTO DE DADOS ---
 const { data: contratos, pending } = await useAsyncData('contratos', async () => {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('contratos')
-    .select('*, clientes(nome_completo), produtos(nome)')
+    .select(`
+      id,
+      data_contrato,
+      valor_total,
+      status,
+      cliente_id,
+      clientes ( nome_completo ),
+      produtos ( nome )
+    `)
     .order('data_contrato', { ascending: false });
+
+  if (error) {
+    console.error("Erro ao buscar contratos:", error);
+    return []; // Retorna um array vazio em caso de erro
+  }
   return data;
 });
 

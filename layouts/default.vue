@@ -101,7 +101,8 @@ const menuItems = [
     slot: 'item',
     links: [
       { label: 'Clientes', to: '/backoffice/clientes' },
-      { label: 'Contratos', to: '/backoffice/contratos' }
+      { label: 'Contratos', to: '/backoffice/contratos' },
+      { label: 'Benefícios', to: '/backoffice/beneficios' }
       // Futuramente: Metas, Produtos, Bancos, etc.
     ]
   }
