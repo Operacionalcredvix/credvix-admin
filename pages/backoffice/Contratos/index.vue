@@ -1,11 +1,10 @@
-<template #actions-data="{ row }">
+<template>
   <div>
     <header class="mb-8 flex justify-between items-center">
       <h1 class="text-3xl font-bold">Gestão de Contratos</h1>
       <UButton icon="i-heroicons-plus-circle" size="lg" to="/backoffice/contratos/novo">
         Novo Contrato
       </UButton>
-      <UButton size="sm" color="gray" variant="ghost" :to="`/backoffice/contratos/${row.id}`" label="Detalhes" />
     </header>
 
     <UCard class="mb-8">
@@ -58,7 +57,22 @@
         </template>
 
         <template #actions-data="{ row }">
-          <UButton size="sm" color="gray" variant="ghost" :to="`/clientes/${row.cliente_id}`" label="Detalhes" />
+          <div class="flex items-center gap-2">
+            <UButton 
+              size="sm" 
+              color="gray" 
+              variant="ghost" 
+              :to="`/backoffice/contratos/${row.id}`" 
+              label="Ver Contrato" 
+            />
+            <UButton 
+              size="sm" 
+              color="gray" 
+              variant="ghost" 
+              :to="`/backoffice/clientes/${row.cliente_id}`" 
+              label="Ver Cliente" 
+            />
+          </div>
         </template>
       </UTable>
     </UCard>
@@ -66,6 +80,7 @@
 </template>
 
 <script setup>
+import { ref, computed } from 'vue';
 const supabase = useSupabaseClient();
 
 // --- ESTADO DOS FILTROS ---
@@ -113,11 +128,17 @@ const { data: lojas } = await useAsyncData('lojas-contratos', async () => {
   return data;
 });
 
+
+// --- CARREGAMENTO DE DADOS PARA FILTROS ---
+// const { data: lojas } = await useAsyncData('lojas-contratos', async () => {
+//   const { data } = await supabase.from('lojas').select('id, nome').order('nome');
+//   return data || [];
+// });
+
 const { data: consultores } = await useAsyncData('consultores-contratos', async () => {
   const { data } = await supabase.from('funcionarios').select('id, nome_completo').order('nome_completo');
-  return data;
+  return data || [];
 });
-
 
 // --- LÓGICA COMPUTADA E AÇÕES ---
 const filteredRows = computed(() => {
