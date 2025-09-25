@@ -1,7 +1,7 @@
 <template>
   <div>
     <header class="mb-8 flex justify-between items-center">
-      <h1 class="text-3xl font-bold">Gestão de Contratos</h1>
+      <h1 class="text-primary-500 text-3xl font-bold">Gestão de Contratos</h1>
       <UButton icon="i-heroicons-plus-circle" size="lg" to="/backoffice/contratos/novo">
         Novo Contrato
       </UButton>

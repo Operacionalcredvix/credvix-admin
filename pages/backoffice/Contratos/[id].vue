@@ -6,10 +6,9 @@
     <header class="mb-8">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-3xl font-bold">Detalhes do Contrato #{{ contrato.numero_contrato }}</h1>
+          <h1 class="text-primary-500 text-3xl font-bold">Detalhes do Contrato #{{ contrato.numero_contrato }}</h1>
           <p class="text-gray-500 mt-1">
             Registado em {{ new Date(contrato.data_contrato).toLocaleDateString('pt-BR') }}
-            por {{ contrato.funcionarios?.nome_completo || 'Consultor desconhecido' }}
           </p>
         </div>
         <UButton icon="i-heroicons-arrow-left-circle" size="lg" color="gray" to="/backoffice/contratos">
@@ -67,6 +66,20 @@
             <p class="text-sm text-gray-500">{{ contrato.clientes?.cpf }}</p>
           </NuxtLink>
         </UCard>
+        
+        <UCard>
+          <template #header><h3 class="font-semibold text-lg">Responsáveis</h3></template>
+          <div class="info-grid space-y-3">
+            <div>
+              <label>Consultor(a)</label>
+              <p>{{ contrato.consultor?.nome_completo || 'Não informado' }}</p>
+            </div>
+            <div>
+              <label>Digitador(a)</label>
+              <p>{{ contrato.digitador?.nome_completo || 'Não informado' }}</p>
+            </div>
+          </div>
+        </UCard>
 
         <UCard>
           <template #header><h3 class="font-semibold text-lg">Operação</h3></template>
@@ -91,6 +104,7 @@
   </div>
 </template>
 
+
 <script setup>
 const route = useRoute();
 const supabase = useSupabaseClient();
@@ -105,7 +119,8 @@ const { data: contrato, pending } = await useAsyncData(`contrato-${contratoId}`,
       clientes (id, nome_completo, cpf),
       produtos (nome),
       bancos (nome_instituicao),
-      funcionarios (nome_completo)
+      consultor:funcionarios!consultor_id (nome_completo),
+      digitador:funcionarios!digitador_id (nome_completo)
     `)
     .eq('id', contratoId)
     .single();
@@ -120,6 +135,7 @@ const formatCurrency = (value) => {
 
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
+  // Adiciona timeZone UTC para evitar problemas com fuso horário
   return new Date(dateString).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 };
 
@@ -140,7 +156,5 @@ const statusColor = (status) => {
 .info-grid label {
   @apply block text-sm font-medium text-gray-500;
 }
-.info-grid p {
-  @apply text-base text-gray-900;
-}
+
 </style>

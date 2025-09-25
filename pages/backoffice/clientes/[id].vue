@@ -17,7 +17,7 @@
     <UCard class="mb-8">
       <div class="space-y-6">
         <div>
-          <h2 class="text-2xl font-bold text-gray-800">Detalhes do Cliente</h2>
+          <h2 class="text-2xl font-bold text-primary-500">Detalhes do Cliente</h2>
           <p class="text-gray-500">Informações de contato e financeiras do cliente.</p>
         </div>
         
@@ -142,7 +142,5 @@ const statusColor = (status) => {
 strong {
   @apply block text-sm font-medium text-gray-500;
 }
-p {
-  @apply text-gray-900;
-}
+
 </style>

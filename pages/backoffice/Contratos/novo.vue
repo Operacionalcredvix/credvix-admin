@@ -3,7 +3,7 @@
     <header class="mb-8">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-3xl font-bold">Digitação de Novo Contrato</h1>
+          <h1 class="text-primary-500 text-3xl font-bold">Digitação de Novo Contrato</h1>
           <p class="text-gray-500 mt-1">Preencha os campos abaixo para registar um novo contrato.</p>
         </div>
         <UButton icon="i-heroicons-arrow-left-circle" size="lg" color="gray" to="/backoffice/contratos">
@@ -211,12 +211,13 @@ watch(() => formData.status, (newStatus) => {
   }
 });
 
-// --- SUBMISSÃO DO FORMULÁRIO (sem alterações) ---
+// --- SUBMISSÃO DO FORMULÁRIO  ---
 async function handleFormSubmit() {
-  if (!formData.consultor_id || !formData.loja_id) {
+  // Verificação de segurança para garantir que temos os IDs necessários
+  if (!formData.consultor_id || !formData.loja_id || !profile.value?.id) {
     toast.add({
       title: 'Erro de Permissão!',
-      description: 'Não foi possível identificar o consultor ou a loja. Por favor, faça login novamente.',
+      description: 'Não foi possível identificar o consultor, a loja ou o digitador. Por favor, faça login novamente.',
       color: 'red'
     });
     return;
@@ -227,7 +228,9 @@ async function handleFormSubmit() {
     const numeroContrato = `CONTR-${Date.now()}`;
     const dataToSubmit = {
       ...formData,
-      numero_contrato: numeroContrato
+      numero_contrato: numeroContrato,
+      // AQUI ADICIONAMOS O ID DO DIGITADOR
+      digitador_id: profile.value.id 
     };
 
     if (dataToSubmit.prazo) {
