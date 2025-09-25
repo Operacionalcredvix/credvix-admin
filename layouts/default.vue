@@ -83,11 +83,9 @@ const menuItems = [
     defaultOpen: true, // Para o menu começar aberto
     slot: 'item',
     links: [
-      { label: 'Bancos', to: '/cadastros/bancos' },
-      { label: 'Lojas', to: '/lojas' },
       { label: 'Funcionários', to: '/funcionarios' },
-      { label: 'Produtos', to: '/cadastros/produtos' },
-      { label: 'Bancos e Tabelas', to: '/cadastros/banco-tabelas' }
+      { label: 'Lojas', to: '/lojas' }
+      
     ]
   },
   {
@@ -106,7 +104,10 @@ const menuItems = [
     slot: 'item',
     links: [
       { label: 'Clientes', to: '/backoffice/clientes' },
-      { label: 'Contratos', to: '/backoffice/contratos' }
+      { label: 'Contratos', to: '/backoffice/contratos' },
+      { label: 'Bancos', to: '/cadastros/bancos' },
+      { label: 'Produtos', to: '/cadastros/produtos' },
+      { label: 'Bancos e Tabelas', to: '/cadastros/banco-tabelas' }
       // Futuramente: Metas, Produtos, Bancos, etc.
     ]
   }
