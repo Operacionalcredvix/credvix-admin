@@ -8,7 +8,7 @@
     </header>
 
     <UCard class="mb-8">
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4">
         <UFormGroup label="Status" name="status">
           <USelectMenu v-model="selectedStatus" :options="statusOptions" placeholder="Todos" clearable />
         </UFormGroup>
@@ -19,8 +19,15 @@
         </UFormGroup>
 
         <UFormGroup label="Consultor" name="consultor">
-          <USelectMenu v-model="selectedConsultor" :options="consultores" option-attribute="nome_completo"
-            value-attribute="id" placeholder="Todos" clearable />
+          <USelectMenu 
+            v-model="selectedConsultor" 
+            :options="consultoresFiltrados" 
+            option-attribute="nome_completo"
+            value-attribute="id" 
+            placeholder="Selecione uma loja" 
+            :disabled="!selectedLoja"
+            clearable 
+          />
         </UFormGroup>
 
         <UFormGroup label="Período" name="periodo" class="md:col-span-2">
@@ -30,26 +37,29 @@
             <UInput type="date" v-model="endDate" />
           </div>
         </UFormGroup>
+
+        <div class="flex items-end md:col-span-1">
+          <UButton @click="limparFiltros" label="Limpar Filtros" color="gray" variant="ghost" icon="i-heroicons-x-circle" class="w-full" />
+        </div>
       </div>
     </UCard>
 
     <UCard>
       <UTable :rows="filteredRows || []" :columns="columns" :loading="pending">
-        <template #cliente-data="{ row }">
+        <template #clientes.nome_completo-data="{ row }">
           <span>{{ row.clientes.nome_completo }}</span>
         </template>
 
-        <template #produto-data="{ row }">
+        <template #produtos.nome-data="{ row }">
           <span>{{ row.produtos.nome }}</span>
         </template>
 
         <template #data_contrato-data="{ row }">
-          <span>{{ new Date(row.data_contrato).toLocaleDateString('pt-BR') }}</span>
+          <span>{{ new Date(row.data_contrato).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) }}</span>
         </template>
 
         <template #valor_total-data="{ row }">
-          <span>{{ new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(row.valor_total)
-          }}</span>
+          <span>{{ formatCurrency(row.valor_total) }}</span>
         </template>
 
         <template #status-data="{ row }">
@@ -58,29 +68,25 @@
 
         <template #actions-data="{ row }">
           <div class="flex items-center gap-2">
-            <UButton 
-              size="sm" 
-              color="gray" 
-              variant="ghost" 
-              :to="`/backoffice/contratos/${row.id}`" 
-              label="Ver Contrato" 
-            />
-            <UButton 
-              size="sm" 
-              color="gray" 
-              variant="ghost" 
-              :to="`/backoffice/clientes/${row.cliente_id}`" 
-              label="Ver Cliente" 
-            />
+             <UButton size="sm" color="gray" variant="ghost" :to="`/backoffice/contratos/${row.id}`" label="Ver Contrato" />
+             <UButton size="sm" color="gray" variant="ghost" :to="`/backoffice/clientes/${row.cliente_id}`" label="Ver Cliente" />
           </div>
         </template>
       </UTable>
+
+      <template #footer>
+        <div class="flex justify-end text-lg font-bold pr-4">
+          <p>Valor Total dos Contratos Filtrados: 
+            <span class="text-primary-500">{{ formatCurrency(totalValorContratos) }}</span>
+          </p>
+        </div>
+      </template>
     </UCard>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 const supabase = useSupabaseClient();
 
 // --- ESTADO DOS FILTROS ---
@@ -93,8 +99,8 @@ const statusOptions = ['Em Análise', 'Aprovado', 'Reprovado', 'Pendente', 'Pago
 
 // --- DEFINIÇÃO DAS COLUNAS DA TABELA ---
 const columns = [
-  { key: 'cliente', label: 'Cliente', sortable: true },
-  { key: 'produto', label: 'Produto', sortable: true },
+  { key: 'clientes.nome_completo', label: 'Cliente', sortable: true },
+  { key: 'produtos.nome', label: 'Produto', sortable: true },
   { key: 'data_contrato', label: 'Data', sortable: true },
   { key: 'valor_total', label: 'Valor Total', sortable: true },
   { key: 'status', label: 'Status' },
@@ -106,11 +112,8 @@ const { data: contratos, pending } = await useAsyncData('contratos', async () =>
   const { data, error } = await supabase
     .from('contratos')
     .select(`
-      id,
-      data_contrato,
-      valor_total,
-      status,
-      cliente_id,
+      id, data_contrato, valor_total, status, cliente_id,
+      loja_id, consultor_id, 
       clientes ( nome_completo ),
       produtos ( nome )
     `)
@@ -118,7 +121,7 @@ const { data: contratos, pending } = await useAsyncData('contratos', async () =>
 
   if (error) {
     console.error("Erro ao buscar contratos:", error);
-    return []; // Retorna um array vazio em caso de erro
+    return [];
   }
   return data;
 });
@@ -128,19 +131,29 @@ const { data: lojas } = await useAsyncData('lojas-contratos', async () => {
   return data;
 });
 
-
-// --- CARREGAMENTO DE DADOS PARA FILTROS ---
-// const { data: lojas } = await useAsyncData('lojas-contratos', async () => {
-//   const { data } = await supabase.from('lojas').select('id, nome').order('nome');
-//   return data || [];
-// });
-
-const { data: consultores } = await useAsyncData('consultores-contratos', async () => {
-  const { data } = await supabase.from('funcionarios').select('id, nome_completo').order('nome_completo');
+// Busca TODOS os consultores uma vez e guarda
+const { data: todosConsultores } = await useAsyncData('consultores-contratos', async () => {
+  const { data } = await supabase.from('funcionarios').select('id, nome_completo, loja_id').order('nome_completo');
   return data || [];
 });
 
 // --- LÓGICA COMPUTADA E AÇÕES ---
+
+// Filtra a lista de consultores com base na loja selecionada
+const consultoresFiltrados = computed(() => {
+  if (!selectedLoja.value) {
+    return [];
+  }
+  return todosConsultores.value.filter(c => c.loja_id === selectedLoja.value);
+});
+
+// Observa a seleção de loja para limpar o consultor
+watch(selectedLoja, (newLoja) => {
+  if (!newLoja) {
+    selectedConsultor.value = null;
+  }
+});
+
 const filteredRows = computed(() => {
   if (!contratos.value) return [];
   let filteredData = [...contratos.value];
@@ -155,27 +168,44 @@ const filteredRows = computed(() => {
     filteredData = filteredData.filter(c => c.consultor_id === selectedConsultor.value);
   }
   if (startDate.value) {
-    filteredData = filteredData.filter(c => new Date(c.data_contrato) >= new Date(startDate.value));
+    const start = new Date(startDate.value);
+    start.setUTCHours(0, 0, 0, 0);
+    filteredData = filteredData.filter(c => new Date(c.data_contrato) >= start);
   }
   if (endDate.value) {
-    filteredData = filteredData.filter(c => new Date(c.data_contrato) <= new Date(endDate.value));
+    const end = new Date(endDate.value);
+    end.setUTCHours(23, 59, 59, 999);
+    filteredData = filteredData.filter(c => new Date(c.data_contrato) <= end);
   }
   return filteredData;
 });
 
+const totalValorContratos = computed(() => {
+  if (!filteredRows.value) return 0;
+  return filteredRows.value.reduce((acc, contrato) => acc + (contrato.valor_total || 0), 0);
+});
+
+// Função para limpar todos os filtros
+const limparFiltros = () => {
+  selectedStatus.value = null;
+  selectedLoja.value = null;
+  selectedConsultor.value = null;
+  startDate.value = null;
+  endDate.value = null;
+};
+
+// --- FUNÇÕES DE FORMATAÇÃO ---
+const formatCurrency = (value) => {
+  if (value === null || value === undefined) return 'R$ 0,00';
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+};
+
 const statusColor = (status) => {
   switch (status) {
-    case 'Aprovado':
-    case 'Pago':
-      return 'primary';
-    case 'Pendente':
-    case 'Em Análise':
-      return 'amber';
-    case 'Reprovado':
-    case 'Cancelado':
-      return 'red';
-    default:
-      return 'gray';
+    case 'Aprovado': case 'Pago': return 'primary';
+    case 'Pendente': case 'Em Análise': return 'amber';
+    case 'Reprovado': case 'Cancelado': return 'red';
+    default: return 'gray';
   }
 };
 </script>
