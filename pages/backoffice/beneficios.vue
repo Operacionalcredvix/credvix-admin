@@ -28,11 +28,11 @@
         </template>
 
         <UForm :state="formData" @submit="handleFormSubmit" class="p-4 space-y-4">
-          <UFormGroup label="Número do Benefício" name="numero_beneficio" required>
-            <UInput v-model="formData.numero_beneficio" />
+          <UFormGroup label="Especie Beneficio" name="especie_beneficio" required>
+            <UInput v-model="formData.especie_beneficio" />
           </UFormGroup>
-          <UFormGroup label="Nome do Benefício" name="nome_beneficio" required>
-            <UInput v-model="formData.nome_beneficio" />
+          <UFormGroup label="Numero do Benefício" name="numero_beneficio" required>
+            <UInput v-model="formData.numero_beneficio" />
           </UFormGroup>
           <UFormGroup label="Status" name="is_active" class="flex items-center space-x-2">
              <UToggle v-model="formData.is_active" />
@@ -57,23 +57,25 @@ const isModalOpen = ref(false);
 const saving = ref(false);
 const getInitialFormData = () => ({
   id: null,
+  // Campos Alterados
+  especie_beneficio: '',
   numero_beneficio: '',
-  nome_beneficio: '',
   is_active: true
 });
 const formData = reactive(getInitialFormData());
 
-// --- DEFINIÇÃO DAS COLUNAS DA TABELA ---
+// --- DEFINIÇÃO DAS COLUNAS DA TABELA (ALTERADO) ---
 const columns = [
-  { key: 'numero_beneficio', label: 'Número do Benefício', sortable: true },
-  { key: 'nome_beneficio', label: 'Nome do Benefício', sortable: true },
+  { key: 'especie_beneficio', label: 'Especie Beneficio', sortable: true },
+  { key: 'numero_beneficio', label: 'Numero do Benefício', sortable: true },
   { key: 'is_active', label: 'Status' },
   { key: 'actions', label: 'Ações' }
 ];
 
 // --- CARREGAMENTO DE DADOS ---
 const { data: beneficios, pending, refresh } = await useAsyncData('beneficios', async () => {
-  const { data } = await supabase.from('beneficios').select('*').order('nome_beneficio');
+  // A query select('*') adapta-se automaticamente às novas colunas
+  const { data } = await supabase.from('beneficios').select('*').order('especie_beneficio');
   return data;
 });
 
@@ -111,7 +113,8 @@ const handleFormSubmit = async () => {
 };
 
 const handleDelete = async (beneficio) => {
-  if (confirm(`Tem a certeza que quer excluir o benefício "${beneficio.nome_beneficio}"?`)) {
+  // Mensagem de confirmação atualizada
+  if (confirm(`Tem a certeza que quer excluir o benefício "${beneficio.numero_beneficio}"?`)) {
     try {
       const { error } = await supabase.from('beneficios').delete().eq('id', beneficio.id);
       if (error) throw error;

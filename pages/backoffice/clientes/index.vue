@@ -1,7 +1,7 @@
 <template>
   <div>
     <header class="mb-8 flex justify-between items-center">
-      <h1 class="text-3xl font-bold">Gestão de Clientes</h1>
+      <h1 class="text-primary-500 text-3xl font-bold">Gestão de Clientes</h1>
       <UButton icon="i-heroicons-plus-circle" size="lg" @click="openModal()">
         Novo Cliente
       </UButton>
@@ -59,7 +59,30 @@
                 </UFormGroup>
               </div>
             </UCard>
-
+            <UCard>
+              <template #header>
+                <h3 class="font-semibold">Benefícios</h3>
+              </template>
+              <div class="space-y-4">
+                <p class="text-sm text-gray-500">Registe até dois benefícios para este cliente.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+                  <UFormGroup label="Espécie Benefício 1" name="especie_beneficio_1">
+                    <UInput v-model="formData.especie_beneficio_1" />
+                  </UFormGroup>
+                  <UFormGroup label="Número Benefício 1" name="numero_beneficio_1">
+                    <UInput v-model="formData.numero_beneficio_1" />
+                  </UFormGroup>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+                  <UFormGroup label="Espécie Benefício 2" name="especie_beneficio_2">
+                    <UInput v-model="formData.especie_beneficio_2" />
+                  </UFormGroup>
+                  <UFormGroup label="Número Benefício 2" name="numero_beneficio_2">
+                    <UInput v-model="formData.numero_beneficio_2" />
+                  </UFormGroup>
+                </div>
+              </div>
+            </UCard>
             <UCard>
               <template #header>
                 <h3 class="font-semibold">Endereço</h3>
@@ -142,6 +165,8 @@ const getInitialFormData = () => ({
   bairro: '',
   cidade: '',
   estado: '',
+  especie_beneficio_1: '', numero_beneficio_1: '',
+  especie_beneficio_2: '', numero_beneficio_2: ''  
 });
 const formData = reactive(getInitialFormData());
 
@@ -248,7 +273,7 @@ const validateCpf = () => {
 const consultarCEP = async () => {
   const cep = formData.cep?.replace(/\D/g, '');
   if (cep?.length !== 8) return;
-  
+
   cepLoading.value = true;
   try {
     const data = await fetch(`https://viacep.com.br/ws/${cep}/json/`).then(res => res.json());
@@ -277,7 +302,7 @@ const handleFormSubmit = async () => {
   saving.value = true;
   try {
     const { id, ...dataToSave } = formData;
-    
+
     if (dataToSave.cpf) dataToSave.cpf = dataToSave.cpf.replace(/\D/g, '');
     if (dataToSave.telefone) dataToSave.telefone = dataToSave.telefone.replace(/\D/g, '');
     if (dataToSave.telefone_secundario) dataToSave.telefone_secundario = dataToSave.telefone_secundario.replace(/\D/g, '');

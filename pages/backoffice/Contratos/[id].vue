@@ -39,8 +39,20 @@
               <p>{{ contrato.tabela }}</p>
             </div>
             <div>
+              <label>Data da digitação</label>
+              <p>{{ formatDate(contrato.data_digitacao) }}</p>
+            </div>
+            <div>
               <label>Data de Pagamento</label>
               <p>{{ formatDate(contrato.data_pagamento) }}</p>
+            </div>
+            <div>
+              <label>Número beneficio</label>
+              <p>{{ contrato.numero_beneficio }}</p>
+            </div>
+            <div>
+              <label>Espécie beneficio</label>
+              <p>{{ contrato.especie_beneficio }}</p>
             </div>
           </div>
         </UCard>
