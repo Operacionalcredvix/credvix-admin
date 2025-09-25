@@ -37,6 +37,11 @@
               </template>
             </UAccordion>
           </li>
+                    <li v-if="profile?.perfis?.nome === 'Master'">
+            <NuxtLink to="/auditoria" class="nav-link">
+              <UIcon name="i-heroicons-shield-check" /> <span>Auditoria</span>
+            </NuxtLink>
+          </li>
         </ul>
       </nav>
 
@@ -117,6 +122,8 @@ const handleLogout = async () => {
   router.push('/login');
 };
 </script>
+
+
 
 <style scoped lang="postcss">
 .nav-link {
