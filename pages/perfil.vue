@@ -1,7 +1,7 @@
 <template>
   <div>
     <header class="mb-8">
-      <h1 class="text-3xl font-bold">Meu Perfil</h1>
+      <h1 class="text-primary-500 text-3xl font-bold">Meu Perfil</h1>
     </header>
 
     <div v-if="profile" class="max-w-2xl">

@@ -2,9 +2,9 @@
   <div>
     <UCard class="mb-8">
       <template #header>
-        <h3 class="text-lg font-semibold">Buscar Funcionário</h3>
+        <h3 class="text-primary-500 text-lg font-semibold">Buscar Funcionário</h3>
       </template>
-      <div class="flex flex-col gap-4">
+      <div class=" flex flex-col gap-4">
         <label for="search-employee-input" class="form-label">Buscar por Nome ou CPF</label>
         <UInput 
           v-model="searchTerm" 
