@@ -40,6 +40,11 @@
               </UAccordion>
             </li>
           </template>
+          <li v-if="profile?.perfis?.nome === 'Master'">
+            <NuxtLink to="/auditoria" class="nav-link">
+              <UIcon name="i-heroicons-shield-check" /> <span>Auditoria</span>
+            </NuxtLink>
+          </li>
         </ul>
       </nav>
 
@@ -81,6 +86,7 @@ const menuItems = [
     defaultOpen: true, // Para o menu começar aberto
     slot: 'item',
     links: [
+      { label: 'Regionais', to: '/cadastros/regionais' },
       { label: 'Funcionários', to: '/funcionarios' },
       { label: 'Lojas', to: '/lojas' }
 
