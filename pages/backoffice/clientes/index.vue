@@ -217,11 +217,14 @@ const fetchInitialClients = async () => {
   const { data, error } = await supabase
     .from('clientes')
     .select('*')
-    .order('created_at', { ascending: false })
-    .limit(15);
+    .order('created_at', { ascending: false }) // Ordena pelos mais recentes
+    .limit(15); // Limita a 15 resultados
 
-  if (error) toast.add({ title: 'Erro!', description: error.message, color: 'red' });
-  else clientes.value = data;
+  if (error) {
+    toast.add({ title: 'Erro!', description: error.message, color: 'red' });
+  } else {
+    clientes.value = data;
+  }
   pending.value = false;
 };
 
@@ -231,20 +234,24 @@ const searchClients = async (term) => {
     .from('clientes')
     .select('*')
     .or(`nome_completo.ilike.%${term}%,cpf.ilike.%${term}%`)
-    .limit(15);
+    .limit(15); // Também limitamos a pesquisa
 
-  if (error) toast.add({ title: 'Erro!', description: error.message, color: 'red' });
-  else clientes.value = data;
+  if (error) {
+    toast.add({ title: 'Erro!', description: error.message, color: 'red' });
+  } else {
+    clientes.value = data;
+  }
   pending.value = false;
 };
 
 onMounted(fetchInitialClients);
 
+// Observa o campo de busca e executa a pesquisa com debounce
 watch(searchTerm, useDebounceFn((newSearchTerm) => {
   if (newSearchTerm.length >= 3) {
     searchClients(newSearchTerm);
   } else if (newSearchTerm.length === 0) {
-    fetchInitialClients();
+    fetchInitialClients(); // Se o campo for limpo, volta a mostrar os últimos 15
   }
 }, 300));
 
