@@ -1,7 +1,7 @@
 <template>
   <div>
     <header class="mb-8 flex justify-between items-center">
-      <h1 class="text-3xl font-bold">Auditoria do Sistema</h1>
+      <h1 class="text-primary-500 text-3xl font-bold">Auditoria do Sistema</h1>
     </header>
 
     <UCard>
