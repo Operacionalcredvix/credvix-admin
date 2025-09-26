@@ -19,15 +19,8 @@
         </UFormGroup>
 
         <UFormGroup label="Consultor" name="consultor">
-          <USelectMenu 
-            v-model="selectedConsultor" 
-            :options="consultoresFiltrados" 
-            option-attribute="nome_completo"
-            value-attribute="id" 
-            placeholder="Selecione uma loja" 
-            :disabled="!selectedLoja"
-            clearable 
-          />
+          <USelectMenu v-model="selectedConsultor" :options="consultoresFiltrados" option-attribute="nome_completo"
+            value-attribute="id" placeholder="Selecione uma loja" :disabled="!selectedLoja" clearable />
         </UFormGroup>
 
         <UFormGroup label="Período" name="periodo" class="md:col-span-2">
@@ -39,7 +32,8 @@
         </UFormGroup>
 
         <div class="flex items-end md:col-span-1">
-          <UButton @click="limparFiltros" label="Limpar Filtros" color="gray" variant="ghost" icon="i-heroicons-x-circle" class="w-full" />
+          <UButton @click="limparFiltros" label="Limpar Filtros" color="gray" variant="ghost"
+            icon="i-heroicons-x-circle" class="w-full" />
         </div>
       </div>
     </UCard>
@@ -47,11 +41,13 @@
     <UCard>
       <UTable :rows="filteredRows || []" :columns="columns" :loading="pending">
         <template #clientes.nome_completo-data="{ row }">
-          <span>{{ row.clientes.nome_completo }}</span>
+          <span v-if="row.clientes">{{ row.clientes.nome_completo }}</span>
+          <span v-else class="text-red-500 text-xs">Cliente não encontrado</span>
         </template>
 
         <template #produtos.nome-data="{ row }">
-          <span>{{ row.produtos.nome }}</span>
+          <span v-if="row.produtos">{{ row.produtos.nome }}</span>
+          <span v-else class="text-red-500 text-xs">Produto não encontrado</span>
         </template>
 
         <template #data_contrato-data="{ row }">
@@ -68,15 +64,17 @@
 
         <template #actions-data="{ row }">
           <div class="flex items-center gap-2">
-             <UButton size="sm" color="gray" variant="ghost" :to="`/backoffice/contratos/${row.id}`" label="Ver Contrato" />
-             <UButton size="sm" color="gray" variant="ghost" :to="`/backoffice/clientes/${row.cliente_id}`" label="Ver Cliente" />
+            <UButton size="sm" color="gray" variant="ghost" :to="`/backoffice/contratos/${row.id}`"
+              label="Ver Contrato" />
+            <UButton size="sm" color="gray" variant="ghost" :to="`/backoffice/clientes/${row.cliente_id}`"
+              label="Ver Cliente" />
           </div>
         </template>
       </UTable>
 
       <template #footer>
         <div class="flex justify-end text-lg font-bold pr-4">
-          <p>Valor Total dos Contratos Filtrados: 
+          <p>Valor Total dos Contratos Filtrados:
             <span class="text-primary-500">{{ formatCurrency(totalValorContratos) }}</span>
           </p>
         </div>
@@ -112,8 +110,11 @@ const { data: contratos, pending } = await useAsyncData('contratos', async () =>
   const { data, error } = await supabase
     .from('contratos')
     .select(`
-      id, data_contrato, valor_total, status, cliente_id,
-      loja_id, consultor_id, 
+      id,
+      data_contrato,
+      valor_total,
+      status,
+      cliente_id,
       clientes ( nome_completo ),
       produtos ( nome )
     `)
@@ -121,7 +122,8 @@ const { data: contratos, pending } = await useAsyncData('contratos', async () =>
 
   if (error) {
     console.error("Erro ao buscar contratos:", error);
-    return [];
+    // Em caso de erro, retorna um array vazio para não quebrar a página
+    return []; 
   }
   return data;
 });

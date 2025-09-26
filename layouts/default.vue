@@ -14,34 +14,32 @@
             </NuxtLink>
           </li>
 
-          <li v-for="menu in menuItems" :key="menu.label">
-            <UAccordion :items="[menu]" variant="ghost" :ui="{ 'item': { 'padding': 'p-0' } }">
-              <template #default="{ item, open }">
-                <UButton color="gray" variant="ghost" class="nav-link w-full justify-between">
-                  <div class="flex items-center gap-3">
-                    <UIcon :name="item.icon" />
-                    <span>{{ item.label }}</span>
-                  </div>
-                  <UIcon name="i-heroicons-chevron-right" class="transition-transform" :class="[open && 'rotate-90']" />
-                </UButton>
-              </template>
+          <template v-if="profile?.perfis?.nome !== 'Consultor'">
+            <li v-for="menu in menuItems" :key="menu.label">
+              <UAccordion :items="[menu]" variant="ghost" :ui="{ 'item': { 'padding': 'p-0' } }">
+                <template #default="{ item, open }">
+                  <UButton color="gray" variant="ghost" class="nav-link w-full justify-between">
+                    <div class="flex items-center gap-3">
+                      <UIcon :name="item.icon" />
+                      <span>{{ item.label }}</span>
+                    </div>
+                    <UIcon name="i-heroicons-chevron-right" class="transition-transform"
+                      :class="[open && 'rotate-90']" />
+                  </UButton>
+                </template>
 
-              <template #item="{ item }">
-                <ul class="pl-8 py-2 space-y-2">
-                  <li v-for="link in item.links" :key="link.to">
-                    <NuxtLink :to="link.to" class="nav-link-sub">
-                      {{ link.label }}
-                    </NuxtLink>
-                  </li>
-                </ul>
-              </template>
-            </UAccordion>
-          </li>
-                    <li v-if="profile?.perfis?.nome === 'Master'">
-            <NuxtLink to="/auditoria" class="nav-link">
-              <UIcon name="i-heroicons-shield-check" /> <span>Auditoria</span>
-            </NuxtLink>
-          </li>
+                <template #item="{ item }">
+                  <ul class="pl-8 py-2 space-y-2">
+                    <li v-for="link in item.links" :key="link.to">
+                      <NuxtLink :to="link.to" class="nav-link-sub">
+                        {{ link.label }}
+                      </NuxtLink>
+                    </li>
+                  </ul>
+                </template>
+              </UAccordion>
+            </li>
+          </template>
         </ul>
       </nav>
 
@@ -85,7 +83,7 @@ const menuItems = [
     links: [
       { label: 'Funcionários', to: '/funcionarios' },
       { label: 'Lojas', to: '/lojas' }
-      
+
     ]
   },
   {
