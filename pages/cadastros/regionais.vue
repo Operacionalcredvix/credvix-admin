@@ -170,5 +170,16 @@ const handleFormSubmit = async () => {
   }
 };
 
-const handleDelete = async (regional) => { /* ... (sem alterações) ... */ };
+const handleDelete = async (regional) => {
+  if (confirm(`Tem a certeza que quer excluir a regional "${regional.nome_regional}"?`)) {
+    try {
+      const { error } = await supabase.from('regionais').delete().eq('id', regional.id);
+      if (error) throw error;
+      toast.add({ title: 'Sucesso!', description: 'Regional excluída.' });
+      await refresh();
+    } catch (error) {
+      toast.add({ title: 'Erro!', description: 'Não foi possível excluir. Verifique se esta regional está a ser usada em alguma loja ou funcionário.', color: 'red' });
+    }
+  }
+};
 </script>
