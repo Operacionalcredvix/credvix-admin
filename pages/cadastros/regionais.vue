@@ -84,32 +84,27 @@ const saving = ref(false);
 const getInitialFormData = () => ({
   id: null,
   nome_regional: '',
-  coordenadores_ids: [],
-  lojas_ids: [],
+  coordenador_id: null, // Agora é um único ID 
 });
 const formData = reactive(getInitialFormData());
 
-// --- DEFINIÇÃO DAS COLUNAS DA TABELA ---
+// --- COLUNAS ATUALIZADAS ---
 const columns = [
   { key: 'nome_regional', label: 'Nome da Regional', sortable: true },
-  { key: 'coordenadores', label: 'Coordenadores' },
+  { key: 'coordenador', label: 'Coordenador' },
   { key: 'lojas', label: 'Qtd. Lojas' },
   { key: 'actions', label: 'Ações' }
 ];
 
-// --- CARREGAMENTO DE DADOS (LÓGICA CORRIGIDA) ---
+// --- CARREGAMENTO DE DADOS (CONSULTA CORRIGIDA) ---
 const { data: regionais, pending, refresh } = await useAsyncData('regionais', async () => {
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from('regionais')
     .select(`
       *,
       lojas(id),
-      coordenador_regionais(coordenador_id, funcionarios(nome_completo))
+      funcionarios (nome_completo)
     `);
-  if (error) {
-    console.error("Erro ao buscar regionais:", error);
-    return [];
-  }
   return data;
 });
 
@@ -123,23 +118,20 @@ const { data: todasLojas } = await useAsyncData('todasLojas', async () => {
 });
 
 const { data: coordenadores } = await useAsyncData('coordenadores', async () => {
-  const { data: perfilCoordenador, error: perfilError } = await supabase.from('perfis').select('id').eq('nome', 'Coordenador').single();
-  if (perfilError || !perfilCoordenador) return [];
-
-  const { data, error: funcError } = await supabase.from('funcionarios').select('id, nome_completo').eq('perfil_id', perfilCoordenador.id);
-  if (funcError) return [];
-
+    // Busca o ID do perfil "Coordenador"
+  const { data: perfilCoordenador } = await supabase.from('perfis').select('id').eq('nome', 'Coordenador').single();
+  if (!perfilCoordenador) return [];
+    // Busca os funcionários com esse perfil
+  const { data } = await supabase.from('funcionarios').select('id, nome_completo').eq('perfil_id', perfilCoordenador.id);
   return data;
 });
 
-// --- LÓGICA DO FORMULÁRIO (COM MAIS SEGURANÇA) ---
+// --- LÓGICA DO FORMULÁRIO (SIMPLIFICADA) ---
 const openModal = (regional = null) => {
   if (regional) {
     formData.id = regional.id;
     formData.nome_regional = regional.nome_regional;
-    // Adicionamos '|| []' para garantir que nunca falhe
-    formData.coordenadores_ids = (regional.coordenador_regionais || []).map(item => item.coordenador_id);
-    formData.lojas_ids = (regional.lojas || []).map(loja => loja.id);
+    formData.coordenador_id = regional.coordenador_id;
   } else {
     Object.assign(formData, getInitialFormData());
   }
@@ -149,28 +141,19 @@ const openModal = (regional = null) => {
 const handleFormSubmit = async () => {
   saving.value = true;
   try {
-    const { id, nome_regional, coordenadores_ids, lojas_ids } = formData;
+    const dataToSave = {
+        nome_regional: formData.nome_regional,
+        coordenador_id: formData.coordenador_id
+    };
 
-    if (id) { // Modo de Edição
-      // 1. Atualiza o nome da regional
-      const { error: regionalError } = await supabase.from('regionais').update({ nome_regional }).eq('id', id);
-      if (regionalError) throw regionalError;
-
-      // 2. Sincroniza Coordenadores
-      await supabase.from('coordenador_regionais').delete().eq('regional_id', id);
-      if (coordenadores_ids.length > 0) {
-        const coordLinks = coordenadores_ids.map(coord_id => ({ regional_id: id, coordenador_id: coord_id }));
-        await supabase.from('coordenador_regionais').insert(coordLinks);
-      }
-
-      // 3. Sincroniza Lojas
-      await supabase.from('lojas').update({ regional_id: null }).eq('regional_id', id);
-      if (lojas_ids.length > 0) {
-        await supabase.from('lojas').update({ regional_id: id }).in('id', lojas_ids);
-      }
+    if (formData.id) { // Edição
+      const { error } = await supabase.from('regionais').update(dataToSave).eq('id', formData.id);
+      if (error) throw error;
       toast.add({ title: 'Sucesso!', description: 'Regional atualizada.' });
-    } else { // Modo de Criação
-      // ... (lógica de criação)
+    } else { // Criação
+      const { error } = await supabase.from('regionais').insert(dataToSave);
+      if (error) throw error;
+      toast.add({ title: 'Sucesso!', description: 'Nova regional criada.' });
     }
     isModalOpen.value = false;
     await refresh();
@@ -181,19 +164,21 @@ const handleFormSubmit = async () => {
   }
 };
 
-const handleDelete = async (regional) => {
-  if (confirm(`Tem a certeza que quer excluir a regional "${regional.nome_regional}"?`)) {
-    try {
-      await supabase.from('coordenador_regionais').delete().eq('regional_id', regional.id);
-      await supabase.from('lojas').update({ regional_id: null }).eq('regional_id', regional.id);
 
+const handleDelete = async (regional) => {
+  if (confirm(`Tem a certeza de que quer excluir a regional "${regional.nome_regional}"? Esta ação não pode ser desfeita.`)) {
+    try {
+      // Desvincula as lojas da regional antes de apagar
+      await supabase.from('lojas').update({ regional_id: null }).eq('regional_id', regional.id);
+      // Apaga a regional
       const { error } = await supabase.from('regionais').delete().eq('id', regional.id);
       if (error) throw error;
       toast.add({ title: 'Sucesso!', description: 'Regional excluída.' });
       await refresh();
     } catch (error) {
-      toast.add({ title: 'Erro!', description: 'Não foi possível excluir.', color: 'red' });
+      toast.add({ title: 'Erro!', description: error.message, color: 'red' });
     }
   }
 };
+
 </script>

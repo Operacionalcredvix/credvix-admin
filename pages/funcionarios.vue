@@ -246,7 +246,10 @@ watch(searchTerm, async (newVal) => {
 });
 
 const handleEdit = async (employee) => {
-  // Busca o vínculo mais recente para obter as datas corretas
+  // 1. Limpa o formulário para evitar misturar dados
+  resetForm();
+  
+  // 2. Busca o vínculo mais recente para obter as datas corretas
   const { data: vinculo } = await supabase
     .from('historico_vinculos')
     .select('*')
@@ -255,15 +258,17 @@ const handleEdit = async (employee) => {
     .limit(1)
     .single();
 
-  // Preenche o formData com os dados do funcionário e do vínculo
+  // 3. Preenche o formData com os dados do funcionário
   Object.assign(formData, employee);
+
+  // 4. Se encontrou um vínculo, preenche as datas e o ID do vínculo
   if (vinculo) {
     formData.data_admissao = vinculo.data_admissao;
     formData.data_saida = vinculo.data_saida;
-    formData.vinculoId = vinculo.id;
+    formData.vinculoId = vinculo.id; // Importante para o UPDATE
   }
   
-  // Rola a página para o formulário
+  // 5. Rola a página para o formulário
   document.getElementById('form-title').scrollIntoView({ behavior: 'smooth' });
 };
 
@@ -319,25 +324,52 @@ const resetForm = () => {
 async function handleFormSubmit() {
   saving.value = true;
   try {
-    const funcionarioData = { /* ... (mesmos dados de antes) ... */ };
-    Object.keys(formData).forEach(key => {
-        if (key in funcionarioData) funcionarioData[key] = formData[key];
-    });
+    // 1. Prepara os dados do funcionário (sem as datas de vínculo)
+    const funcionarioData = {
+      nome_completo: formData.nome_completo,
+      data_nascimento: formData.data_nascimento,
+      nome_mae: formData.nome_mae,
+      cpf: formData.cpf,
+      email: formData.email,
+      telefone: formData.telefone,
+      cep: formData.cep,
+      endereco: formData.endereco,
+      numero_endereco: formData.numero_endereco,
+      complemento_endereco: formData.complemento_endereco,
+      bairro: formData.bairro,
+      cidade: formData.cidade,
+      estado: formData.estado,
+      perfil_id: formData.perfil_id,
+      gerente_id: formData.gerente_id,
+      loja_id: formData.loja_id,
+      is_active: formData.is_active,
+    };
 
     if (formData.id) { // --- MODO UPDATE ---
+      // Atualiza a tabela 'funcionarios'
       const { error: funcError } = await supabase.from('funcionarios').update(funcionarioData).eq('id', formData.id);
       if (funcError) throw funcError;
 
+      // Prepara e atualiza a tabela 'historico_vinculos'
       const vinculoData = { data_admissao: formData.data_admissao, data_saida: formData.data_saida };
-      const { error: vincError } = await supabase.from('historico_vinculos').update(vinculoData).eq('id', formData.vinculoId);
-      if (vincError) throw vincError;
+      // Apenas atualiza se existir um vinculoId
+      if (formData.vinculoId) {
+        const { error: vincError } = await supabase.from('historico_vinculos').update(vinculoData).eq('id', formData.vinculoId);
+        if (vincError) throw vincError;
+      }
 
       toast.add({ title: 'Sucesso!', description: 'Funcionário atualizado com sucesso.' });
     } else { // --- MODO CREATE ---
+      // Insere na tabela 'funcionarios' e obtém o ID do novo registo
       const { data: novoFuncionario, error: funcError } = await supabase.from('funcionarios').insert(funcionarioData).select('id').single();
       if (funcError) throw funcError;
 
-      const vinculoData = { funcionario_id: novoFuncionario.id, data_admissao: formData.data_admissao, data_saida: formData.data_saida };
+      // Cria o registo de vínculo na tabela 'historico_vinculos'
+      const vinculoData = { 
+        funcionario_id: novoFuncionario.id, 
+        data_admissao: formData.data_admissao, 
+        data_saida: formData.data_saida 
+      };
       const { error: vincError } = await supabase.from('historico_vinculos').insert(vinculoData);
       if (vincError) throw vincError;
       
