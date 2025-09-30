@@ -41,7 +41,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label for="full-name" class="form-label">Nome Completo *</label>
-            <UInput v-model="formData.nome_completo" id="full-name" required placeholder="Nome Completo"/>
+            <UInput v-model="formData.nome_completo" id="full-name" required placeholder="Nome Completo" />
           </div>
           <div>
             <label for="birth-date" class="form-label">Data de Nascimento</label>
@@ -87,7 +87,8 @@
               <UInput v-model="formData.numero_endereco" id="address-number" placeholder="000" />
             </div>
             <div><label for="address-complement" class="form-label">Complemento</label>
-              <UInput v-model="formData.complemento_endereco" id="address-complement" placeholder="Digite o complemento" />
+              <UInput v-model="formData.complemento_endereco" id="address-complement"
+                placeholder="Digite o complemento" />
             </div>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -187,11 +188,8 @@ const searchResults = ref([]);
 const searching = ref(false);
 
 const columns = [
-  { key: 'nome_completo', label: 'Nome Completo', sortable: true },
-  { key: 'perfis.nome', label: 'Perfil' },
-  { key: 'lojas.nome', label: 'Loja' },
-  { key: 'is_active', label: 'Status' },
-  { key: 'actions', label: 'Ações' }
+  { key: 'nome_completo', label: 'Nome Completo', sortable: true }, { key: 'perfis.nome', label: 'Perfil' },
+  { key: 'lojas.nome', label: 'Loja' }, { key: 'is_active', label: 'Status' }, { key: 'actions', label: 'Ações' }
 ];
 
 // --- DADOS PARA OS DROPDOWNS ---
@@ -199,46 +197,40 @@ const perfis = ref([]);
 const regionais = ref([]);
 const todasLojas = ref([]);
 const lideres = ref([]);
+const meuPerfil = ref(null);
 
 // --- CARREGAMENTO INICIAL DOS DADOS ---
 // Usando Promise.all para carregar dados em paralelo e useAsyncData para garantir que
 // os dados estejam disponíveis antes da renderização do componente.
-const { data: initialData, pending } = await useAsyncData('initialFormData', async () => {
-  const [perfis, regionais, lojas] = await Promise.all([
+// CARREGAMENTO INICIAL DE DADOS (AGORA INCLUI O PERFIL DO UTILIZADOR LOGADO)
+const { data: initialData } = await useAsyncData('funcionarios-form-data', async () => {
+  const user = useSupabaseUser();
+  const [perfisRes, regionaisRes, lojasRes, meuPerfilRes] = await Promise.all([
     supabase.from('perfis').select('id, nome').order('nome'),
     supabase.from('regionais').select('id, nome_regional').order('nome_regional'),
-    supabase.from('lojas').select('id, nome, regional_id').order('nome')
+    supabase.from('lojas').select('id, nome, regional_id').order('nome'),
+    supabase.from('funcionarios').select('*, perfis(nome)').eq('user_id', user.value.id).single()
   ]);
-
-  return {
-    perfis: perfis.data,
-    regionais: regionais.data,
-    lojas: lojas.data
-  };
+  return { perfis: perfisRes.data, regionais: regionaisRes.data, lojas: lojasRes.data, meuPerfil: meuPerfilRes.data };
 });
 
 if (initialData.value) {
   perfis.value = initialData.value.perfis || [];
   regionais.value = initialData.value.regionais || [];
   todasLojas.value = initialData.value.lojas || [];
+  meuPerfil.value = initialData.value.meuPerfil || null;
 }
 
-// --- LÓGICA DE BUSCA E EDIÇÃO ---
+// LÓGICA DE BUSCA
 watch(searchTerm, async (newVal) => {
-  if (newVal.length < 3) {
-    searchResults.value = [];
-    return;
-  }
+  if (newVal.length < 3) { searchResults.value = []; return; }
   searching.value = true;
-  const { data } = await supabase
-    .from('funcionarios')
-    .select('*, perfis(nome), lojas(nome)')
-    .or(`nome_completo.ilike.%${newVal}%,cpf.ilike.%${newVal}%`)
-    .limit(10);
+  const { data } = await supabase.from('funcionarios').select('*, perfis(nome), lojas(nome)').or(`nome_completo.ilike.%${newVal}%,cpf.ilike.%${newVal}%`).limit(10);
   searchResults.value = data || [];
   searching.value = false;
 });
 
+// LÓGICA DE EDIÇÃO
 const handleEdit = async (employee) => {
   // 1. Limpa o formulário para evitar misturar dados
   resetForm();
@@ -281,6 +273,26 @@ const lojasFiltradas = computed(() => {
   return todasLojas.value.filter(loja => loja.regional_id === formData.regional_id);
 });
 
+const perfisPermitidos = computed(() => {
+  const userProfileName = meuPerfil.value?.perfis?.nome;
+  if (!userProfileName) return [];
+  if (['Master', 'RH'].includes(userProfileName)) return perfis.value;
+  if (userProfileName === 'Coordenador') return perfis.value.filter(p => ['Supervisor', 'Consultor'].includes(p.nome));
+  if (userProfileName === 'Supervisor') return perfis.value.filter(p => p.nome === 'Consultor');
+  return [];
+});
+
+const isRegionalDisabled = computed(() => {
+  const userProfileName = meuPerfil.value?.perfis?.nome;
+  return ['Supervisor', 'Coordenador'].includes(userProfileName);
+});
+
+const isLojaDisabled = computed(() => {
+  const userProfileName = meuPerfil.value?.perfis?.nome;
+  return userProfileName === 'Supervisor';
+});
+
+// WATCHERS PARA REATIVIDADE DO FORMULÁRIO
 watch(() => formData.perfil_id, async (newPerfilId, oldPerfilId) => {
   if (newPerfilId === oldPerfilId) return;
 
@@ -308,7 +320,6 @@ watch(() => formData.regional_id, (newVal) => {
     if (loja && loja.regional_id !== newVal) formData.loja_id = null;
   }
 });
-
 
 // FUNÇÃO DE CEP CORRIGIDA
 const consultarCEP = async () => {

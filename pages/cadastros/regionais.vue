@@ -73,7 +73,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive } from 'vue';
 
 const supabase = useSupabaseClient();
 const toast = useToast();
@@ -81,14 +81,18 @@ const toast = useToast();
 // --- ESTADO DA PÁGINA ---
 const isModalOpen = ref(false);
 const saving = ref(false);
+
+// Corrigido: formData agora tem um único coordenador_id e uma lista de lojas_ids
 const getInitialFormData = () => ({
   id: null,
   nome_regional: '',
-  coordenador_id: null, // Agora é um único ID 
+  coordenador_id: null,
+  lojas_ids: []
 });
+
 const formData = reactive(getInitialFormData());
 
-// --- COLUNAS ATUALIZADAS ---
+// --- COLUNAS DA TABELA ---
 const columns = [
   { key: 'nome_regional', label: 'Nome da Regional', sortable: true },
   { key: 'coordenador', label: 'Coordenador' },
@@ -96,42 +100,40 @@ const columns = [
   { key: 'actions', label: 'Ações' }
 ];
 
-// --- CARREGAMENTO DE DADOS (CONSULTA CORRIGIDA) ---
+// --- CARREGAMENTO DE DADOS ---
 const { data: regionais, pending, refresh } = await useAsyncData('regionais', async () => {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('regionais')
     .select(`
-      *,
+      id,
+      nome_regional,
+      coordenador_id,
       lojas(id),
-      funcionarios (nome_completo)
+      coordenador:funcionarios(nome_completo)
     `);
+  if (error) console.error('Erro ao carregar regionais:', error);
   return data;
 });
 
 const { data: todasLojas } = await useAsyncData('todasLojas', async () => {
-  const { data, error } = await supabase.from('lojas').select('id, nome').order('nome');
-  if (error) {
-    console.error("Erro ao buscar todas as lojas:", error);
-    return [];
-  }
-  return data;
+  const { data } = await supabase.from('lojas').select('id, nome').order('nome');
+  return data || [];
 });
 
 const { data: coordenadores } = await useAsyncData('coordenadores', async () => {
-    // Busca o ID do perfil "Coordenador"
   const { data: perfilCoordenador } = await supabase.from('perfis').select('id').eq('nome', 'Coordenador').single();
   if (!perfilCoordenador) return [];
-    // Busca os funcionários com esse perfil
   const { data } = await supabase.from('funcionarios').select('id, nome_completo').eq('perfil_id', perfilCoordenador.id);
-  return data;
+  return data || [];
 });
 
-// --- LÓGICA DO FORMULÁRIO (SIMPLIFICADA) ---
+// --- LÓGICA DO FORMULÁRIO---
 const openModal = (regional = null) => {
   if (regional) {
     formData.id = regional.id;
     formData.nome_regional = regional.nome_regional;
     formData.coordenador_id = regional.coordenador_id;
+    formData.lojas_ids = regional.lojas.map(l => l.id);
   } else {
     Object.assign(formData, getInitialFormData());
   }
@@ -141,22 +143,38 @@ const openModal = (regional = null) => {
 const handleFormSubmit = async () => {
   saving.value = true;
   try {
+    const { id, nome_regional, coordenador_id, lojas_ids } = formData;
+    let regionalId = id;
+
+    // 1. Salva ou atualiza a regional com o ID do coordenador
     const dataToSave = {
-        nome_regional: formData.nome_regional,
-        coordenador_id: formData.coordenador_id
+      nome_regional,
+      coordenador_id
     };
 
-    if (formData.id) { // Edição
-      const { error } = await supabase.from('regionais').update(dataToSave).eq('id', formData.id);
+    if (id) { // Edição
+      const { error } = await supabase.from('regionais').update(dataToSave).eq('id', id);
       if (error) throw error;
-      toast.add({ title: 'Sucesso!', description: 'Regional atualizada.' });
     } else { // Criação
-      const { error } = await supabase.from('regionais').insert(dataToSave);
+      const { data, error } = await supabase.from('regionais').insert(dataToSave).select('id').single();
       if (error) throw error;
-      toast.add({ title: 'Sucesso!', description: 'Nova regional criada.' });
+      regionalId = data.id;
     }
+
+    // 2. Sincroniza as lojas
+    // Remove o vínculo de todas as lojas que pertenciam a esta regional
+    await supabase.from('lojas').update({ regional_id: null }).eq('regional_id', regionalId);
+    
+    // Adiciona o novo vínculo para as lojas selecionadas
+    if (lojas_ids.length > 0) {
+        const { error: updateLojasError } = await supabase.from('lojas').update({ regional_id: regionalId }).in('id', lojas_ids);
+        if (updateLojasError) throw updateLojasError;
+    }
+
+    toast.add({ title: 'Sucesso!', description: `Regional ${id ? 'atualizada' : 'criada'} com sucesso.` });
     isModalOpen.value = false;
     await refresh();
+
   } catch (error) {
     toast.add({ title: 'Erro!', description: error.message, color: 'red' });
   } finally {
@@ -164,15 +182,16 @@ const handleFormSubmit = async () => {
   }
 };
 
-
 const handleDelete = async (regional) => {
   if (confirm(`Tem a certeza de que quer excluir a regional "${regional.nome_regional}"? Esta ação não pode ser desfeita.`)) {
     try {
       // Desvincula as lojas da regional antes de apagar
       await supabase.from('lojas').update({ regional_id: null }).eq('regional_id', regional.id);
+      
       // Apaga a regional
       const { error } = await supabase.from('regionais').delete().eq('id', regional.id);
       if (error) throw error;
+
       toast.add({ title: 'Sucesso!', description: 'Regional excluída.' });
       await refresh();
     } catch (error) {
