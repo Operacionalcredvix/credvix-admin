@@ -5,11 +5,11 @@
   <div v-else-if="cliente">
     <header class="mb-6 flex justify-between items-center">
       <div class="flex items-center gap-2 text-sm text-gray-500">
-        <NuxtLink to="/clientes" class="text-primary-500 hover:underline">Gestão de Clientes</NuxtLink>
+        <NuxtLink to="/backoffice/clientes" class="text-primary-500 hover:underline">Gestão de Clientes</NuxtLink>
         <span class="mx-2">/</span>
         <span class="text-gray-600">Detalhes do Cliente</span>
       </div>
-      <UButton icon="i-heroicons-arrow-left-circle" size="md" color="gray" to="/clientes">
+      <UButton icon="i-heroicons-arrow-left-circle" size="md" color="gray" to="/backoffice/Contratos">
         Voltar para a Lista
       </UButton>
     </header>
@@ -27,7 +27,7 @@
           <div><strong>Email:</strong><p>{{ cliente.email || 'Não informado' }}</p></div>
           <div><strong>Telefone 1:</strong><p>{{ cliente.telefone || 'Não informado' }}</p></div>
           <div><strong>Telefone 2:</strong><p>{{ cliente.telefone_2 || 'Não informado' }}</p></div>
-          <div class="md:col-span-2"><strong>Endereço:</strong><p>{{ cliente.endereco_completo || 'Não informado' }}</p></div>
+          <div class="md:col-span-2"><strong>Endereço:</strong><p>{{ endereco_completo }}</p></div>
         </div>
       </div>
     </UCard>
@@ -60,7 +60,7 @@
 
   <div v-else>
     <h1 class="text-2xl font-bold">Cliente não encontrado.</h1>
-    <NuxtLink to="/clientes" class="text-primary-500 hover:underline mt-4 inline-block">Voltar para a lista de clientes</NuxtLink>
+    <NuxtLink to="/backoffice/clientes" class="text-primary-500 hover:underline mt-4 inline-block">Voltar para a lista de clientes</NuxtLink>
   </div>
 </template>
 
