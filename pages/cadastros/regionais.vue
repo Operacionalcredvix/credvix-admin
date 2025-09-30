@@ -13,12 +13,9 @@
           <UBadge :label="row.lojas.length" variant="subtle" />
         </template>
 
-        <template #coordenadores-data="{ row }">
-          <div class="flex flex-wrap gap-1">
-            <UBadge v-if="row.coordenador_regionais.length === 0" label="Nenhum" color="gray" variant="soft" />
-            <UBadge v-for="item in row.coordenador_regionais" :key="item.coordenador_id"
-              :label="item.funcionarios.nome_completo" color="gray" variant="soft" />
-          </div>
+        <template #coordenador-data="{ row }">
+          <UBadge v-if="!row.coordenador" label="Nenhum" color="gray" variant="soft" />
+          <UBadge v-else :label="row.coordenador.nome_completo" color="gray" variant="soft" />
         </template>
 
         <template #actions-data="{ row }">
@@ -41,15 +38,9 @@
             <UInput v-model="formData.nome_regional" placeholder="Ex: Regional Sudeste" />
           </UFormGroup>
 
-          <UFormGroup label="Coordenadores Responsáveis" name="coordenadores_ids">
-            <USelectMenu v-model="formData.coordenadores_ids" :options="coordenadores" value-attribute="id"
-              option-attribute="nome_completo" multiple placeholder="Selecione...">
-              <template #label>
-                <span v-if="formData.coordenadores_ids.length" class="truncate">{{ formData.coordenadores_ids.length }}
-                  coordenador(es) selecionado(s)</span>
-                <span v-else>Selecione um ou mais coordenadores</span>
-              </template>
-            </USelectMenu>
+          <UFormGroup label="Coordenador Responsável" name="coordenador_id">
+            <USelectMenu v-model="formData.coordenador_id" :options="coordenadores" value-attribute="id"
+              option-attribute="nome_completo" placeholder="Selecione..." clearable />
           </UFormGroup>
 
           <UFormGroup label="Lojas nesta Regional" name="lojas_ids">
@@ -82,7 +73,7 @@ const toast = useToast();
 const isModalOpen = ref(false);
 const saving = ref(false);
 
-// Corrigido: formData agora tem um único coordenador_id e uma lista de lojas_ids
+// CORREÇÃO: O estado inicial agora reflete a estrutura correta com um único `coordenador_id`
 const getInitialFormData = () => ({
   id: null,
   nome_regional: '',
@@ -93,6 +84,7 @@ const getInitialFormData = () => ({
 const formData = reactive(getInitialFormData());
 
 // --- COLUNAS DA TABELA ---
+// CORREÇÃO: A chave da coluna de coordenador foi ajustada
 const columns = [
   { key: 'nome_regional', label: 'Nome da Regional', sortable: true },
   { key: 'coordenador', label: 'Coordenador' },
@@ -101,6 +93,7 @@ const columns = [
 ];
 
 // --- CARREGAMENTO DE DADOS ---
+// A query foi ajustada para buscar o nome do coordenador corretamente
 const { data: regionais, pending, refresh } = await useAsyncData('regionais', async () => {
   const { data, error } = await supabase
     .from('regionais')
@@ -128,6 +121,7 @@ const { data: coordenadores } = await useAsyncData('coordenadores', async () => 
 });
 
 // --- LÓGICA DO FORMULÁRIO---
+// A lógica de abrir o modal foi ajustada para a nova estrutura de dados
 const openModal = (regional = null) => {
   if (regional) {
     formData.id = regional.id;
@@ -140,6 +134,7 @@ const openModal = (regional = null) => {
   isModalOpen.value = true;
 };
 
+// A lógica de submissão foi simplificada e corrigida
 const handleFormSubmit = async () => {
   saving.value = true;
   try {
@@ -162,11 +157,11 @@ const handleFormSubmit = async () => {
     }
 
     // 2. Sincroniza as lojas
-    // Remove o vínculo de todas as lojas que pertenciam a esta regional
+    // Remove o vínculo de todas as lojas que possam estar associadas a esta regional
     await supabase.from('lojas').update({ regional_id: null }).eq('regional_id', regionalId);
     
     // Adiciona o novo vínculo para as lojas selecionadas
-    if (lojas_ids.length > 0) {
+    if (lojas_ids && lojas_ids.length > 0) {
         const { error: updateLojasError } = await supabase.from('lojas').update({ regional_id: regionalId }).in('id', lojas_ids);
         if (updateLojasError) throw updateLojasError;
     }
@@ -199,5 +194,4 @@ const handleDelete = async (regional) => {
     }
   }
 };
-
 </script>
