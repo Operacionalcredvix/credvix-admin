@@ -355,37 +355,70 @@ const resetForm = () => {
 async function handleFormSubmit() {
   saving.value = true;
   try {
-    const { vinculoId, ...restOfData } = formData;
-    const funcionarioData = { ...restOfData };
-    delete funcionarioData.vinculoId; // Garante que o campo extra não seja enviado
+    // 1. Prepara os dados que pertencem APENAS à tabela 'funcionarios'
+    const funcionarioData = {
+      nome_completo: formData.nome_completo,
+      data_nascimento: formData.data_nascimento,
+      nome_mae: formData.nome_mae,
+      cpf: formData.cpf,
+      email: formData.email,
+      telefone: formData.telefone,
+      cep: formData.cep,
+      endereco: formData.endereco,
+      numero_endereco: formData.numero_endereco,
+      complemento_endereco: formData.complemento_endereco,
+      bairro: formData.bairro,
+      cidade: formData.cidade,
+      estado: formData.estado,
+      perfil_id: formData.perfil_id,
+      gerente_id: formData.gerente_id,
+      loja_id: formData.loja_id,
+      is_active: formData.is_active,
+    };
 
-    if (formData.id) {
-      delete funcionarioData.id; // Não envie o id no corpo do update
+    if (formData.id) { // --- MODO UPDATE ---
+      // PASSO A: Atualiza a tabela 'funcionarios' com os dados corretos
       const { error: funcError } = await supabase.from('funcionarios').update(funcionarioData).eq('id', formData.id);
       if (funcError) throw funcError;
 
-      const vinculoData = { data_admissao: formData.data_admissao, data_saida: formData.data_saida };
-      if (vinculoId) {
-        const { error: vincError } = await supabase.from('historico_vinculos').update(vinculoData).eq('id', vinculoId);
+      // PASSO B: Prepara e atualiza a tabela 'historico_vinculos'
+      const vinculoData = { 
+        data_admissao: formData.data_admissao, 
+        data_saida: formData.data_saida 
+      };
+      
+      if (formData.vinculoId) { // Apenas atualiza se houver um vínculo para editar
+        const { error: vincError } = await supabase.from('historico_vinculos').update(vinculoData).eq('id', formData.vinculoId);
         if (vincError) throw vincError;
       }
+
       toast.add({ title: 'Sucesso!', description: 'Funcionário atualizado com sucesso.' });
-    } else {
-      delete funcionarioData.id;
+
+    } else { // --- MODO CREATE ---
+      // PASSO A: Insere na tabela 'funcionarios' e obtém o ID
       const { data: novoFuncionario, error: funcError } = await supabase.from('funcionarios').insert(funcionarioData).select('id').single();
       if (funcError) throw funcError;
 
-      const vinculoData = { funcionario_id: novoFuncionario.id, data_admissao: formData.data_admissao, data_saida: formData.data_saida };
+      // PASSO B: Cria o registo de vínculo na tabela 'historico_vinculos'
+      const vinculoData = { 
+        funcionario_id: novoFuncionario.id, 
+        data_admissao: formData.data_admissao, 
+        data_saida: formData.data_saida 
+      };
       const { error: vincError } = await supabase.from('historico_vinculos').insert(vinculoData);
       if (vincError) throw vincError;
-
+      
       toast.add({ title: 'Sucesso!', description: 'Funcionário cadastrado com sucesso.' });
     }
+    
     resetForm();
-    if (searchTerm.value) { // Atualiza a busca após salvar
+
+    // Atualiza a lista de busca para refletir as alterações
+    if(searchTerm.value) {
       const { data } = await supabase.from('funcionarios').select('*, perfis(nome), lojas(nome)').or(`nome_completo.ilike.%${searchTerm.value}%,cpf.ilike.%${searchTerm.value}%`).limit(10);
       searchResults.value = data || [];
     }
+
   } catch (error) {
     console.error('Erro ao salvar funcionário:', error);
     toast.add({ title: 'Erro!', description: error.message, color: 'red' });

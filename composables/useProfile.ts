@@ -15,7 +15,9 @@ export const useProfile = () => {
 
     const { data, error } = await client
       .from('funcionarios')
-      .select('id, nome_completo, avatar_url, perfis(nome)')
+      // ALTERAÇÃO: Trocamos a seleção específica por '*' para buscar todos os dados,
+      // incluindo loja_id e regional_id, e mantemos a busca pelo nome do perfil.
+      .select('*, perfis(nome)')
       .eq('user_id', user.value.id)
       .single();
 

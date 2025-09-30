@@ -87,6 +87,10 @@
               <p>{{ contrato.consultor?.nome_completo || 'Não informado' }}</p>
             </div>
             <div>
+              <label>Loja</label>
+              <p>{{ contrato.loja?.nome_completo || 'Não informado' }}</p>
+            </div>
+            <div>
               <label>Digitador(a)</label>
               <p>{{ contrato.digitador?.nome_completo || 'Não informado' }}</p>
             </div>
@@ -111,7 +115,7 @@
   </div>
 
   <div v-else>
-    <h1 class="text-2xl font-bold">Contrato não encontrado.</h1>
+    <h1 class="text-primary-500 text-2xl font-bold">Contrato não encontrado.</h1>
     <NuxtLink to="/backoffice/contratos" class="text-primary-500 hover:underline mt-4 inline-block">Voltar para a lista de contratos</NuxtLink>
   </div>
 </template>
