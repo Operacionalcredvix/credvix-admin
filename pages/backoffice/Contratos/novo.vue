@@ -34,7 +34,7 @@
         </div>
       </UCard>
 
-      <UCard>
+<UCard>
         <template #header>
           <h3 class="text-lg font-semibold">2. Valores, Prazos e Tabelas</h3>
         </template>
@@ -51,11 +51,14 @@
             <USelectMenu v-model="formData.tabela" :options="tabelasFiltradas" value-attribute="nome_tabela"
               option-attribute="nome_tabela" placeholder="Selecione a tabela" :disabled="!formData.banco_id" />
           </UFormGroup>
-          <UFormGroup label="Valor Total" name="valor_total">
+          <UFormGroup label="Valor Total" name="valor_total" required>
             <UInput v-model.number="formData.valor_total" type="number" step="0.01" placeholder="R$ 0,00" />
           </UFormGroup>
-          <UFormGroup label="Valor da Parcela" name="valor_parcela">
+          <UFormGroup label="Valor da Parcela" name="valor_parcela" required>
             <UInput v-model.number="formData.valor_parcela" type="number" step="0.01" placeholder="R$ 0,00" />
+          </UFormGroup>
+          <UFormGroup label="Adesão" name="adesao" required>
+            <UInput v-model="formData.adesao" placeholder="Número da adesão" />
           </UFormGroup>
           <UFormGroup label="Prazo" name="prazo" required>
             <USelectMenu v-model="formData.prazo" :options="prazosDisponiveis" placeholder="Selecione o prazo"
@@ -72,7 +75,7 @@
 
       <UCard>
         <template #header>
-          <h3 class="text-lg font-semibold">3. Informações de Controlo</h3>
+          <h3 class="text-lg font-semibold">3. Informações de Controle</h3>
         </template>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <UFormGroup label="Loja" name="loja_id" required>
@@ -124,7 +127,8 @@ const formData = reactive({
   tabela: null,
   numero_beneficio: null,
   data_pagamento: null,
-  motivo_status: null
+  motivo_status: null,
+  adesao: null
 });
 const statusOptions = ['Em Análise', 'Aprovado', 'Reprovado', 'Pendente', 'Pago', 'Cancelado'];
 
