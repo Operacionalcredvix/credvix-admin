@@ -20,7 +20,7 @@
 
         <UFormGroup label="Consultor" name="consultor">
           <USelectMenu v-model="selectedConsultor" :options="consultoresFiltrados" option-attribute="nome_completo"
-            value-attribute="id" placeholder="Selecione uma loja" :disabled="!selectedLoja" clearable />
+            value-attribute="id" placeholder="Todos" :disabled="!selectedLoja" clearable />
         </UFormGroup>
 
         <UFormGroup label="Período" name="periodo" class="md:col-span-2">
@@ -39,7 +39,7 @@
     </UCard>
 
     <UCard>
-      <UTable :rows="filteredRows || []" :columns="columns" :loading="pending">
+      <UTable :rows="contratos || []" :columns="columns" :loading="pending">
         <template #clientes.nome_completo-data="{ row }">
           <span v-if="row.clientes">{{ row.clientes.nome_completo }}</span>
           <span v-else class="text-red-500 text-xs">Cliente não encontrado</span>
@@ -75,10 +75,12 @@
       </UTable>
 
       <template #footer>
-        <div class="flex justify-end text-lg font-bold pr-4">
-          <p>Valor Total dos Contratos Filtrados:
+        <div class="flex items-center justify-between">
+          <p class="text-lg font-bold pr-4">
+            Valor Total dos Contratos Filtrados:
             <span class="text-primary-500">{{ formatCurrency(totalValorContratos) }}</span>
           </p>
+          <UPagination v-model="page" :page-count="pageCount" :total="totalRows" />
         </div>
       </template>
     </UCard>
@@ -97,6 +99,12 @@ const startDate = ref(null);
 const endDate = ref(null);
 const statusOptions = ['Em Análise', 'Aprovado', 'Reprovado', 'Pendente', 'Pago', 'Cancelado'];
 
+// --- ESTADO DA PAGINAÇÃO ---
+const page = ref(1);
+const pageCount = ref(15);
+const totalRows = ref(0);
+const totalValorContratos = ref(0);
+
 // --- DEFINIÇÃO DAS COLUNAS DA TABELA ---
 const columns = [
   { key: 'clientes.nome_completo', label: 'Cliente', sortable: true },
@@ -107,95 +115,87 @@ const columns = [
   { key: 'actions', label: 'Ações' }
 ];
 
-// --- CARREGAMENTO DE DADOS ---
-const { data: contratos, pending } = await useAsyncData('contratos', async () => {
-  const { data, error } = await supabase
-    .from('contratos')
-    .select(`
-      id,
-      data_contrato,
-      valor_total,
-      status,
-      cliente_id,
-      clientes ( nome_completo ),
-      produtos ( nome )
-    `)
-    .order('data_contrato', { ascending: false });
+// --- CARREGAMENTO DE DADOS (AGORA REATIVO AOS FILTROS E PAGINAÇÃO) ---
+const { data: contratos, pending } = useAsyncData(
+  'contratos',
+  async () => {
+    const from = (page.value - 1) * pageCount.value;
+    const to = from + pageCount.value - 1;
 
-  if (error) {
-    console.error("Erro ao buscar contratos:", error);
-    // Em caso de erro, retorna um array vazio para não quebrar a página
-    return [];
-  }
-  return data;
-});
+    let query = supabase
+      .from('contratos')
+      .select(`
+        id, data_contrato, valor_total, status, cliente_id, loja_id, consultor_id,
+        clientes ( nome_completo ),
+        produtos ( nome )
+      `, { count: 'exact' });
 
+    // Aplica os filtros na query
+    if (selectedStatus.value) query = query.eq('status', selectedStatus.value);
+    if (selectedLoja.value) query = query.eq('loja_id', selectedLoja.value);
+    if (selectedConsultor.value) query = query.eq('consultor_id', selectedConsultor.value);
+    if (startDate.value) query = query.gte('data_contrato', startDate.value);
+    if (endDate.value) query = query.lte('data_contrato', endDate.value);
+
+    // Ordena e aplica a paginação
+    const { data, error, count } = await query
+      .order('data_contrato', { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      console.error("Erro ao buscar contratos:", error);
+      return [];
+    }
+
+    totalRows.value = count; // Atualiza o total de linhas para a paginação
+
+    // Query separada para calcular o valor total de TODOS os contratos filtrados
+    let totalQuery = supabase.from('contratos').select('valor_total', { count: 'exact', head: false });
+    if (selectedStatus.value) totalQuery = totalQuery.eq('status', selectedStatus.value);
+    if (selectedLoja.value) totalQuery = totalQuery.eq('loja_id', selectedLoja.value);
+    if (selectedConsultor.value) totalQuery = totalQuery.eq('consultor_id', selectedConsultor.value);
+    if (startDate.value) totalQuery = totalQuery.gte('data_contrato', startDate.value);
+    if (endDate.value) totalQuery = totalQuery.lte('data_contrato', endDate.value);
+
+    const { data: totalData, error: totalError } = await totalQuery;
+    if (!totalError) {
+      totalValorContratos.value = totalData.reduce((acc, item) => acc + (item.valor_total || 0), 0);
+    }
+    
+    return data;
+  },
+  { watch: [page, selectedStatus, selectedLoja, selectedConsultor, startDate, endDate] }
+);
+
+
+// --- CARREGAMENTO DE DADOS PARA DROPDOWNS ---
 const { data: lojas } = await useAsyncData('lojas-contratos', async () => {
   const { data } = await supabase.from('lojas').select('id, nome').order('nome');
   return data;
 });
 
-// Busca TODOS os consultores uma vez e guarda
 const { data: todosConsultores } = await useAsyncData('consultores-contratos', async () => {
   const { data } = await supabase.from('funcionarios').select('id, nome_completo, loja_id').order('nome_completo');
   return data || [];
 });
 
 // --- LÓGICA COMPUTADA E AÇÕES ---
-
-// Filtra a lista de consultores com base na loja selecionada
 const consultoresFiltrados = computed(() => {
-  if (!selectedLoja.value) {
-    return [];
-  }
+  if (!selectedLoja.value) return todosConsultores.value;
   return todosConsultores.value.filter(c => c.loja_id === selectedLoja.value);
 });
 
-// Observa a seleção de loja para limpar o consultor
-watch(selectedLoja, (newLoja) => {
-  if (!newLoja) {
-    selectedConsultor.value = null;
-  }
+watch(selectedLoja, () => {
+  selectedConsultor.value = null;
 });
 
-const filteredRows = computed(() => {
-  if (!contratos.value) return [];
-  let filteredData = [...contratos.value];
-
-  if (selectedStatus.value) {
-    filteredData = filteredData.filter(c => c.status === selectedStatus.value);
-  }
-  if (selectedLoja.value) {
-    filteredData = filteredData.filter(c => c.loja_id === selectedLoja.value);
-  }
-  if (selectedConsultor.value) {
-    filteredData = filteredData.filter(c => c.consultor_id === selectedConsultor.value);
-  }
-  if (startDate.value) {
-    const start = new Date(startDate.value);
-    start.setUTCHours(0, 0, 0, 0);
-    filteredData = filteredData.filter(c => new Date(c.data_contrato) >= start);
-  }
-  if (endDate.value) {
-    const end = new Date(endDate.value);
-    end.setUTCHours(23, 59, 59, 999);
-    filteredData = filteredData.filter(c => new Date(c.data_contrato) <= end);
-  }
-  return filteredData;
-});
-
-const totalValorContratos = computed(() => {
-  if (!filteredRows.value) return 0;
-  return filteredRows.value.reduce((acc, contrato) => acc + (contrato.valor_total || 0), 0);
-});
-
-// Função para limpar todos os filtros
 const limparFiltros = () => {
   selectedStatus.value = null;
   selectedLoja.value = null;
   selectedConsultor.value = null;
   startDate.value = null;
   endDate.value = null;
+  page.value = 1; // Volta para a primeira página
 };
 
 // --- FUNÇÕES DE FORMATAÇÃO ---
