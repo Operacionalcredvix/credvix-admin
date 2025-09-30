@@ -41,23 +41,23 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label for="full-name" class="form-label">Nome Completo *</label>
-            <UInput v-model="formData.nome_completo" id="full-name" required />
+            <UInput v-model="formData.nome_completo" id="full-name" required placeholder="Nome Completo"/>
           </div>
           <div>
             <label for="birth-date" class="form-label">Data de Nascimento</label>
-            <UInput v-model="formData.data_nascimento" id="birth-date" type="date" />
+            <UInput v-model="formData.data_nascimento" id="birth-date" type="date" placeholder="Data de Nascimento" />
           </div>
           <div>
             <label for="mother-name" class="form-label">Nome da Mãe</label>
-            <UInput v-model="formData.nome_mae" id="mother-name" />
+            <UInput v-model="formData.nome_mae" id="mother-name" placeholder="Nome da Mãe" />
           </div>
           <div>
-            <label for="cpf" class="form-label">CPF</label>
-            <UInput v-model="formData.cpf" id="cpf" placeholder="000.000.000-00" />
+            <label for="cpf" class="form-label">CPF *</label>
+            <UInput v-model="formData.cpf" id="cpf" required placeholder="000.000.000-00" />
           </div>
           <div>
             <label for="employee-email" class="form-label">Email *</label>
-            <UInput v-model="formData.email" id="employee-email" type="email" required />
+            <UInput v-model="formData.email" id="employee-email" type="email" required placeholder="Email" />
           </div>
           <div>
             <label for="phone" class="form-label">Telefone</label>
@@ -79,28 +79,26 @@
             </div>
             <div class="md:col-span-2">
               <label for="address" class="form-label">Endereço</label>
-              <UInput v-model="formData.endereco" id="address" />
+              <UInput v-model="formData.endereco" id="address" placeholder="Digite o endereço" />
             </div>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label for="address-number" class="form-label">Número</label>
-              <UInput v-model="formData.numero_endereco" id="address-number" />
+            <div><label for="address-number" class="form-label">Número</label>
+              <UInput v-model="formData.numero_endereco" id="address-number" placeholder="000" />
             </div>
-            <div>
-              <label for="address-complement" class="form-label">Complemento</label>
-              <UInput v-model="formData.complemento_endereco" id="address-complement" />
+            <div><label for="address-complement" class="form-label">Complemento</label>
+              <UInput v-model="formData.complemento_endereco" id="address-complement" placeholder="Digite o complemento" />
             </div>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div><label for="neighborhood" class="form-label">Bairro</label>
-              <UInput v-model="formData.bairro" id="neighborhood" />
+              <UInput v-model="formData.bairro" id="neighborhood" placeholder="Digite o bairro" />
             </div>
             <div><label for="city" class="form-label">Cidade</label>
-              <UInput v-model="formData.cidade" id="city" />
+              <UInput v-model="formData.cidade" id="city" placeholder="Digite a cidade" />
             </div>
             <div><label for="state" class="form-label">Estado</label>
-              <UInput v-model="formData.estado" id="state" />
+              <UInput v-model="formData.estado" id="state" placeholder="Digite o estado" />
             </div>
           </div>
         </div>
@@ -114,22 +112,22 @@
           <div>
             <label for="perfil-select" class="form-label">Perfil de Acesso *</label>
             <USelectMenu v-model="formData.perfil_id" :options="perfisPermitidos" value-attribute="id"
-              option-attribute="nome" required />
+              option-attribute="nome" required placeholder="Perfil de Acesso" />
           </div>
           <div>
             <label for="lider-select" class="form-label">Líder Direto</label>
             <USelectMenu v-model="formData.gerente_id" :options="lideres" value-attribute="id"
-              option-attribute="nome_completo" :disabled="!isLiderEnabled" />
+              option-attribute="nome_completo" :disabled="!isLiderEnabled" placeholder="Líder Direto" />
           </div>
           <div>
             <label for="regional-select" class="form-label">Regional</label>
             <USelectMenu v-model="formData.regional_id" :options="regionaisPermitidas" value-attribute="id"
-              option-attribute="nome_regional" :disabled="!isRegionalEnabled" />
+              option-attribute="nome_regional" :disabled="!isRegionalEnabled" placeholder="Regional" />
           </div>
           <div>
             <label for="loja-select" class="form-label">Loja</label>
             <USelectMenu v-model="formData.loja_id" :options="lojasFiltradas" value-attribute="id"
-              option-attribute="nome" :disabled="!isLojaEnabled" />
+              option-attribute="nome" :disabled="!isLojaEnabled" placeholder="Loja" />
           </div>
         </div>
       </UCard>
@@ -167,6 +165,8 @@ import { ref, reactive, computed, watch } from 'vue';
 const supabase = useSupabaseClient();
 const saving = ref(false);
 const toast = useToast(); // Sistema de notificações do Nuxt UI
+const cepLoading = ref(false);
+
 
 // --- ESTADO INICIAL DO FORMULÁRIO (Vazio) ---
 const getInitialFormData = () => ({
@@ -302,12 +302,15 @@ watch(() => formData.perfil_id, async (newPerfilId, oldPerfilId) => {
   }
 });
 
-watch(() => formData.regional_id, (newVal, oldVal) => {
-  if (newVal !== oldVal) formData.loja_id = null;
+watch(() => formData.regional_id, (newVal) => {
+  if (formData.loja_id) {
+    const loja = todasLojas.value.find(l => l.id === formData.loja_id);
+    if (loja && loja.regional_id !== newVal) formData.loja_id = null;
+  }
 });
 
 
-// --- LÓGICA DO CEP (CORRIGIDA) ---
+// FUNÇÃO DE CEP CORRIGIDA
 const consultarCEP = async () => {
   const cep = formData.cep?.replace(/\D/g, '');
   if (!cep || cep.length !== 8) return;
@@ -323,7 +326,7 @@ const consultarCEP = async () => {
     formData.bairro = data.bairro;
     formData.cidade = data.localidade;
     formData.estado = data.uf;
-    document.getElementById('address-number')?.focus();
+    document.getElementById('address-number')?.focus(); // Move o cursor para o campo de número
   } catch (error) {
     toast.add({ title: 'Erro!', description: 'Não foi possível consultar o CEP.', color: 'red' });
   } finally {
@@ -364,7 +367,7 @@ async function handleFormSubmit() {
       const vinculoData = { funcionario_id: novoFuncionario.id, data_admissao: formData.data_admissao, data_saida: formData.data_saida };
       const { error: vincError } = await supabase.from('historico_vinculos').insert(vinculoData);
       if (vincError) throw vincError;
-      
+
       toast.add({ title: 'Sucesso!', description: 'Funcionário cadastrado com sucesso.' });
     }
     resetForm();
