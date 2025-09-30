@@ -64,6 +64,8 @@
 
         <template #actions-data="{ row }">
           <div class="flex items-center gap-2">
+            <UButton v-if="row.status === 'Em Análise' || row.status === 'Pendente'" icon="i-heroicons-pencil" size="sm"
+              color="gray" variant="ghost" :to="`/backoffice/contratos/editar/${row.id}`" label="Editar" />
             <UButton size="sm" color="gray" variant="ghost" :to="`/backoffice/contratos/${row.id}`"
               label="Ver Contrato" />
             <UButton size="sm" color="gray" variant="ghost" :to="`/backoffice/clientes/${row.cliente_id}`"
@@ -123,7 +125,7 @@ const { data: contratos, pending } = await useAsyncData('contratos', async () =>
   if (error) {
     console.error("Erro ao buscar contratos:", error);
     // Em caso de erro, retorna um array vazio para não quebrar a página
-    return []; 
+    return [];
   }
   return data;
 });

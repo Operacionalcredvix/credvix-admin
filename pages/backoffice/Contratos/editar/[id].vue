@@ -1,10 +1,16 @@
 <template>
-  <div>
+  <div v-if="pending">
+    <p>A carregar dados do contrato...</p>
+  </div>
+  <div v-else-if="!contrato">
+    <h1 class="text-2xl font-bold">Contrato não encontrado.</h1>
+  </div>
+  <div v-else>
     <header class="mb-8">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-primary-500 text-3xl font-bold">Digitação de Novo Contrato</h1>
-          <p class="text-gray-500 mt-1">Preencha os campos abaixo para registar um novo contrato.</p>
+          <h1 class="text-primary-500 text-3xl font-bold">Editar Contrato #{{ contrato.numero_contrato }}</h1>
+          <p class="text-gray-500 mt-1">Altere os campos necessários e salve as alterações.</p>
         </div>
         <UButton icon="i-heroicons-arrow-left-circle" size="lg" color="gray" to="/backoffice/contratos">
           Voltar para a Lista
@@ -34,7 +40,7 @@
         </div>
       </UCard>
 
-<UCard>
+      <UCard>
         <template #header>
           <h3 class="text-lg font-semibold">2. Valores, Prazos e Tabelas</h3>
         </template>
@@ -51,10 +57,10 @@
             <USelectMenu v-model="formData.tabela" :options="tabelasFiltradas" value-attribute="nome_tabela"
               option-attribute="nome_tabela" placeholder="Selecione a tabela" :disabled="!formData.banco_id" />
           </UFormGroup>
-          <UFormGroup label="Valor Total" name="valor_total" required>
+          <UFormGroup label="Valor Total" name="valor_total">
             <UInput v-model.number="formData.valor_total" type="number" step="0.01" placeholder="R$ 0,00" />
           </UFormGroup>
-          <UFormGroup label="Valor da Parcela" name="valor_parcela" required>
+          <UFormGroup label="Valor da Parcela" name="valor_parcela">
             <UInput v-model.number="formData.valor_parcela" type="number" step="0.01" placeholder="R$ 0,00" />
           </UFormGroup>
           <UFormGroup label="Adesão" name="adesao" required>
@@ -86,7 +92,7 @@
             <USelectMenu v-model="formData.consultor_id" :options="consultoresFiltrados" value-attribute="id"
               option-attribute="nome_completo" placeholder="Selecione o consultor" :disabled="!formData.loja_id" />
           </UFormGroup>
-          <UFormGroup label="Status Inicial" name="status" required>
+          <UFormGroup label="Status" name="status" required>
             <USelectMenu v-model="formData.status" :options="statusOptions" />
           </UFormGroup>
           <UFormGroup v-if="mostrarCampoMotivo" label="Motivo do Status" name="motivo_status" required
@@ -97,45 +103,61 @@
       </UCard>
 
       <div class="flex justify-end pt-4">
-        <UButton type="submit" label="Salvar Novo Contrato" size="lg" :loading="saving" />
+        <UButton type="submit" label="Salvar Alterações" size="lg" :loading="saving" />
       </div>
     </UForm>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 
 const supabase = useSupabaseClient();
 const { profile } = useProfile();
 const toast = useToast();
 const router = useRouter();
+const route = useRoute();
+const contractId = route.params.id;
 
 // --- ESTADO DO FORMULÁRIO ---
 const saving = ref(false);
 const formData = reactive({
-  cliente_id: null,
-  produto_id: null,
-  banco_id: null,
-  consultor_id: null,
-  loja_id: null,
-  data_contrato: new Date().toISOString().split('T')[0],
-  status: null,
-  valor_total: null,
-  valor_parcela: null,
-  prazo: null,
-  tabela: null,
-  numero_beneficio: null,
-  data_pagamento: null,
-  motivo_status: null,
-  adesao: null
+  cliente_id: null, produto_id: null, banco_id: null, consultor_id: null,
+  loja_id: null, data_contrato: null, status: null, valor_total: null,
+  valor_parcela: null, prazo: null, tabela: null, numero_beneficio: null,
+  data_pagamento: null, motivo_status: null, adesao: null
 });
 const statusOptions = ['Em Análise', 'Aprovado', 'Reprovado', 'Pendente', 'Pago', 'Cancelado'];
 
+// --- CARREGAMENTO DE DADOS DO CONTRATO PARA EDIÇÃO ---
+const { data: contrato, pending } = await useAsyncData(`contrato-${contractId}`, async () => {
+  const { data, error } = await supabase
+    .from('contratos')
+    .select('*')
+    .eq('id', contractId)
+    .single();
 
-// --- CARREGAMENTO DE DADOS ---
+  if (error) {
+    toast.add({ title: 'Erro!', description: 'Não foi possível carregar o contrato.', color: 'red' });
+    return null;
+  }
+  return data;
+});
 
-// ATUALIZADO: A busca de clientes agora inclui os novos campos de benefício
+// Popula o formulário com os dados carregados
+onMounted(() => {
+  if (contrato.value) {
+    // Garante que a edição só é possível nos status permitidos
+    if (contrato.value.status !== 'Em Análise' && contrato.value.status !== 'Pendente') {
+        toast.add({ title: 'Acesso Negado', description: 'Este contrato não pode mais ser editado.', color: 'red' });
+        router.push('/backoffice/contratos');
+    }
+    Object.assign(formData, contrato.value);
+  }
+});
+
+
+// --- CARREGAMENTO DE DADOS (igual ao novo.vue) ---
 const { data: clientes } = await useAsyncData('clientes-form', async () => {
   const { data } = await supabase
     .from('clientes')
@@ -143,7 +165,6 @@ const { data: clientes } = await useAsyncData('clientes-form', async () => {
     .order('nome_completo');
   return data || [];
 });
-
 const { data: produtos } = await useAsyncData('produtos-form', async () => {
   const { data } = await supabase.from('produtos').select('id, nome').eq('is_active', true).order('nome');
   return data || [];
@@ -172,9 +193,8 @@ const { data: todosConsultores } = await useAsyncData('consultores-form', async 
 });
 
 
-// --- LÓGICA COMPUTADA E REATIVA ---
 
-// Helper para encontrar o objeto completo do cliente selecionado
+// --- LÓGICA COMPUTADA E REATIVA (igual ao novo.vue) ---
 const clienteSelecionado = computed(() => {
   if (!formData.cliente_id || !clientes.value) return null;
   return clientes.value.find(c => c.id === formData.cliente_id);
@@ -230,64 +250,54 @@ watch(() => formData.banco_id, () => { formData.tabela = null; formData.prazo = 
 watch(() => formData.tabela, () => { formData.prazo = null; });
 watch(() => formData.status, (newStatus) => {if (newStatus === 'Aprovado' || newStatus === 'Pago') {formData.motivo_status = '';}});
 
-
-// --- SUBMISSÃO DO FORMULÁRIO (COM VALIDAÇÃO) ---
+// --- LÓGICA DE SUBMISSÃO ATUALIZADA PARA EDIÇÃO ---
 async function handleFormSubmit() {
-  if (!formData.consultor_id || !formData.loja_id || !profile.value?.id) {
-    toast.add({ title: 'Erro de Permissão!', description: 'Não foi possível identificar o consultor, a loja ou o digitador.', color: 'red' });
-    return;
-  }
-
-  // Validação básica para o campo de adesão
   if (!formData.adesao) {
     toast.add({ title: 'Atenção!', description: 'O campo "Adesão" é obrigatório.', color: 'amber' });
     return;
   }
-
+  
   saving.value = true;
   try {
-    // ---- INÍCIO DA VALIDAÇÃO DE DUPLICIDADE ----
+    // Verifica duplicidade de adesão, mas ignora o próprio contrato que está a ser editado
     const { data: existingContract, error: checkError } = await supabase
       .from('contratos')
       .select('numero_contrato')
       .eq('adesao', formData.adesao)
+      .neq('id', contractId) // <-- PONTO IMPORTANTE: não compara com ele mesmo
       .single();
 
-    // Ignora o erro "PGRST116", que significa "nenhum registo encontrado" (o que é bom neste caso)
-    if (checkError && checkError.code !== 'PGRST116') {
-      throw checkError;
-    }
+    if (checkError && checkError.code !== 'PGRST116') throw checkError;
 
-    // Se encontrou um contrato, mostra um erro e pára a execução
     if (existingContract) {
-      toast.add({
-        title: 'Contrato Duplicado!',
-        description: `Já existe um contrato (${existingContract.numero_contrato}) registado com este número de adesão.`,
-        color: 'red',
-        timeout: 5000 // Aumenta o tempo que a notificação fica visível
-      });
+      toast.add({ title: 'Contrato Duplicado!', description: `Já existe outro contrato (${existingContract.numero_contrato}) com este número de adesão.`, color: 'red', timeout: 5000 });
       saving.value = false;
-      return; // Interrompe a função aqui
+      return;
     }
-    // ---- FIM DA VALIDAÇÃO DE DUPLICIDADE ----
 
-    const numeroContrato = `CONTR-${Date.now()}`;
-    const dataToSubmit = { ...formData, numero_contrato: numeroContrato, digitador_id: profile.value.id };
-    if (dataToSubmit.prazo) {
-      dataToSubmit.prazo = parseInt(String(dataToSubmit.prazo).replace('x', ''), 10);
+    // Prepara os dados para o UPDATE, removendo campos que não devem ser alterados
+    const { id, created_at, numero_contrato, ...dataToUpdate } = formData;
+    if (dataToUpdate.prazo) {
+      dataToUpdate.prazo = parseInt(String(dataToUpdate.prazo).replace('x', ''), 10);
     }
     
-    const { error } = await supabase.from('contratos').insert(dataToSubmit);
+    const { error } = await supabase
+      .from('contratos')
+      .update(dataToUpdate)
+      .eq('id', contractId);
+
     if (error) throw error;
     
-    toast.add({ title: 'Sucesso!', description: 'Novo contrato registado com sucesso.' });
+    toast.add({ title: 'Sucesso!', description: 'Contrato atualizado com sucesso.' });
     router.push('/backoffice/contratos');
 
   } catch (error) {
-    console.error('Erro ao salvar contrato:', error);
+    console.error('Erro ao atualizar contrato:', error);
     toast.add({ title: 'Erro!', description: error.message, color: 'red' });
   } finally {
     saving.value = false;
   }
 }
+
+
 </script>
