@@ -6,31 +6,23 @@
       </template>
       <div class=" flex flex-col gap-4">
         <label for="search-employee-input" class="form-label">Buscar por Nome ou CPF</label>
-        <UInput 
-          v-model="searchTerm" 
-          id="search-employee-input" 
-          placeholder="Digite para buscar..." 
-          icon="i-heroicons-magnifying-glass"
-          size="lg"
-        />
-        
-        <UTable 
-          :rows="searchResults" 
-          :columns="columns" 
-          :loading="searching"
-          :empty-state="{ icon: 'i-heroicons-circle-stack', label: 'Nenhum funcionário encontrado.' }"
-        >
+        <UInput v-model="searchTerm" id="search-employee-input" placeholder="Digite para buscar..."
+          icon="i-heroicons-magnifying-glass" size="lg" />
+
+        <UTable :rows="searchResults" :columns="columns" :loading="searching"
+          :empty-state="{ icon: 'i-heroicons-circle-stack', label: 'Nenhum funcionário encontrado.' }">
           <template #is_active-data="{ row }">
-            <UBadge :label="row.is_active ? 'Ativo' : 'Inativo'" :color="row.is_active ? 'primary' : 'red'" variant="subtle" />
+            <UBadge :label="row.is_active ? 'Ativo' : 'Inativo'" :color="row.is_active ? 'primary' : 'red'"
+              variant="subtle" />
           </template>
-          
+
           <template #actions-data="{ row }">
             <UButton icon="i-heroicons-pencil" size="sm" color="gray" variant="ghost" @click="handleEdit(row)" />
           </template>
         </UTable>
       </div>
     </UCard>
-    
+
     <header class="mb-8 flex justify-between items-center">
       <div>
         <h1 id="form-title" class="text-3xl font-bold">{{ formTitle }}</h1>
@@ -41,13 +33,13 @@
 
     <form @submit.prevent="handleFormSubmit" class="space-y-6 max-w-4xl">
       <input type="hidden" v-model="formData.id">
-      
+
       <UCard>
         <template #header>
           <h3 class="text-lg font-semibold">Informações Pessoais e de Acesso</h3>
         </template>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-           <div>
+          <div>
             <label for="full-name" class="form-label">Nome Completo *</label>
             <UInput v-model="formData.nome_completo" id="full-name" required />
           </div>
@@ -82,34 +74,32 @@
           <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <label for="cep" class="form-label">CEP</label>
-              <UInput v-model="formData.cep" id="cep" placeholder="00000-000" @blur="consultarCEP" />
+              <UInput v-model="formData.cep" id="cep" placeholder="00000-000" @blur="consultarCEP"
+                :loading="cepLoading" />
             </div>
             <div class="md:col-span-2">
               <label for="address" class="form-label">Endereço</label>
-              <UInput v-model="formData.endereco" id="address" placeholder="Preenchido automaticamente" />
+              <UInput v-model="formData.endereco" id="address" />
             </div>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label for="address-number" class="form-label">Número</label>
-              <UInput v-model="formData.numero_endereco" id="address-number" placeholder="Ex: 123" />
+              <UInput v-model="formData.numero_endereco" id="address-number" />
             </div>
             <div>
-              <label for="address-complement" class="form-label">Complemento (Opcional)</label>
-              <UInput v-model="formData.complemento_endereco" id="address-complement" placeholder="Ex: Apto 45" />
+              <label for="address-complement" class="form-label">Complemento</label>
+              <UInput v-model="formData.complemento_endereco" id="address-complement" />
             </div>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label for="neighborhood" class="form-label">Bairro</label>
-              <UInput v-model="formData.bairro" id="neighborhood" placeholder="Preenchido automaticamente" />
+            <div><label for="neighborhood" class="form-label">Bairro</label>
+              <UInput v-model="formData.bairro" id="neighborhood" />
             </div>
-            <div>
-              <label for="city" class="form-label">Cidade</label>
-              <UInput v-model="formData.cidade" id="city" placeholder="Preenchido automaticamente" />
+            <div><label for="city" class="form-label">Cidade</label>
+              <UInput v-model="formData.cidade" id="city" />
             </div>
-            <div>
-              <label for="state" class="form-label">Estado</label>
+            <div><label for="state" class="form-label">Estado</label>
               <UInput v-model="formData.estado" id="state" />
             </div>
           </div>
@@ -123,23 +113,27 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label for="perfil-select" class="form-label">Perfil de Acesso *</label>
-            <USelectMenu v-model="formData.perfil_id" :options="perfis" value-attribute="id" option-attribute="nome" placeholder="Selecione o perfil" required />
+            <USelectMenu v-model="formData.perfil_id" :options="perfisPermitidos" value-attribute="id"
+              option-attribute="nome" required />
           </div>
           <div>
             <label for="lider-select" class="form-label">Líder Direto</label>
-            <USelectMenu v-model="formData.gerente_id" :options="lideres" value-attribute="id" option-attribute="nome_completo" placeholder="Selecione o líder" :disabled="!isLiderEnabled" />
+            <USelectMenu v-model="formData.gerente_id" :options="lideres" value-attribute="id"
+              option-attribute="nome_completo" :disabled="!isLiderEnabled" />
           </div>
           <div>
             <label for="regional-select" class="form-label">Regional</label>
-            <USelectMenu v-model="formData.regional_id" :options="regionais" value-attribute="id" option-attribute="nome_regional" placeholder="Selecione a regional" :disabled="!isRegionalEnabled" />
+            <USelectMenu v-model="formData.regional_id" :options="regionaisPermitidas" value-attribute="id"
+              option-attribute="nome_regional" :disabled="!isRegionalEnabled" />
           </div>
           <div>
             <label for="loja-select" class="form-label">Loja</label>
-            <USelectMenu v-model="formData.loja_id" :options="lojasFiltradas" value-attribute="id" option-attribute="nome" placeholder="Selecione a loja" :disabled="!isLojaEnabled" />
+            <USelectMenu v-model="formData.loja_id" :options="lojasFiltradas" value-attribute="id"
+              option-attribute="nome" :disabled="!isLojaEnabled" />
           </div>
         </div>
       </UCard>
-      
+
       <UCard>
         <template #header>
           <h3 class="text-lg font-semibold">Status e Vínculo Contratual</h3>
@@ -159,7 +153,7 @@
           </div>
         </div>
       </UCard>
-      
+
       <div class="flex justify-end pt-4">
         <UButton type="submit" :label="formButtonText" size="lg" :loading="saving" />
       </div>
@@ -248,7 +242,7 @@ watch(searchTerm, async (newVal) => {
 const handleEdit = async (employee) => {
   // 1. Limpa o formulário para evitar misturar dados
   resetForm();
-  
+
   // 2. Busca o vínculo mais recente para obter as datas corretas
   const { data: vinculo } = await supabase
     .from('historico_vinculos')
@@ -267,7 +261,7 @@ const handleEdit = async (employee) => {
     formData.data_saida = vinculo.data_saida;
     formData.vinculoId = vinculo.id; // Importante para o UPDATE
   }
-  
+
   // 5. Rola a página para o formulário
   document.getElementById('form-title').scrollIntoView({ behavior: 'smooth' });
 };
@@ -298,7 +292,7 @@ watch(() => formData.perfil_id, async (newPerfilId, oldPerfilId) => {
   let perfilLider = '';
   if (selectedProfileName.value === 'Supervisor') perfilLider = 'Coordenador';
   if (selectedProfileName.value === 'Consultor') perfilLider = 'Supervisor';
-  
+
   if (perfilLider) {
     const { data: perfilLiderData } = await supabase.from('perfis').select('id').eq('nome', perfilLider).single();
     if (perfilLiderData) {
@@ -312,7 +306,30 @@ watch(() => formData.regional_id, (newVal, oldVal) => {
   if (newVal !== oldVal) formData.loja_id = null;
 });
 
-const consultarCEP = async () => { /* ... (lógica do CEP inalterada) ... */ };
+
+// --- LÓGICA DO CEP (CORRIGIDA) ---
+const consultarCEP = async () => {
+  const cep = formData.cep?.replace(/\D/g, '');
+  if (!cep || cep.length !== 8) return;
+
+  cepLoading.value = true;
+  try {
+    const data = await $fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    if (data.erro) {
+      toast.add({ title: 'Atenção!', description: 'CEP não encontrado.', color: 'amber' });
+      return;
+    }
+    formData.endereco = data.logradouro;
+    formData.bairro = data.bairro;
+    formData.cidade = data.localidade;
+    formData.estado = data.uf;
+    document.getElementById('address-number')?.focus();
+  } catch (error) {
+    toast.add({ title: 'Erro!', description: 'Não foi possível consultar o CEP.', color: 'red' });
+  } finally {
+    cepLoading.value = false;
+  }
+};
 
 // --- AÇÕES DO FORMULÁRIO ---
 const resetForm = () => {
@@ -324,58 +341,37 @@ const resetForm = () => {
 async function handleFormSubmit() {
   saving.value = true;
   try {
-    // 1. Prepara os dados do funcionário (sem as datas de vínculo)
-    const funcionarioData = {
-      nome_completo: formData.nome_completo,
-      data_nascimento: formData.data_nascimento,
-      nome_mae: formData.nome_mae,
-      cpf: formData.cpf,
-      email: formData.email,
-      telefone: formData.telefone,
-      cep: formData.cep,
-      endereco: formData.endereco,
-      numero_endereco: formData.numero_endereco,
-      complemento_endereco: formData.complemento_endereco,
-      bairro: formData.bairro,
-      cidade: formData.cidade,
-      estado: formData.estado,
-      perfil_id: formData.perfil_id,
-      gerente_id: formData.gerente_id,
-      loja_id: formData.loja_id,
-      is_active: formData.is_active,
-    };
+    const { vinculoId, ...restOfData } = formData;
+    const funcionarioData = { ...restOfData };
+    delete funcionarioData.vinculoId; // Garante que o campo extra não seja enviado
 
-    if (formData.id) { // --- MODO UPDATE ---
-      // Atualiza a tabela 'funcionarios'
+    if (formData.id) {
+      delete funcionarioData.id; // Não envie o id no corpo do update
       const { error: funcError } = await supabase.from('funcionarios').update(funcionarioData).eq('id', formData.id);
       if (funcError) throw funcError;
 
-      // Prepara e atualiza a tabela 'historico_vinculos'
       const vinculoData = { data_admissao: formData.data_admissao, data_saida: formData.data_saida };
-      // Apenas atualiza se existir um vinculoId
-      if (formData.vinculoId) {
-        const { error: vincError } = await supabase.from('historico_vinculos').update(vinculoData).eq('id', formData.vinculoId);
+      if (vinculoId) {
+        const { error: vincError } = await supabase.from('historico_vinculos').update(vinculoData).eq('id', vinculoId);
         if (vincError) throw vincError;
       }
-
       toast.add({ title: 'Sucesso!', description: 'Funcionário atualizado com sucesso.' });
-    } else { // --- MODO CREATE ---
-      // Insere na tabela 'funcionarios' e obtém o ID do novo registo
+    } else {
+      delete funcionarioData.id;
       const { data: novoFuncionario, error: funcError } = await supabase.from('funcionarios').insert(funcionarioData).select('id').single();
       if (funcError) throw funcError;
 
-      // Cria o registo de vínculo na tabela 'historico_vinculos'
-      const vinculoData = { 
-        funcionario_id: novoFuncionario.id, 
-        data_admissao: formData.data_admissao, 
-        data_saida: formData.data_saida 
-      };
+      const vinculoData = { funcionario_id: novoFuncionario.id, data_admissao: formData.data_admissao, data_saida: formData.data_saida };
       const { error: vincError } = await supabase.from('historico_vinculos').insert(vinculoData);
       if (vincError) throw vincError;
       
       toast.add({ title: 'Sucesso!', description: 'Funcionário cadastrado com sucesso.' });
     }
     resetForm();
+    if (searchTerm.value) { // Atualiza a busca após salvar
+      const { data } = await supabase.from('funcionarios').select('*, perfis(nome), lojas(nome)').or(`nome_completo.ilike.%${searchTerm.value}%,cpf.ilike.%${searchTerm.value}%`).limit(10);
+      searchResults.value = data || [];
+    }
   } catch (error) {
     console.error('Erro ao salvar funcionário:', error);
     toast.add({ title: 'Erro!', description: error.message, color: 'red' });
