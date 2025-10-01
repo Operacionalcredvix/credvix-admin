@@ -15,8 +15,7 @@ export const useProfile = () => {
 
     const { data, error } = await client
       .from('funcionarios')
-      // ALTERAÇÃO: Trocamos a seleção específica por '*' para buscar todos os dados,
-      // incluindo loja_id e regional_id, e mantemos a busca pelo nome do perfil.
+      // CORREÇÃO: Adicionado 'avatar_url' à seleção de campos
       .select('*, perfis(nome)')
       .eq('user_id', user.value.id)
       .single();
