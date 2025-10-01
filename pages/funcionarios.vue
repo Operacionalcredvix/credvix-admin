@@ -11,13 +11,14 @@
 
         <UTable :rows="searchResults" :columns="columns" :loading="searching"
           :empty-state="{ icon: 'i-heroicons-circle-stack', label: 'Nenhum funcionário encontrado.' }">
-          <template #is_active-data="{ row }">
-            <UBadge :label="row.is_active ? 'Ativo' : 'Inativo'" :color="row.is_active ? 'primary' : 'red'"
-              variant="subtle" />
-          </template>
 
           <template #actions-data="{ row }">
             <UButton icon="i-heroicons-pencil" size="sm" color="gray" variant="ghost" @click="handleEdit(row)" />
+
+            <UTooltip text="Redefinir Senha">
+              <UButton icon="i-heroicons-key" size="sm" color="orange" variant="ghost"
+                @click="handleResetPassword(row)" />
+            </UTooltip>
           </template>
         </UTable>
       </div>
@@ -382,11 +383,11 @@ async function handleFormSubmit() {
       if (funcError) throw funcError;
 
       // PASSO B: Prepara e atualiza a tabela 'historico_vinculos'
-      const vinculoData = { 
-        data_admissao: formData.data_admissao, 
-        data_saida: formData.data_saida 
+      const vinculoData = {
+        data_admissao: formData.data_admissao,
+        data_saida: formData.data_saida
       };
-      
+
       if (formData.vinculoId) { // Apenas atualiza se houver um vínculo para editar
         const { error: vincError } = await supabase.from('historico_vinculos').update(vinculoData).eq('id', formData.vinculoId);
         if (vincError) throw vincError;
@@ -395,35 +396,74 @@ async function handleFormSubmit() {
       toast.add({ title: 'Sucesso!', description: 'Funcionário atualizado com sucesso.' });
 
     } else { // --- MODO CREATE ---
-      // PASSO A: Insere na tabela 'funcionarios' e obtém o ID
+      // PASSO A: Chamar a nossa API segura para convidar o usuário
+      const invitedUser = await $fetch('/api/invite-user', {
+        method: 'POST',
+        body: { email: formData.email }
+      });
+
+      if (!invitedUser || !invitedUser.id) {
+        throw new Error('Não foi possível obter o ID do usuário convidado.');
+      }
+
+      // Adiciona o user_id retornado pela nossa API aos dados do funcionário
+      funcionarioData.user_id = invitedUser.id;
+
+      // PASSO B: Insere na tabela 'funcionarios' e obtém o ID
       const { data: novoFuncionario, error: funcError } = await supabase.from('funcionarios').insert(funcionarioData).select('id').single();
       if (funcError) throw funcError;
 
-      // PASSO B: Cria o registo de vínculo na tabela 'historico_vinculos'
-      const vinculoData = { 
-        funcionario_id: novoFuncionario.id, 
-        data_admissao: formData.data_admissao, 
-        data_saida: formData.data_saida 
+      // PASSO C: Cria o registo de vínculo na tabela 'historico_vinculos'
+      const vinculoData = {
+        funcionario_id: novoFuncionario.id,
+        data_admissao: formData.data_admissao,
+        data_saida: formData.data_saida
       };
       const { error: vincError } = await supabase.from('historico_vinculos').insert(vinculoData);
       if (vincError) throw vincError;
-      
-      toast.add({ title: 'Sucesso!', description: 'Funcionário cadastrado com sucesso.' });
+
+      toast.add({ title: 'Sucesso!', description: 'Funcionário cadastrado e convite enviado por e-mail.' });
     }
-    
+
     resetForm();
 
     // Atualiza a lista de busca para refletir as alterações
-    if(searchTerm.value) {
+    if (searchTerm.value) {
       const { data } = await supabase.from('funcionarios').select('*, perfis(nome), lojas(nome)').or(`nome_completo.ilike.%${searchTerm.value}%,cpf.ilike.%${searchTerm.value}%`).limit(10);
       searchResults.value = data || [];
     }
 
   } catch (error) {
     console.error('Erro ao salvar funcionário:', error);
-    toast.add({ title: 'Erro!', description: error.message, color: 'red' });
+    // Exibe o erro vindo da nossa API ou do banco de dados
+    const errorMessage = error.data?.statusMessage || error.message;
+    toast.add({ title: 'Erro!', description: errorMessage, color: 'red' });
   } finally {
     saving.value = false;
+  }
+}
+
+async function handleResetPassword(employee) {
+  if (!employee.email) {
+    toast.add({ title: 'Erro!', description: 'Este funcionário não possui um e-mail cadastrado.', color: 'red' });
+    return;
+  }
+
+  if (confirm(`Tem a certeza de que quer enviar um e-mail de redefinição de senha para "${employee.nome_completo}"?`)) {
+    saving.value = true; // Reutiliza a variável 'saving' para mostrar um feedback de carregamento
+    try {
+      // Chama a nossa nova API segura
+      await $fetch('/api/reset-password', {
+        method: 'POST',
+        body: { email: employee.email }
+      });
+      toast.add({ title: 'Sucesso!', description: `E-mail de redefinição de senha enviado para ${employee.email}.` });
+    } catch (error) {
+      const errorMessage = error.data?.statusMessage || error.message;
+      toast.add({ title: 'Erro!', description: `Não foi possível enviar o e-mail: ${errorMessage}`, color: 'red' });
+    } finally {
+      saving.value = false;
+    }
   }
 }
 </script>

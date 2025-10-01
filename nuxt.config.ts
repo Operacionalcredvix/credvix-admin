@@ -10,6 +10,10 @@ export default defineNuxtConfig({
   ],
 
   runtimeConfig: {
+    // Chaves privadas que só estão disponíveis no lado do servidor
+    supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY,
+
+    // Chaves públicas, disponíveis em ambos os lados
     public: {
       supabase: {
         url: process.env.SUPABASE_URL,
