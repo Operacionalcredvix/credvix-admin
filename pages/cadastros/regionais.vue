@@ -102,7 +102,7 @@ const { data: regionais, pending, refresh } = await useAsyncData('regionais', as
       nome_regional,
       coordenador_id,
       lojas(id),
-      coordenador:funcionarios(nome_completo)
+      coordenador:coordenador_id(nome_completo)
     `);
   if (error) console.error('Erro ao carregar regionais:', error);
   return data;

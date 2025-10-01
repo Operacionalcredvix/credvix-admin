@@ -41,28 +41,35 @@
         </template>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label for="full-name" class="form-label">Nome Completo *</label>
-            <UInput v-model="formData.nome_completo" id="full-name" required placeholder="Nome Completo" />
+            <UFormGroup label="Nome Completo *" name="nome_completo" :error="cpfError">
+              <UInput v-model="formData.nome_completo" id="full-name" required placeholder="Nome Completo" />
+            </UFormGroup>
           </div>
           <div>
-            <label for="birth-date" class="form-label">Data de Nascimento</label>
-            <UInput v-model="formData.data_nascimento" id="birth-date" type="date" placeholder="Data de Nascimento" />
+            <UFormGroup label="Data de Nascimento" name="data_nascimento">
+              <UInput v-model="formData.data_nascimento" id="birth-date" type="date" placeholder="Data de Nascimento" />
+            </UFormGroup>
           </div>
           <div>
-            <label for="mother-name" class="form-label">Nome da Mãe</label>
-            <UInput v-model="formData.nome_mae" id="mother-name" placeholder="Nome da Mãe" />
+            <UFormGroup label="Nome da Mãe" name="nome_mae">
+              <UInput v-model="formData.nome_mae" id="mother-name" placeholder="Nome da Mãe" />
+            </UFormGroup>
           </div>
           <div>
-            <label for="cpf" class="form-label">CPF *</label>
-            <UInput v-model="formData.cpf" id="cpf" required placeholder="000.000.000-00" />
+            <UFormGroup label="CPF *" name="cpf" :error="cpfError">
+              <UInput v-model="formData.cpf" id="cpf" required placeholder="000.000.000-00"
+                @blur="validateCpfOnBlur" />
+            </UFormGroup>
           </div>
           <div>
-            <label for="employee-email" class="form-label">Email *</label>
-            <UInput v-model="formData.email" id="employee-email" type="email" required placeholder="Email" />
+            <UFormGroup label="Email *" name="email">
+              <UInput v-model="formData.email" id="employee-email" type="email" required placeholder="Email" />
+            </UFormGroup>
           </div>
           <div>
-            <label for="phone" class="form-label">Telefone</label>
-            <UInput v-model="formData.telefone" id="phone" placeholder="(00) 00000-0000" />
+            <UFormGroup label="Telefone" name="telefone">
+              <UInput v-model="formData.telefone" id="phone" placeholder="(00) 00000-0000" />
+            </UFormGroup>
           </div>
         </div>
       </UCard>
@@ -74,33 +81,39 @@
         <div class="space-y-6">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <label for="cep" class="form-label">CEP</label>
-              <UInput v-model="formData.cep" id="cep" placeholder="00000-000" @blur="consultarCEP"
-                :loading="cepLoading" />
+              <UFormGroup label="CEP" name="cep">
+                <UInput v-model="formData.cep" id="cep" placeholder="00000-000" @blur="consultarCEP" :loading="cepLoading" />
+              </UFormGroup>
             </div>
-            <div class="md:col-span-2">
-              <label for="address" class="form-label">Endereço</label>
-              <UInput v-model="formData.endereco" id="address" placeholder="Digite o endereço" />
+            <div>
+              <UFormGroup label="Endereço" name="endereco">
+                <UInput v-model="formData.endereco" id="address" placeholder="Digite o endereço" />
+              </UFormGroup>
             </div>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div><label for="address-number" class="form-label">Número</label>
-              <UInput v-model="formData.numero_endereco" id="address-number" placeholder="000" />
+            <div>
+              <UFormGroup label="Número" name="numero_endereco">
+                <UInput v-model="formData.numero_endereco" id="address-number" placeholder="000" />
+              </UFormGroup>
             </div>
-            <div><label for="address-complement" class="form-label">Complemento</label>
-              <UInput v-model="formData.complemento_endereco" id="address-complement"
-                placeholder="Digite o complemento" />
+            <div>
+            <UFormGroup label="Complemento" name="complemento_endereco">
+              <UInput v-model="formData.complemento_endereco" id="address-complement" placeholder="Digite o complemento" />
+            </UFormGroup>
             </div>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div><label for="neighborhood" class="form-label">Bairro</label>
-              <UInput v-model="formData.bairro" id="neighborhood" placeholder="Digite o bairro" />
+            <div> 
+              <UFormGroup label="Bairro" name="bairro">
+                <UInput v-model="formData.bairro" id="neighborhood" placeholder="Digite o bairro" />
+              </UFormGroup>
             </div>
-            <div><label for="city" class="form-label">Cidade</label>
-              <UInput v-model="formData.cidade" id="city" placeholder="Digite a cidade" />
+            <div>
+              <UFormGroup label="Cidade" name="cidade">
+                <UInput v-model="formData.cidade" id="city" placeholder="Digite a cidade" />
+              </UFormGroup>
             </div>
-            <div><label for="state" class="form-label">Estado</label>
-              <UInput v-model="formData.estado" id="state" placeholder="Digite o estado" />
+            <div>
+              <UFormGroup label="Estado" name="estado">
+                <UInput v-model="formData.estado" id="state" placeholder="Digite o estado" /> 
+              </UFormGroup>
             </div>
           </div>
         </div>
@@ -112,24 +125,28 @@
         </template>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label for="perfil-select" class="form-label">Perfil de Acesso *</label>
-            <USelectMenu v-model="formData.perfil_id" :options="perfisPermitidos" value-attribute="id"
-              option-attribute="nome" required placeholder="Perfil de Acesso" />
+            <UFormGroup label="Perfil de Acesso *" name="perfil_id">
+              <USelectMenu v-model="formData.perfil_id" :options="perfisPermitidos" value-attribute="id"
+                option-attribute="nome" required placeholder="Selecione o Perfil de Acesso" />
+            </UFormGroup>
           </div>
           <div>
-            <label for="lider-select" class="form-label">Líder Direto</label>
-            <USelectMenu v-model="formData.gerente_id" :options="lideres" value-attribute="id"
-              option-attribute="nome_completo" :disabled="!isLiderEnabled" placeholder="Líder Direto" />
+            <UFormGroup label="Líder Direto" name="gerente_id">
+              <USelectMenu v-model="formData.gerente_id" :options="lideres" value-attribute="id"
+                option-attribute="nome_completo" :disabled="!isLiderEnabled" placeholder="Líder Direto" />
+            </UFormGroup>
           </div>
           <div>
-            <label for="regional-select" class="form-label">Regional</label>
-            <USelectMenu v-model="formData.regional_id" :options="regionaisPermitidas" value-attribute="id"
-              option-attribute="nome_regional" :disabled="!isRegionalEnabled" placeholder="Regional" />
+            <UFormGroup label="Regional" name="regional_id">
+              <USelectMenu v-model="formData.regional_id" :options="regionaisPermitidas" value-attribute="id"
+                option-attribute="nome_regional" :disabled="!isRegionalEnabled" placeholder="Regional" />
+            </UFormGroup>
           </div>
           <div>
-            <label for="loja-select" class="form-label">Loja</label>
-            <USelectMenu v-model="formData.loja_id" :options="lojasFiltradas" value-attribute="id"
-              option-attribute="nome" :disabled="!isLojaEnabled" placeholder="Loja" />
+            <UFormGroup label="Loja" name="loja_id">
+              <USelectMenu v-model="formData.loja_id" :options="lojasFiltradas" value-attribute="id"
+                option-attribute="nome" :disabled="!isLojaEnabled" placeholder="Loja" />
+            </UFormGroup>
           </div>
         </div>
       </UCard>
@@ -188,6 +205,7 @@ const searchTerm = ref('');
 const searchResults = ref([]);
 const searching = ref(false);
 
+const cpfError = ref('');
 const columns = [
   { key: 'nome_completo', label: 'Nome Completo', sortable: true }, { key: 'perfis.nome', label: 'Perfil' },
   { key: 'lojas.nome', label: 'Loja' }, { key: 'is_active', label: 'Status' }, { key: 'actions', label: 'Ações' }
@@ -265,10 +283,20 @@ const formSubtitle = computed(() => formData.id ? `A editar o perfil de ${formDa
 const formButtonText = computed(() => formData.id ? 'Salvar Alterações' : 'Salvar Novo Funcionário');
 
 const selectedProfileName = computed(() => perfis.value.find(p => p.id === formData.perfil_id)?.nome || '');
-const isLiderEnabled = computed(() => ['Supervisor', 'Consultor'].includes(selectedProfileName.value));
-const isRegionalEnabled = computed(() => ['Coordenador', 'Supervisor', 'Consultor'].includes(selectedProfileName.value));
-const isLojaEnabled = computed(() => ['Supervisor', 'Consultor'].includes(selectedProfileName.value) && formData.regional_id);
 
+// --- LÓGICA DE VISIBILIDADE DOS CAMPOS ORGANIZACIONAIS ---
+const isLiderEnabled = computed(() => {
+  return ['Supervisor', 'Consultor'].includes(selectedProfileName.value);
+});
+const isRegionalEnabled = computed(() => {
+  // Apenas Supervisores e Consultores precisam selecionar uma regional para filtrar a loja.
+  // Coordenadores são associados às regionais na tela de Gestão de Regionais.
+  return ['Supervisor', 'Consultor'].includes(selectedProfileName.value);
+});
+const isLojaEnabled = computed(() => {
+  // O campo loja é habilitado para Supervisor e Consultor, e depende de uma regional ser selecionada.
+  return ['Supervisor', 'Consultor'].includes(selectedProfileName.value) && !!formData.regional_id;
+});
 const lojasFiltradas = computed(() => {
   if (!formData.regional_id) return [];
   return todasLojas.value.filter(loja => loja.regional_id === formData.regional_id);
@@ -297,19 +325,22 @@ const isLojaDisabled = computed(() => {
 watch(() => formData.perfil_id, async (newPerfilId, oldPerfilId) => {
   if (newPerfilId === oldPerfilId) return;
 
+  // Limpa os campos dependentes ao trocar o perfil
   formData.regional_id = null;
   formData.loja_id = null;
   formData.gerente_id = null;
   lideres.value = [];
 
   let perfilLider = '';
+  // Define qual o perfil do líder baseado no perfil selecionado para o funcionário
   if (selectedProfileName.value === 'Supervisor') perfilLider = 'Coordenador';
   if (selectedProfileName.value === 'Consultor') perfilLider = 'Supervisor';
 
+  // Se houver um perfil de líder, busca os funcionários com esse perfil
   if (perfilLider) {
     const { data: perfilLiderData } = await supabase.from('perfis').select('id').eq('nome', perfilLider).single();
     if (perfilLiderData) {
-      const { data: funcs } = await supabase.from('funcionarios').select('id, nome_completo').eq('perfil_id', perfilLiderData.id).eq('is_active', true);
+      const { data: funcs } = await supabase.from('funcionarios').select('id, nome_completo, loja_id').eq('perfil_id', perfilLiderData.id).eq('is_active', true);
       lideres.value = funcs || [];
     }
   }
@@ -322,6 +353,50 @@ watch(() => formData.regional_id, (newVal) => {
   }
 });
 
+// NOVO: Observa a seleção do líder para preencher loja e regional automaticamente
+watch(() => formData.gerente_id, (newGerenteId) => {
+  if (!newGerenteId) return;
+
+  // Encontra o objeto completo do líder selecionado
+  const liderSelecionado = lideres.value.find(l => l.id === newGerenteId);
+  if (!liderSelecionado || !liderSelecionado.loja_id) return;
+
+  // Encontra a loja do líder na lista de todas as lojas
+  const lojaDoLider = todasLojas.value.find(l => l.id === liderSelecionado.loja_id);
+  if (lojaDoLider) {
+    formData.regional_id = lojaDoLider.regional_id;
+    formData.loja_id = lojaDoLider.id;
+  }
+});
+
+// --- MÁSCARAS DE INPUT ---
+watch(() => formData.cpf, (newCpf) => {
+  if (typeof newCpf !== 'string') return;
+  const cleaned = newCpf.replace(/\D/g, '').slice(0, 11);
+  let formatted = cleaned;
+  if (cleaned.length > 9) {
+    formatted = `${cleaned.slice(0, 3)}.${cleaned.slice(3, 6)}.${cleaned.slice(6, 9)}-${cleaned.slice(9)}`;
+  } else if (cleaned.length > 6) {
+    formatted = `${cleaned.slice(0, 3)}.${cleaned.slice(3, 6)}.${cleaned.slice(6)}`;
+  } else if (cleaned.length > 3) {
+    formatted = `${cleaned.slice(0, 3)}.${cleaned.slice(3)}`;
+  }
+  formData.cpf = formatted;
+});
+
+watch(() => formData.telefone, (newPhone) => {
+  if (typeof newPhone !== 'string') return;
+  const cleaned = newPhone.replace(/\D/g, '').slice(0, 11);
+  let formatted = cleaned;
+  if (cleaned.length > 10) { // Celular (00) 00000-0000
+    formatted = `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
+  } else if (cleaned.length > 6) { // Fixo (00) 0000-0000
+    formatted = `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
+  } else if (cleaned.length > 2) {
+    formatted = `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
+  }
+  formData.telefone = formatted;
+});
 // FUNÇÃO DE CEP CORRIGIDA
 const consultarCEP = async () => {
   const cep = formData.cep?.replace(/\D/g, '');
@@ -346,6 +421,35 @@ const consultarCEP = async () => {
   }
 };
 
+// --- VALIDAÇÃO DE CPF ---
+const isValidCPF = (cpf) => {
+  if (typeof cpf !== 'string') return false;
+  cpf = cpf.replace(/[^\d]+/g, ''); // Remove caracteres não numéricos
+
+  // Verifica se tem 11 dígitos e se não são todos iguais
+  if (cpf.length !== 11 || !!cpf.match(/(\d)\1{10}/)) return false;
+
+  const digits = cpf.split('').map(el => +el);
+
+  // Função para calcular um dígito verificador
+  const calcDigit = (sliceEnd) => {
+    let sum = 0;
+    for (let i = 0, j = sliceEnd + 1; i < sliceEnd; i++, j--) {
+      sum += digits[i] * j;
+    }
+    const rest = (sum * 10) % 11;
+    return rest < 10 ? rest : 0;
+  };
+
+  return calcDigit(9) === digits[9] && calcDigit(10) === digits[10];
+};
+
+const validateCpfOnBlur = () => {
+  if (formData.cpf && !isValidCPF(formData.cpf)) {
+    cpfError.value = 'O CPF digitado não é válido.';
+  } else { cpfError.value = ''; }
+};
+
 // --- AÇÕES DO FORMULÁRIO ---
 const resetForm = () => {
   Object.assign(formData, getInitialFormData());
@@ -356,6 +460,40 @@ const resetForm = () => {
 async function handleFormSubmit() {
   saving.value = true;
   try {
+    // Validação final do CPF antes de submeter
+    validateCpfOnBlur();
+    if (cpfError.value) {
+      toast.add({ title: 'CPF Inválido', description: 'Por favor, corrija o CPF antes de salvar.', color: 'red' });
+      saving.value = false;
+      return;
+    }
+    // --- INÍCIO DA VALIDAÇÃO DE CPF DUPLICADO ---
+    if (formData.cpf) {
+      const cpfLimpo = formData.cpf.replace(/\D/g, '');
+      let query = supabase
+        .from('funcionarios')
+        .select('id, nome_completo')
+        .eq('cpf', cpfLimpo);
+
+      // Se estiver a editar, exclui o funcionário atual da verificação
+      if (formData.id) {
+        query = query.neq('id', formData.id);
+      }
+
+      const { data: existingEmployee, error: checkError } = await query.single();
+
+      // O erro 'PGRST116' significa "nenhum registo encontrado", o que é bom. Qualquer outro erro é um problema.
+      if (checkError && checkError.code !== 'PGRST116') throw checkError;
+
+      // Se encontrou um funcionário, é um duplicado.
+      if (existingEmployee) {
+        toast.add({ title: 'CPF Duplicado!', description: `O CPF informado já está em uso pelo funcionário: ${existingEmployee.nome_completo}.`, color: 'red', timeout: 5000 });
+        saving.value = false;
+        return; // Interrompe a submissão
+      }
+    }
+    // --- FIM DA VALIDAÇÃO ---
+
     // 1. Prepara os dados que pertencem APENAS à tabela 'funcionarios'
     const funcionarioData = {
       nome_completo: formData.nome_completo,
