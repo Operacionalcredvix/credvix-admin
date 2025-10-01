@@ -60,7 +60,11 @@ const changes = computed(() => {
   const diff = [];
   
   for (const key in newData) {
-    if (key !== 'id' && key !== 'created_at' && String(oldData[key]) !== String(newData[key])) {
+    // Lógica de comparação melhorada
+    const oldValue = oldData[key];
+    const newValue = newData[key];
+    const valuesAreDifferent = !(oldValue === newValue || (oldValue === null && newValue === '') || (oldValue === '' && newValue === null));
+    if (key !== 'id' && key !== 'created_at' && valuesAreDifferent) {
       diff.push({
         key,
         old: oldData[key],

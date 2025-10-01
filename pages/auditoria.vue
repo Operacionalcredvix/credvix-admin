@@ -5,6 +5,14 @@
     </header>
 
     <UCard>
+      <template #header>
+        <div class="flex items-center gap-4">
+          <UFormGroup label="Filtrar por Entidade" name="entidade" class="w-full md:w-1/4">
+            <USelectMenu v-model="selectedEntidade" :options="entidades" placeholder="Todas as Entidades" clearable />
+          </UFormGroup>
+        </div>
+      </template>
+
       <UTable :rows="auditoriaLogs || []" :columns="columns" :loading="pending">
 
         <template #autor-data="{ row }">
@@ -48,6 +56,18 @@ const supabase = useSupabaseClient();
 const page = ref(1);
 const pageCount = ref(15);
 const totalLogs = ref(0);
+const selectedEntidade = ref(null);
+
+// Busca as entidades distintas para popular o filtro
+const { data: entidades } = useAsyncData('auditoria-entidades', async () => {
+  // Usamos RPC para uma busca mais eficiente de valores distintos
+  const { data, error } = await supabase.rpc('get_distinct_audit_entities');
+  if (error) {
+    console.error("Erro ao buscar entidades de auditoria:", error);
+    return [];
+  }
+  return data.sort(); // Ordena alfabeticamente
+});
 
 const columns = [
   { key: 'autor', label: 'Autor', class: 'w-1/6' },
@@ -58,14 +78,21 @@ const columns = [
 ];
 
 const { data: auditoriaLogs, pending } = useAsyncData(
-  `auditoria-page-${page.value}`,
+  `auditoria-logs`, // A chave agora é mais genérica, pois o watch cuidará da re-execução
   async () => {
     const from = (page.value - 1) * pageCount.value;
     const to = from + pageCount.value - 1;
 
-    const { data, count, error } = await supabase
+    let query = supabase
       .from('auditoria')
-      .select(`*, funcionarios (nome_completo, avatar_url)`, { count: 'exact' })
+      .select(`*, funcionarios (nome_completo, avatar_url)`, { count: 'exact' });
+
+    // Adiciona o filtro de entidade à consulta, se uma for selecionada
+    if (selectedEntidade.value) {
+      query = query.eq('entidade', selectedEntidade.value);
+    }
+
+    const { data, count, error } = await query
       .order('created_at', { ascending: false })
       .range(from, to);
       
@@ -77,7 +104,10 @@ const { data: auditoriaLogs, pending } = useAsyncData(
     totalLogs.value = count;
     return data;
   },
-  { watch: [page] }
+  { 
+    // A busca será re-executada sempre que a página ou o filtro de entidade mudar
+    watch: [page, selectedEntidade] 
+  }
 );
 
 const getActionColor = (action) => {
