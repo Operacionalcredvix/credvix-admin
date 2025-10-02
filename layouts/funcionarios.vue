@@ -119,12 +119,12 @@
         </div>
       </UCard>
 
-      <UCard>
+      <UCard v-if="isOrganizationalInfoVisible">
         <template #header>
           <h3 class="text-lg font-semibold">Informações Organizacionais</h3>
         </template>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
+          <div v-if="isRegionalVisible">
             <UFormGroup label="Perfil de Acesso *" name="perfil_id">
               <USelectMenu v-model="formData.perfil_id" :options="perfisPermitidos" value-attribute="id"
                 option-attribute="nome" required placeholder="Selecione o Perfil de Acesso" />
@@ -133,7 +133,7 @@
           <div v-if="isLiderVisible">
             <UFormGroup label="Líder Direto" name="gerente_id">
               <USelectMenu v-model="formData.gerente_id" :options="lideres" value-attribute="id"
-                option-attribute="nome_completo" placeholder="Líder Direto" :disabled="isLiderDisabled" />
+                option-attribute="nome_completo" placeholder="Líder Direto" />
             </UFormGroup>
           </div>
           <div v-if="isRegionalVisible">
@@ -267,38 +267,29 @@ watch(searchTerm, async (newVal) => {
 
 // LÓGICA DE EDIÇÃO
 const handleEdit = async (employee) => {
+  // 1. Limpa o formulário para evitar misturar dados
   resetForm();
 
-  // 1. Busca o vínculo mais recente para obter as datas corretas
+  // 2. Busca o vínculo mais recente para obter as datas corretas
   const { data: vinculo } = await supabase
     .from('historico_vinculos')
     .select('*')
     .eq('funcionario_id', employee.id)
     .order('data_admissao', { ascending: false })
     .limit(1)
-    .maybeSingle();
+    .single();
 
-  // 2. Preenche o formData com os dados do funcionário
+  // 3. Preenche o formData com os dados do funcionário
   Object.assign(formData, employee);
 
-  // 3. Se encontrou um vínculo, preenche as datas e o ID do vínculo
+  // 4. Se encontrou um vínculo, preenche as datas e o ID do vínculo
   if (vinculo) {
     formData.data_admissao = vinculo.data_admissao;
     formData.data_saida = vinculo.data_saida;
     formData.vinculoId = vinculo.id; // Importante para o UPDATE
   }
 
-  // 4. Lógica para garantir que os campos organizacionais não sejam limpos pelo 'watch'
-  // O 'watch' do perfil_id é acionado quando o formulário é preenchido.
-  // Precisamos aguardar o próximo "tick" do Vue e então restaurar os valores.
-  await nextTick();
-  
-  formData.perfil_id = employee.perfil_id;
-  formData.gerente_id = employee.gerente_id;
-  formData.loja_id = employee.loja_id;
-  formData.regional_id = todasLojas.value.find(l => l.id === employee.loja_id)?.regional_id || null;
-
-  // 5. Rola a página até o formulário
+  // 5. Rola a página para o formulário
   document.getElementById('form-title').scrollIntoView({ behavior: 'smooth' });
 };
 
@@ -310,43 +301,54 @@ const formButtonText = computed(() => formData.id ? 'Salvar Alterações' : 'Sal
 const selectedProfileName = computed(() => perfis.value.find(p => p.id === formData.perfil_id)?.nome || '');
 
 // --- LÓGICA DE VISIBILIDADE DOS CAMPOS ORGANIZACIONAIS ---
+const isOrganizationalInfoVisible = computed(() => {
+  const profileName = selectedProfileName.value;
+  return ['Supervisor', 'Consultor'].includes(profileName);
+});
+
 const isRegionalVisible = computed(() => ['Supervisor', 'Consultor'].includes(selectedProfileName.value));
 const isLiderVisible = computed(() => ['Supervisor', 'Consultor'].includes(selectedProfileName.value));
 const isLojaVisible = computed(() => ['Supervisor', 'Consultor'].includes(selectedProfileName.value));
+
+const lojasFiltradas = computed(() => {
+  if (formData.regional_id) {
+    return todasLojas.value.filter(loja => loja.regional_id === formData.regional_id);
+  }
+  // Para Master/RH ou quando nenhuma regional está selecionada, mostra todas as lojas
+  if (['Master', 'RH'].includes(meuPerfil.value?.perfis?.nome)) {
+    return todasLojas.value;
+  }
+  return [];
+});
 
 const perfisPermitidos = computed(() => {
   const userProfileName = meuPerfil.value?.perfis?.nome;
   if (!userProfileName) return [];
   if (['Master', 'RH'].includes(userProfileName)) return perfis.value;
-  if (userProfileName === 'Coordenador') return perfis.value.filter(p => ['Supervisor', 'Consultor', 'Coordenador'].includes(p.nome));
-  if (userProfileName === 'Supervisor') return perfis.value.filter(p => ['Consultor', 'Supervisor'].includes(p.nome));
   return [];
 });
 
 // --- LÓGICA PARA DESABILITAR CAMPOS ---
 const isRegionalDisabled = computed(() => {
-  // Desabilita para Consultor, pois a regional vem do líder (Supervisor)
-  return selectedProfileName.value === 'Consultor';
+  const userProfileName = meuPerfil.value?.perfis?.nome;
+  // Desabilita se o utilizador for Coordenador ou Supervisor
+  // Ou se o perfil selecionado for Consultor (pois será preenchido pelo líder)
+  return ['Coordenador', 'Supervisor'].includes(userProfileName) || selectedProfileName.value === 'Consultor';
 });
 
 const isLojaDisabled = computed(() => {
-  // Desabilita para Consultor, pois a loja vem do líder (Supervisor)
-  return selectedProfileName.value === 'Consultor';
-});
-
-const isLiderDisabled = computed(() => {
-  // Desabilita para Supervisor, pois o líder vem da regional (Coordenador)
-  return selectedProfileName.value === 'Supervisor';
+  const userProfileName = meuPerfil.value?.perfis?.nome;
+  // Desabilita se o utilizador for Supervisor
+  // Ou se o perfil selecionado for Consultor (pois será preenchido pelo líder)
+  return ['Supervisor'].includes(userProfileName) || selectedProfileName.value === 'Consultor';
 });
 
 // WATCHERS PARA REATIVIDADE DO FORMULÁRIO
 watch(() => formData.perfil_id, async (newPerfilId, oldPerfilId) => {
   if (newPerfilId === oldPerfilId) return;
 
-  // Limpa os campos dependentes ao trocar o perfil, respeitando os que podem estar bloqueados
-  if (!isRegionalDisabled.value) {
-    formData.regional_id = null;
-  }
+  // Limpa os campos dependentes ao trocar o perfil
+  if (!isRegionalDisabled.value) formData.regional_id = null;
   formData.loja_id = null;
   formData.gerente_id = null;
   lideres.value = [];
@@ -366,17 +368,17 @@ watch(() => formData.perfil_id, async (newPerfilId, oldPerfilId) => {
   }
 });
 
-watch(() => formData.regional_id, (newRegionalId) => {
-  // Se o perfil for Supervisor, preenche o líder (Coordenador) automaticamente
-  if (selectedProfileName.value === 'Supervisor' && newRegionalId) {
-    const regionalSelecionada = regionais.value.find(r => r.id === newRegionalId);
+watch(() => formData.regional_id, (newVal) => {
+  // Se o perfil for Supervisor, auto-seleciona o Coordenador como líder
+  if (selectedProfileName.value === 'Supervisor' && newVal) {
+    const regionalSelecionada = regionais.value.find(r => r.id === newVal);
     formData.gerente_id = regionalSelecionada?.coordenador_id || null;
   }
 
   // Limpa a loja se a regional mudar e a loja não pertencer mais à nova regional
   if (formData.loja_id && !isLojaDisabled.value) {
     const lojaAtual = todasLojas.value.find(l => l.id === formData.loja_id);
-    if (lojaAtual && lojaAtual.regional_id !== newRegionalId) {
+    if (lojaAtual && lojaAtual.regional_id !== newVal) {
       formData.loja_id = null;
     }
   }
@@ -384,9 +386,9 @@ watch(() => formData.regional_id, (newRegionalId) => {
 
 // NOVO: Observa a seleção do líder para preencher loja e regional automaticamente
 watch(() => formData.gerente_id, (newGerenteId) => {
-  // Esta lógica aplica-se apenas ao criar um Consultor
   if (!newGerenteId || selectedProfileName.value !== 'Consultor') return;
 
+  // Encontra o objeto completo do líder selecionado
   const liderSelecionado = lideres.value.find(l => l.id === newGerenteId);
   if (!liderSelecionado || !liderSelecionado.loja_id) return;
 
@@ -396,14 +398,6 @@ watch(() => formData.gerente_id, (newGerenteId) => {
     formData.regional_id = lojaDoLider.regional_id;
     formData.loja_id = lojaDoLider.id;
   }
-});
-
-const lojasFiltradas = computed(() => {
-  if (formData.regional_id) {
-    return todasLojas.value.filter(loja => loja.regional_id === formData.regional_id);
-  }
-  // Se o usuário logado for Master ou RH, mostra todas as lojas. Senão, a lista começa vazia.
-  return ['Master', 'RH'].includes(meuPerfil.value?.perfis?.nome) ? todasLojas.value : [];
 });
 
 // --- MÁSCARAS DE INPUT ---

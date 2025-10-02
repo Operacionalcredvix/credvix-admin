@@ -78,7 +78,7 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'admin' });
+definePageMeta({ middleware: 'auth' });
 
 import { ref, reactive, computed } from 'vue';
 
