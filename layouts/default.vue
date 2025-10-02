@@ -1,6 +1,7 @@
 <template>
-  <div class="flex h-screen bg-gray-100">
-    <aside class="flex-shrink-0 bg-gray-800 text-white p-4 flex flex-col transition-all duration-300" :class="[isSidebarCollapsed ? 'w-20 items-center' : 'w-64']">
+  <div>
+    <div class="flex h-screen bg-gray-100 dark:bg-gray-900">
+      <aside class="flex-shrink-0 bg-gray-800 text-white p-4 flex flex-col transition-all duration-300" :class="[isSidebarCollapsed ? 'w-20 items-center' : 'w-64']">
       <div class="text-center mb-10">
         <img src="/favicon.png" alt="Logo Credvix" class="w-12 mx-auto" />
         <h3 v-if="!isSidebarCollapsed" class="text-xl font-bold mt-2">Credvix Admin</h3>
@@ -29,7 +30,12 @@
                 </template>
 
                 <template #item="{ item }">
-                  <ul class="py-2 space-y-2" :class="[isSidebarCollapsed ? 'pl-2' : 'pl-8']">
+                  <ul
+                    class="py-2 space-y-2"
+                    :class="[isSidebarCollapsed ? 'pl-2' : 'pl-8']"
+                    :key="`${menu.label}-${isSidebarCollapsed}`"
+                    @click="isSidebarCollapsed && (isSidebarCollapsed = false)"
+                  >
                     <li v-for="link in item.links" :key="link.to">
                       <NuxtLink :to="link.to" class="nav-link-sub" :title="link.label">
                         <UIcon v-if="link.icon" :name="link.icon" class="text-lg" />
@@ -66,17 +72,17 @@
           <ClientOnly>
             <UButton
               :icon="isDark ? 'i-heroicons-moon-20-solid' : 'i-heroicons-sun-20-solid'"
-              color="green"
+              color="gray" variant="ghost"
               aria-label="Theme"
               @click="isDark = !isDark"
             />
           </ClientOnly>
           <UDropdown :items="profileDropdownItems" :popper="{ placement: 'bottom-end' }">
-            <UButton color="green" class="flex items-center gap-3 p-2">
+            <UButton color="gray" variant="ghost" class="flex items-center gap-3 p-2">
               <UAvatar :src="profile.avatar_url" :alt="profile.nome_completo" size="sm" />
               <div class="text-left hidden sm:block">
                 <p class="text-sm font-medium truncate text-gray-700 dark:text-gray-200">{{ profile.nome_completo }}</p>
-                <p class="text-xs text-black-500 dark:text-gray-400">{{ profile.perfis?.nome }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{{ profile.perfis?.nome }}</p>
               </div>
               <UIcon name="i-heroicons-chevron-down" class="text-gray-400 dark:text-gray-500" />
             </UButton>
@@ -89,6 +95,9 @@
 
       <slot />
     </main>
+    </div>
+    <!-- Ecrã de Carregamento Global -->
+    <LoadingScreen />
   </div>
 </template>
 
@@ -98,6 +107,7 @@ const router = useRouter();
 const route = useRoute();
 import { computed } from 'vue';
 const { profile } = useProfile();
+
 
 // Lógica para o modo escuro (dark mode)
 const colorMode = useColorMode();
@@ -109,6 +119,7 @@ const isDark = computed({
     colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark';
   }
 });
+
 
 // --- LÓGICA DO TÍTULO DA PÁGINA DINÂMICO ---
 const pageTitle = computed(() => {
@@ -129,6 +140,7 @@ const pageTitle = computed(() => {
 });
 
 useHead({ title: pageTitle });
+
 
 // Estado para controlar se o menu está recolhido
 const isSidebarCollapsed = useCookie('sidebar-collapsed', { default: () => false });
