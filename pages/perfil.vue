@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div v-if="profile">
     <header class="mb-8">
       <h1 class="text-primary-500 text-3xl font-bold">Meu Perfil</h1>
     </header>
@@ -38,6 +38,35 @@
           <p v-if="uploadError" class="text-red-500 text-sm mt-2">{{ uploadError }}</p>
         </div>
       </UCard>
+
+      <UCard class="mt-8">
+        <template #header>
+          <h3 class="text-lg font-semibold">Informações de Vínculo</h3>
+        </template>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div v-if="profile.lider">
+            <p class="text-sm font-medium text-gray-500">Líder Direto</p>
+            <p class="font-semibold">{{ profile.lider.nome_completo }}</p>
+          </div>
+          <div v-if="profile.lojas">
+            <p class="text-sm font-medium text-gray-500">Loja</p>
+            <p class="font-semibold">{{ profile.lojas.nome }}</p>
+          </div>
+          <div v-if="profile.lojas?.regionais">
+            <p class="text-sm font-medium text-gray-500">Regional</p>
+            <p class="font-semibold">{{ profile.lojas.regionais.nome_regional }}</p>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-gray-500">Data de Admissão</p>
+            <p class="font-semibold">{{ vinculo ? new Date(vinculo.data_admissao).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Não disponível' }}</p>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-gray-500">Tempo de Empresa</p>
+            <p class="font-semibold">{{ tempoDeEmpresa }}</p>
+          </div>
+        </div>
+      </UCard>
+
     </div>
     <div v-else>
         <p>A carregar perfil...</p>
@@ -46,7 +75,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 const { profile, fetchProfile } = useProfile();
 const client = useSupabaseClient();
@@ -54,6 +83,34 @@ const toast = useToast();
 const user = useSupabaseUser(); // Pega o utilizador autenticado
 const uploading = ref(false);
 const uploadError = ref(null);
+
+// --- BUSCA DO VÍNCULO DE TRABALHO ---
+const { data: vinculo } = await useAsyncData(
+  `vinculo-perfil-${profile.value?.id}`,
+  async () => {
+    if (!profile.value?.id) return null;
+    const { data, error } = await client
+      .from('historico_vinculos')
+      .select('data_admissao')
+      .eq('funcionario_id', profile.value.id)
+      .order('data_admissao', { ascending: false }) // Pega o mais recente
+      .limit(1)
+      .single();
+    if (error && error.code !== 'PGRST116') console.error('Erro ao buscar vínculo:', error);
+    return data;
+  },
+  { watch: [profile] }
+);
+
+// --- CÁLCULO DO TEMPO DE EMPRESA ---
+const tempoDeEmpresa = computed(() => {
+  if (!vinculo.value?.data_admissao) return 'Não disponível';
+  const admissao = new Date(vinculo.value.data_admissao);
+  const hoje = new Date();
+  const diffTime = Math.abs(hoje - admissao);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return `${diffDays} dia(s)`;
+});
 
 const onFileChange = async (event) => {
   const file = event.target.files[0];

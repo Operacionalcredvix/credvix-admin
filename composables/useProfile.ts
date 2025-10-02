@@ -16,7 +16,7 @@ export const useProfile = () => {
     const { data, error } = await client
       .from('funcionarios')
       // CORREÇÃO: Adicionado 'avatar_url' à seleção de campos
-      .select('*, perfis(nome)')
+      .select('*, perfis(nome), lider:gerente_id(nome_completo), lojas(nome, regionais(nome_regional)))')
       .eq('user_id', user.value.id)
       .single();
 
