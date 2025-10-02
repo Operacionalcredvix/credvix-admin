@@ -67,6 +67,28 @@
         </div>
       </UCard>
 
+      <UCard class="mt-8">
+        <template #header>
+          <h3 class="text-lg font-semibold">Histórico de Alocações</h3>
+        </template>
+        <UTable :rows="historicoAlocacoes" :columns="alocacoesColumns"
+          :empty-state="{ icon: 'i-heroicons-archive-box-x-mark', label: 'Nenhum histórico encontrado.' }">
+          <template #perfis-data="{ row }">
+            <span>{{ row.perfis?.nome || 'N/A' }}</span>
+          </template>
+          <template #lojas-data="{ row }">
+            <span>{{ row.lojas?.nome || 'N/A' }}</span>
+          </template>
+          <template #data_inicio-data="{ row }">
+            <span>{{ new Date(row.data_inicio).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) }}</span>
+          </template>
+          <template #data_fim-data="{ row }">
+            <span v-if="row.data_fim">{{ new Date(row.data_fim).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) }}</span>
+            <UBadge v-else color="green" variant="subtle" label="Atual" />
+          </template>
+        </UTable>
+      </UCard>
+
     </div>
     <div v-else>
         <p>A carregar perfil...</p>
@@ -111,6 +133,34 @@ const tempoDeEmpresa = computed(() => {
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   return `${diffDays} dia(s)`;
 });
+
+// --- BUSCA DO HISTÓRICO DE ALOCAÇÕES ---
+const { data: historicoAlocacoes } = await useAsyncData(
+  `historico-alocacoes-${profile.value?.id}`,
+  async () => {
+    if (!profile.value?.id) return [];
+    const { data, error } = await client
+      .from('historico_alocacoes')
+      .select(`id, data_inicio, data_fim, perfis (nome), lojas (nome)`)
+      .eq('funcionario_id', profile.value.id)
+      .order('data_inicio', { ascending: false }); // Mais recentes primeiro
+
+    if (error) {
+      console.error('Erro ao buscar histórico de alocações:', error);
+      return [];
+    }
+    return data;
+  },
+  { watch: [profile] }
+);
+
+// Colunas para a tabela de histórico
+const alocacoesColumns = [
+  { key: 'perfis', label: 'Perfil' },
+  { key: 'lojas', label: 'Loja' },
+  { key: 'data_inicio', label: 'Data de Início' },
+  { key: 'data_fim', label: 'Data de Fim' },
+];
 
 const onFileChange = async (event) => {
   const file = event.target.files[0];
