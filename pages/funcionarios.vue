@@ -205,7 +205,7 @@ const searchTerm = ref('');
 const searchResults = ref([]);
 const searching = ref(false);
 
-const cpfError = ref('');
+const cpfError = ref(''); // Usado para validação de CPF
 const columns = [
   { key: 'nome_completo', label: 'Nome Completo', sortable: true }, { key: 'perfis.nome', label: 'Perfil' },
   { key: 'lojas.nome', label: 'Loja' }, { key: 'is_active', label: 'Status' }, { key: 'actions', label: 'Ações' }
@@ -516,11 +516,57 @@ async function handleFormSubmit() {
     };
 
     if (formData.id) { // --- MODO UPDATE ---
-      // PASSO A: Atualiza a tabela 'funcionarios' com os dados corretos
+      // PASSO A: Buscar os dados atuais do funcionário para comparar alterações de perfil/loja
+      const { data: oldFuncionarioData, error: fetchOldError } = await supabase
+        .from('funcionarios')
+        .select('perfil_id, loja_id')
+        .eq('id', formData.id)
+        .single();
+      if (fetchOldError) throw fetchOldError;
+
+      // PASSO B: Atualiza a tabela 'funcionarios' com os dados corretos
       const { error: funcError } = await supabase.from('funcionarios').update(funcionarioData).eq('id', formData.id);
       if (funcError) throw funcError;
 
-      // PASSO B: Prepara e atualiza a tabela 'historico_vinculos'
+      // PASSO C: Lógica para historico_alocacoes (se perfil ou loja mudaram)
+      const perfilChanged = oldFuncionarioData.perfil_id !== formData.perfil_id;
+      const lojaChanged = oldFuncionarioData.loja_id !== formData.loja_id;
+
+      if (perfilChanged || lojaChanged) {
+        // Buscar a alocação ativa atual para definir sua data_fim
+        const { data: currentActiveAllocation, error: allocError } = await supabase
+          .from('historico_alocacoes')
+          .select('id')
+          .eq('funcionario_id', formData.id)
+          .is('data_fim', null)
+          .single();
+        // PGRST116 significa "nenhum registo encontrado", o que é normal se não houver alocação ativa
+        if (allocError && allocError.code !== 'PGRST116') throw allocError;
+
+        // Se houver uma alocação ativa, define sua data de fim para o dia anterior
+        if (currentActiveAllocation) {
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          const { error: updateAllocError } = await supabase
+            .from('historico_alocacoes')
+            .update({ data_fim: yesterday.toISOString().split('T')[0] })
+            .eq('id', currentActiveAllocation.id);
+          if (updateAllocError) throw updateAllocError;
+        }
+
+        // Insere um novo registo de alocação com os novos dados
+        const { error: newAllocError } = await supabase
+          .from('historico_alocacoes')
+          .insert({
+            funcionario_id: formData.id,
+            perfil_id: formData.perfil_id,
+            loja_id: formData.loja_id,
+            data_inicio: new Date().toISOString().split('T')[0] // Data de hoje
+          });
+        if (newAllocError) throw newAllocError;
+      }
+
+      // PASSO D: Prepara e atualiza a tabela 'historico_vinculos'
       const vinculoData = {
         data_admissao: formData.data_admissao,
         data_saida: formData.data_saida
@@ -559,6 +605,17 @@ async function handleFormSubmit() {
       };
       const { error: vincError } = await supabase.from('historico_vinculos').insert(vinculoData);
       if (vincError) throw vincError;
+
+      // PASSO D: Cria o registo inicial de alocação na tabela 'historico_alocacoes'
+      const { error: allocError } = await supabase
+        .from('historico_alocacoes')
+        .insert({
+          funcionario_id: novoFuncionario.id,
+          perfil_id: formData.perfil_id,
+          loja_id: formData.loja_id,
+          data_inicio: formData.data_admissao // Usa a data de admissão como data de início da primeira alocação
+        });
+      if (allocError) throw allocError;
 
       toast.add({ title: 'Sucesso!', description: 'Funcionário cadastrado e convite enviado por e-mail.' });
     }
