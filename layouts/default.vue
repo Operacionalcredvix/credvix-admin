@@ -31,8 +31,9 @@
                 <template #item="{ item }">
                   <ul class="py-2 space-y-2" :class="[isSidebarCollapsed ? 'pl-2' : 'pl-8']">
                     <li v-for="link in item.links" :key="link.to">
-                      <NuxtLink :to="link.to" class="nav-link-sub">
-                        {{ link.label }}
+                      <NuxtLink :to="link.to" class="nav-link-sub" :title="link.label">
+                        <UIcon v-if="link.icon" :name="link.icon" class="text-lg" />
+                        <span v-if="!isSidebarCollapsed">{{ link.label }}</span>
                       </NuxtLink>
                     </li>
                   </ul>
@@ -83,6 +84,9 @@
         </div>
       </header>
 
+      <!-- Breadcrumb -->
+      <UBreadcrumb :links="breadcrumbItems" class="mb-8" />
+
       <slot />
     </main>
   </div>
@@ -91,6 +95,7 @@
 <script setup>
 const supabase = useSupabaseClient();
 const router = useRouter();
+const route = useRoute();
 import { computed } from 'vue';
 const { profile } = useProfile();
 
@@ -105,6 +110,26 @@ const isDark = computed({
   }
 });
 
+// --- LÓGICA DO TÍTULO DA PÁGINA DINÂMICO ---
+const pageTitle = computed(() => {
+  const baseTitle = 'Credvix Admin';
+  const currentPath = route.path;
+
+  // Lista de todas as rotas com seus títulos
+  const allLinks = [
+    { to: '/', label: 'Dashboard' },
+    { to: '/perfil', label: 'Meu Perfil' },
+    { to: '/auditoria', label: 'Auditoria' },
+    ...menuItems.flatMap(menu => menu.links || [])
+  ];
+
+  const matchedLink = allLinks.find(link => link.to === currentPath);
+
+  return matchedLink ? `${matchedLink.label} | ${baseTitle}` : baseTitle;
+});
+
+useHead({ title: pageTitle });
+
 // Estado para controlar se o menu está recolhido
 const isSidebarCollapsed = useCookie('sidebar-collapsed', { default: () => false });
 
@@ -116,10 +141,9 @@ const menuItems = [
     defaultOpen: true, // Para o menu começar aberto
     slot: 'item',
     links: [
-      { label: 'Regionais', to: '/cadastros/regionais' },
-      { label: 'Funcionários', to: '/funcionarios' },
-      { label: 'Lojas', to: '/lojas' }
-
+      { label: 'Regionais', to: '/cadastros/regionais', icon: 'i-heroicons-map-pin' },
+      { label: 'Funcionários', to: '/funcionarios', icon: 'i-heroicons-users' },
+      { label: 'Lojas', to: '/lojas', icon: 'i-heroicons-building-storefront' }
     ]
   },
   {
@@ -127,8 +151,8 @@ const menuItems = [
     icon: 'i-heroicons-briefcase',
     slot: 'item',
     links: [
-      { label: 'Vagas', to: '/rh/vagas' },
-      { label: 'Currículos', to: '/rh/curriculos' }
+      { label: 'Vagas', to: '/rh/vagas', icon: 'i-heroicons-megaphone' },
+      { label: 'Currículos', to: '/rh/curriculos', icon: 'i-heroicons-document-text' }
       // Futuramente: Relatórios de RH, etc.
     ]
   },
@@ -137,15 +161,79 @@ const menuItems = [
     icon: 'i-heroicons-banknotes',
     slot: 'item',
     links: [
-      { label: 'Clientes', to: '/backoffice/clientes' },
-      { label: 'Contratos', to: '/backoffice/contratos' },
-      { label: 'Bancos', to: '/cadastros/bancos' },
-      { label: 'Produtos', to: '/cadastros/produtos' },
-      { label: 'Bancos e Tabelas', to: '/cadastros/banco-tabelas' }
+      { label: 'Clientes', to: '/backoffice/clientes', icon: 'i-heroicons-user-group' },
+      { label: 'Contratos', to: '/backoffice/contratos', icon: 'i-heroicons-document-chart-bar' },
+      { label: 'Bancos', to: '/cadastros/bancos', icon: 'i-heroicons-building-library' },
+      { label: 'Produtos', to: '/cadastros/produtos', icon: 'i-heroicons-shopping-bag' },
+      { label: 'Bancos e Tabelas', to: '/cadastros/banco-tabelas', icon: 'i-heroicons-table-cells' }
       // Futuramente: Metas, Produtos, Bancos, etc.
     ]
   }
 ];
+
+// --- LÓGICA DO BREADCRUMB DINÂMICO ---
+const breadcrumbItems = computed(() => {
+  const items = [{ label: 'Dashboard', to: '/' }];
+  const currentPath = route.path;
+
+  // 1. Lidar com páginas de nível superior que não estão aninhadas nos menuItems
+  if (currentPath === '/perfil') {
+    items.push({ label: 'Meu Perfil', to: '/perfil' });
+    return items;
+  }
+  if (currentPath === '/auditoria') {
+    items.push({ label: 'Auditoria', to: '/auditoria' });
+    return items;
+  }
+
+  let matchedMainMenu = null;
+  let matchedSubMenuLink = null;
+
+  // 2. Iterar sobre os itens do menu principal para encontrar uma correspondência
+  for (const menu of menuItems) {
+    // Verificar se o caminho atual corresponde exatamente a um link de submenu
+    const exactSubmenuMatch = menu.links?.find(link => link.to === currentPath);
+    if (exactSubmenuMatch) {
+      matchedMainMenu = menu;
+      matchedSubMenuLink = exactSubmenuMatch;
+      break;
+    }
+
+    // Verificar se o caminho atual é um sub-caminho de algum link de submenu (para rotas dinâmicas)
+    // Ex: /backoffice/contratos/editar/123 deve corresponder a /backoffice/contratos
+    const potentialParentLink = menu.links?.find(link =>
+      currentPath.startsWith(link.to + '/') && link.to !== '/'
+    );
+    if (potentialParentLink) {
+      matchedMainMenu = menu;
+      matchedSubMenuLink = potentialParentLink;
+      break;
+    }
+  }
+
+  if (matchedMainMenu) {
+    // Adicionar o item do menu principal ao breadcrumb
+    // O 'to' aponta para o primeiro link do submenu como ponto de entrada da seção
+    items.push({ label: matchedMainMenu.label, to: matchedMainMenu.links[0].to });
+
+    if (matchedSubMenuLink) {
+      // Adicionar o item do submenu ao breadcrumb
+      items.push({ label: matchedSubMenuLink.label, to: matchedSubMenuLink.to });
+
+      // Se for uma rota dinâmica, adicionar a parte dinâmica
+      if (currentPath.startsWith(matchedSubMenuLink.to + '/') && currentPath !== matchedSubMenuLink.to) {
+        const remainingPath = currentPath.substring(matchedSubMenuLink.to.length); // Ex: "/editar/123"
+        const segments = remainingPath.split('/').filter(Boolean); // Ex: ["editar", "123"]
+
+        if (segments.length > 0 && segments[0] === 'editar' && route.params.id) {
+          items.push({ label: `Editar Contrato #${route.params.id}`, to: currentPath });
+        }
+      }
+    }
+  }
+
+  return items;
+});
 
 // NOVO: Itens para o dropdown do perfil
 const profileDropdownItems = [
@@ -207,7 +295,7 @@ const handleLogout = async () => {
 }
 
 .nav-link-sub {
-  @apply flex items-center text-sm px-4 py-1.5 rounded-lg hover:bg-gray-700 transition-colors text-gray-300;
+  @apply flex items-center gap-3 text-sm px-4 py-1.5 rounded-lg hover:bg-gray-700 transition-colors text-gray-300;
 }
 
 .nav-link-sub.router-link-exact-active {
