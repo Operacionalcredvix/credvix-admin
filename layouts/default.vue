@@ -1,5 +1,7 @@
 <template>
   <div>
+    <!-- Barra de Progresso de Navegação -->
+    <NuxtLoadingIndicator color="repeating-linear-gradient(to right, #0ea5e9 0%, #2563eb 50%, #0ea5e9 100%)" />
     <div class="flex h-screen bg-gray-100 dark:bg-gray-900">
       <aside class="flex-shrink-0 bg-gray-800 text-white p-4 flex flex-col transition-all duration-300" :class="[isSidebarCollapsed ? 'w-20 items-center' : 'w-64']">
       <div class="text-center mb-10">

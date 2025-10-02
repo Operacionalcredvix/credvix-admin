@@ -228,6 +228,7 @@ const meuPerfil = ref(null);
 // CARREGAMENTO INICIAL DE DADOS (AGORA INCLUI O PERFIL DO UTILIZADOR LOGADO)
 const { data: initialData } = await useAsyncData('funcionarios-form-data', async () => {
   const user = useSupabaseUser();
+  if (!user.value?.id) return { perfis: [], regionais: [], lojas: [], meuPerfil: null }; // CORREÇÃO: Retorna um valor padrão se o utilizador não estiver pronto
   const [perfisRes, regionaisRes, lojasRes, meuPerfilRes] = await Promise.all([
     supabase.from('perfis').select('id, nome').order('nome'),
     supabase.from('regionais').select('id, nome_regional, coordenador_id').order('nome_regional'),

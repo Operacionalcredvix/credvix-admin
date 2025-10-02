@@ -163,7 +163,7 @@ const handlePasswordUpdate = async () => {
 const { data: vinculo } = await useAsyncData(
   `vinculo-perfil-${profile.value?.id}`,
   async () => {
-    if (!profile.value?.id) return null;
+    if (!profile.value?.id) return {}; // CORREÇÃO: Retorna um objeto vazio em vez de null
     const { data, error } = await client
       .from('historico_vinculos')
       .select('data_admissao')
@@ -225,9 +225,9 @@ const onFileChange = async (event) => {
 
   try {
     const fileExt = file.name.split('.').pop();
-    // CORREÇÃO 2: O nome do ficheiro agora é o ID do utilizador (mais seguro)
-    const fileName = `${user.value.id}.${fileExt}`;
-    // O caminho inclui o ID do utilizador como "pasta" para corresponder à policy
+    // CORREÇÃO: O nome do ficheiro pode ser aleatório para evitar problemas de cache.
+    // O importante é que ele esteja dentro da pasta com o ID do utilizador.
+    const fileName = `${Math.random()}.${fileExt}`;
     const filePath = `${user.value.id}/${fileName}`;
 
     // Faz o upload para o bucket 'avatars'
@@ -242,7 +242,7 @@ const onFileChange = async (event) => {
 
     // Obtém o URL público da nova imagem
     const { data } = client.storage.from('avatars').getPublicUrl(filePath);
-    const publicUrl = data.publicUrl;
+    const publicUrl = `${data.publicUrl}?t=${new Date().getTime()}`;
 
     // Atualiza a tabela 'funcionarios' com o novo URL
     const { error: updateErr } = await client
