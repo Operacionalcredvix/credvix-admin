@@ -36,7 +36,7 @@
                     class="py-2 space-y-2"
                     :class="[isSidebarCollapsed ? 'pl-2' : 'pl-8']"
                     :key="`${menu.label}-${isSidebarCollapsed}`"
-                    @click="isSidebarCollapsed && (isSidebarCollapsed = false)"
+                    @click="isSidebarCollapsed && (isSidebarCollapsed.value = false)"
                   >
                     <li v-for="link in item.links" :key="link.to">
                       <NuxtLink :to="link.to" class="nav-link-sub" :title="link.label">

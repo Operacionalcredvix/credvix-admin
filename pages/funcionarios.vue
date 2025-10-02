@@ -244,17 +244,19 @@ if (initialData.value) {
   todasLojas.value = initialData.value.lojas || [];
   meuPerfil.value = initialData.value.meuPerfil || null;
 
-  // --- LÓGICA DE PRÉ-SELEÇÃO PARA GESTORES ---
-  const userProfileName = meuPerfil.value?.perfis?.nome;
-  if (userProfileName === 'Coordenador') {
-    // Um coordenador está ligado a uma regional. Pré-seleciona a regional.
-    const { data: minhaRegional } = await supabase.from('regionais').select('id').eq('coordenador_id', meuPerfil.value.id).single();
-    if (minhaRegional) formData.regional_id = minhaRegional.id;
-  } else if (userProfileName === 'Supervisor') {
-    // Um supervisor está ligado a uma loja. Pré-seleciona a regional e a loja.
-    formData.regional_id = meuPerfil.value?.lojas?.regional_id;
-    formData.loja_id = meuPerfil.value?.lojas?.id;
-  }
+  onMounted(async () => {
+    // --- LÓGICA DE PRÉ-SELEÇÃO PARA GESTORES ---
+    const userProfileName = meuPerfil.value?.perfis?.nome;
+    if (userProfileName === 'Coordenador') {
+      // Um coordenador está ligado a uma regional. Pré-seleciona a regional.
+      const { data: minhaRegional } = await supabase.from('regionais').select('id').eq('coordenador_id', meuPerfil.value.id).single();
+      if (minhaRegional) formData.regional_id = minhaRegional.id;
+    } else if (userProfileName === 'Supervisor') {
+      // Um supervisor está ligado a uma loja. Pré-seleciona a regional e a loja.
+      formData.regional_id = meuPerfil.value?.lojas?.regional_id;
+      formData.loja_id = meuPerfil.value?.lojas?.id;
+    }
+  });
 }
 
 // LÓGICA DE BUSCA
