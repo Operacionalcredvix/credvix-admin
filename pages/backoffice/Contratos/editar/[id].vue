@@ -131,7 +131,7 @@ const formData = reactive({
   valor_parcela: null, prazo: null, tabela: null, numero_beneficio: null,
   data_pagamento: null, motivo_status: null, adesao: null
 });
-const statusOptions = ['Em Análise', 'Aprovado', 'Reprovado', 'Pendente', 'Pago', 'Cancelado'];
+const statusOptions = ['Em Análise', 'Reprovado', 'Pendente', 'Pago', 'Cancelado'];
 
 // --- CARREGAMENTO DE DADOS DO CONTRATO PARA EDIÇÃO ---
 const { data: contrato, pending } = await useAsyncData(`contrato-${contractId}`, async () => {

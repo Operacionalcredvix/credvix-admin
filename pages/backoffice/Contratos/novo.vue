@@ -130,7 +130,7 @@ const formData = reactive({
   motivo_status: null,
   adesao: null
 });
-const statusOptions = ['Em Análise', 'Aprovado', 'Reprovado', 'Pendente', 'Pago', 'Cancelado'];
+const statusOptions = ['Em Análise', 'Reprovado', 'Pendente', 'Pago', 'Cancelado'];
 
 
 // --- CARREGAMENTO DE DADOS ---
