@@ -1,36 +1,41 @@
 <template>
   <div>
     <header class="mb-8">
-      <h1 class=" text-primary-500 text-3xl font-bold">Dashboard de Produção</h1>
+      <h1 class="text-primary-500 text-3xl font-bold">Dashboard de Produção</h1>
       <p class="mt-1 text-gray-500">
         Olá, {{ profile?.nome_completo }}! Aqui está um resumo da atividade.
       </p>
     </header>
 
     <UCard class="mb-8">
-      <div class="flex items-center gap-4">
-        <UFormGroup label="Período de:" name="startDate">
-          <UInput type="date" v-model="startDate" />
+      <div class="flex flex-wrap items-center gap-4">
+        <UFormGroup label="Período de:" name="startDate" class="flex-grow">
+          <UInput type="date" v-model="dateRange.start" />
         </UFormGroup>
-        <UFormGroup label="Até:" name="endDate">
-          <UInput type="date" v-model="endDate" />
+        <UFormGroup label="Até:" name="endDate" class="flex-grow">
+          <UInput type="date" v-model="dateRange.end" />
         </UFormGroup>
-        <div class="pt-6">
-          <UButton @click="resetDateFilter" label="Mês Atual" color="gray" variant="ghost" />
+        <div class="pt-6 flex gap-2">
+          <UButton @click="setDateRange('current_month')" label="Mês Atual" color="gray" variant="ghost" />
+          <UButton @click="setDateRange('last_30_days')" label="Últimos 30 dias" color="gray" variant="ghost" />
         </div>
       </div>
     </UCard>
 
-    <div v-if="pending" class="text-center text-gray-500">A carregar dados do dashboard...</div>
-    
+    <div v-if="pending" class="text-center py-10 text-gray-500">
+      <UIcon name="i-heroicons-arrow-path" class="text-2xl animate-spin" />
+      <p>A carregar dados do dashboard...</p>
+    </div>
+
     <div v-else>
+      <!-- Cards de Estatísticas -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <UCard>
           <div class="flex items-center gap-4">
             <UIcon name="i-heroicons-document-text" class="text-3xl text-primary-500" />
             <div>
               <p class="text-sm text-gray-500">Contratos Totais</p>
-              <p class="text-2xl font-bold">{{ stats.totalContratos }}</p>
+              <p class="text-2xl font-bold">{{ stats.total }}</p>
             </div>
           </div>
         </UCard>
@@ -39,7 +44,7 @@
             <UIcon name="i-heroicons-check-circle" class="text-3xl text-green-500" />
             <div>
               <p class="text-sm text-gray-500">Contratos Pagos</p>
-              <p class="text-2xl font-bold">{{ stats.contratosPagos }}</p>
+              <p class="text-2xl font-bold">{{ stats.pagos }}</p>
             </div>
           </div>
         </UCard>
@@ -48,44 +53,51 @@
             <UIcon name="i-heroicons-clock" class="text-3xl text-amber-500" />
             <div>
               <p class="text-sm text-gray-500">Contratos Pendentes</p>
-              <p class="text-2xl font-bold">{{ stats.contratosPendentes }}</p>
+              <p class="text-2xl font-bold">{{ stats.pendentes }}</p>
             </div>
           </div>
         </UCard>
-        
         <UCard>
           <div class="flex items-center gap-4">
             <UIcon name="i-heroicons-x-circle" class="text-3xl text-red-500" />
             <div>
               <p class="text-sm text-gray-500">Contratos Cancelados</p>
-              <p class="text-2xl font-bold">{{ stats.contratosCancelados }}</p>
+              <p class="text-2xl font-bold">{{ stats.cancelados }}</p>
             </div>
           </div>
         </UCard>
-        
         <UCard>
           <div class="flex items-center gap-4">
             <UIcon name="i-heroicons-banknotes" class="text-3xl text-green-400" />
             <div>
               <p class="text-sm text-gray-500">Valor Total Pago</p>
-              <p class="text-2xl font-bold">{{ formatCurrency(stats.valorTotalPago) }}</p>
+              <p class="text-2xl font-bold">{{ formatCurrency(stats.valorTotal) }}</p>
             </div>
           </div>
         </UCard>
       </div>
-      
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+      <!-- Gráficos -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <UCard>
           <template #header><h3 class="font-semibold">Contratos por Status</h3></template>
-          <div v-if="chartData.status.labels.length > 0">
+          <div v-if="hasData" class="h-80">
             <Doughnut :data="chartData.status" :options="chartOptions" />
           </div>
           <p v-else class="text-center text-gray-500">Sem dados para exibir no período selecionado.</p>
         </UCard>
         
-        <UCard>
+        <UCard class="lg:col-span-2">
+          <template #header><h3 class="font-semibold">Top 10 Lojas por Contrato</h3></template>
+          <div v-if="hasData" class="h-80">
+            <Bar :data="chartData.lojas" :options="chartOptions" />
+          </div>
+          <p v-else class="text-center text-gray-500">Sem dados para exibir no período selecionado.</p>
+        </UCard>
+        
+        <UCard class="lg:col-span-3">
           <template #header><h3 class="font-semibold">Contratos por Produto</h3></template>
-          <div v-if="chartData.produtos.labels.length > 0">
+          <div v-if="hasData" class="h-80">
             <Bar :data="chartData.produtos" :options="chartOptions" />
           </div>
           <p v-else class="text-center text-gray-500">Sem dados para exibir no período selecionado.</p>
@@ -96,6 +108,7 @@
 </template>
 
 <script setup>
+import { ref, reactive, computed } from 'vue';
 import { Bar, Doughnut } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement } from 'chart.js';
 
@@ -105,50 +118,49 @@ const supabase = useSupabaseClient();
 const { profile } = useProfile();
 
 // --- LÓGICA DE DATAS ---
-const getFormattedDate = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+const dateRange = reactive({ start: '', end: '' });
 
-const getInitialDates = () => {
+const setDateRange = (period) => {
   const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return {
-    start: getFormattedDate(firstDay),
-    end: getFormattedDate(lastDay)
-  };
+  let startDate, endDate = now;
+
+  if (period === 'current_month') {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else if (period === 'last_30_days') {
+    startDate = new Date();
+    startDate.setDate(now.getDate() - 30);
+  }
+
+  dateRange.start = startDate.toISOString().split('T')[0];
+  dateRange.end = endDate.toISOString().split('T')[0];
 };
 
-const startDate = ref(getInitialDates().start);
-const endDate = ref(getInitialDates().end);
-
-const resetDateFilter = () => {
-  const { start, end } = getInitialDates();
-  startDate.value = start;
-  endDate.value = end;
-};
-
+// Define o período inicial como o mês atual
+setDateRange('current_month');
 
 // --- BUSCA DE DADOS COM FILTRO DE DATA E PERMISSÃO ---
 const { data: contratos, pending } = useAsyncData(
-  `dashboard-contratos-${profile.value?.id}`, 
+  'dashboard-contratos',
   async () => {
     if (!profile.value?.id) return [];
 
     let query = supabase
       .from('contratos')
-      .select('status, valor_total, loja_id, consultor_id, produtos(nome)');
-      
+      .select('status, valor_total, loja_id, consultor_id, produtos(nome), lojas(nome, regional_id)');
+
     const userProfileName = profile.value.perfis?.nome;
     switch (userProfileName) {
       case 'Coordenador': {
-        const { data: lojasDaRegional } = await supabase.from('lojas').select('id').eq('regional_id', profile.value.regional_id);
+        // Busca as regionais associadas ao coordenador
+        const { data: minhasRegionais } = await supabase.from('regionais').select('id').eq('coordenador_id', profile.value.id);
+        const idsRegionais = minhasRegionais?.map(r => r.id) || [];
+        if (idsRegionais.length === 0) return [];
+
+        // Busca as lojas dessas regionais
+        const { data: lojasDaRegional } = await supabase.from('lojas').select('id').in('regional_id', idsRegionais);
         const idsLojas = lojasDaRegional?.map(l => l.id) || [];
-        if (idsLojas.length > 0) query = query.in('loja_id', idsLojas);
-        else return []; 
+        if (idsLojas.length === 0) return [];
+        query = query.in('loja_id', idsLojas);
         break;
       }
       case 'Supervisor':
@@ -160,73 +172,89 @@ const { data: contratos, pending } = useAsyncData(
     }
 
     // Adiciona o filtro de data à consulta
-    if (startDate.value) query = query.gte('data_contrato', startDate.value);
-    if (endDate.value) query = query.lte('data_contrato', endDate.value);
+    if (dateRange.start) query = query.gte('data_contrato', dateRange.start);
+    if (dateRange.end) query = query.lte('data_contrato', dateRange.end);
 
     const { data } = await query;
     return data || [];
   },
   {
     // Re-executa a busca quando o perfil ou as datas mudarem
-    watch: [profile, startDate, endDate]
+    watch: [profile, dateRange]
   }
 );
 
-
 // --- CÁLCULOS PARA AS ESTATÍSTICAS E GRÁFICOS ---
+const hasData = computed(() => contratos.value && contratos.value.length > 0);
+
 const stats = computed(() => {
-  if (!contratos.value || contratos.value.length === 0) {
-    return { totalContratos: 0, contratosPagos: 0, contratosPendentes: 0, contratosCancelados: 0, valorTotalPago: 0 };
-  }
-  const pagos = contratos.value.filter(c => c.status === 'Pago');
-  const pendentes = contratos.value.filter(c => c.status === 'Pendente' || c.status === 'Em Análise');
-  const cancelados = contratos.value.filter(c => c.status === 'Cancelado' || c.status === 'Reprovado');
+  if (!hasData.value) return { total: 0, pagos: 0, pendentes: 0, cancelados: 0, valorTotal: 0 };
+
+  const statusPagos = ['Pago', 'Aprovado'];
+  const statusPendentes = ['Pendente', 'Em Análise'];
+  const statusCancelados = ['Cancelado', 'Reprovado'];
 
   return {
-    totalContratos: contratos.value.length,
-    contratosPagos: pagos.length,
-    contratosPendentes: pendentes.length,
-    contratosCancelados: cancelados.length,
-    valorTotalPago: pagos.reduce((sum, c) => sum + (c.valor_total || 0), 0)
+    total: contratos.value.length,
+    pagos: contratos.value.filter(c => statusPagos.includes(c.status)).length,
+    pendentes: contratos.value.filter(c => statusPendentes.includes(c.status)).length,
+    cancelados: contratos.value.filter(c => statusCancelados.includes(c.status)).length,
+    valorTotal: contratos.value
+      .filter(c => statusPagos.includes(c.status))
+      .reduce((sum, c) => sum + (c.valor_total || 0), 0)
   };
 });
 
 const chartData = computed(() => {
-    if (!contratos.value || contratos.value.length === 0) {
-      return { status: { labels: [], datasets: [] }, produtos: { labels: [], datasets: [] } };
+  if (!hasData.value) return { status: { labels: [], datasets: [] }, produtos: { labels: [], datasets: [] }, lojas: { labels: [], datasets: [] } };
+
+  const statusCounts = contratos.value.reduce((acc, c) => {
+    acc[c.status] = (acc[c.status] || 0) + 1;
+    return acc;
+  }, {});
+
+  const lojasCounts = contratos.value.reduce((acc, c) => {
+    const nomeLoja = c.lojas?.nome || 'Loja não identificada';
+    acc[nomeLoja] = (acc[nomeLoja] || 0) + 1;
+    return acc;
+  }, {});
+  const top10Lojas = Object.entries(lojasCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+  const produtosCounts = contratos.value.reduce((acc, c) => {
+    const nomeProduto = c.produtos?.nome || 'Não identificado';
+    acc[nomeProduto] = (acc[nomeProduto] || 0) + 1;
+    return acc;
+  }, {});
+
+  // Paleta de cores para os produtos. Se houver mais produtos que cores, elas se repetirão.
+  const productColors = [
+    '#3b82f6', '#22c55e', '#ef4444', '#eab308', '#8b5cf6',
+    '#f97316', '#14b8a6', '#ec4899', '#64748b', '#d946ef'
+  ];
+  const produtosBackgroundColors = Object.keys(produtosCounts).map((_, index) => productColors[index % productColors.length]);
+
+  const statusLabels = Object.keys(statusCounts);
+  const statusColors = statusLabels.map(label => {
+    if (['Pago', 'Aprovado'].includes(label)) return '#10b981'; // Verde
+    if (['Pendente', 'Em Análise'].includes(label)) return '#f59e0b'; // Ambar
+    if (['Cancelado', 'Reprovado'].includes(label)) return '#ef4444'; // Vermelho
+    return '#6b7280'; // Cinza
+  });
+
+  return {
+    status: {
+      labels: statusLabels,
+      datasets: [{ backgroundColor: statusColors, data: Object.values(statusCounts) }]
+    },
+    lojas: {
+      labels: top10Lojas.map(item => item[0]),
+      datasets: [{ label: 'Quantidade de Contratos', backgroundColor: '#8b5cf6', data: top10Lojas.map(item => item[1]) }]
+    },
+    produtos: {
+      labels: Object.keys(produtosCounts),
+      datasets: [{ label: 'Quantidade de Contratos', backgroundColor: produtosBackgroundColors, data: Object.values(produtosCounts) }]
     }
-    
-    const statusCounts = contratos.value.reduce((acc, c) => {
-        acc[c.status] = (acc[c.status] || 0) + 1;
-        return acc;
-    }, {});
-    
-    const produtosCounts = contratos.value.reduce((acc, c) => {
-        const nomeProduto = c.produtos?.nome || 'Não identificado';
-        acc[nomeProduto] = (acc[nomeProduto] || 0) + 1;
-        return acc;
-    }, {});
-
-    const statusLabels = Object.keys(statusCounts);
-    const statusColors = statusLabels.map(label => {
-        switch (label) {
-            case 'Pago': case 'Aprovado': return '#10b981'; // Verde
-            case 'Pendente': case 'Em Análise': return '#f59e0b'; // Ambar
-            case 'Cancelado': case 'Reprovado': return '#ef4444'; // Vermelho
-            default: return '#6b7280'; // Cinza
-        }
-    });
-
-    return {
-        status: {
-            labels: statusLabels,
-            datasets: [{ backgroundColor: statusColors, data: Object.values(statusCounts) }]
-        },
-        produtos: {
-            labels: Object.keys(produtosCounts),
-            datasets: [{ label: 'Quantidade de Contratos', backgroundColor: '#f97316', data: Object.values(produtosCounts) }]
-        }
-    };
+  };
 });
 
 const chartOptions = {

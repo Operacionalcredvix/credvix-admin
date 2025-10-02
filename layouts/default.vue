@@ -293,7 +293,8 @@ const handleLogout = async () => {
     console.error('Erro ao fazer logout:', error);
     return;
   }
-  router.push('/login');
+  // Força um recarregamento completo para a página de login para limpar todo o estado.
+  window.location.href = '/login';
 };
 </script>
 
