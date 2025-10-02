@@ -94,6 +94,7 @@ import { ref, computed, watch, watchEffect } from 'vue';
 
 const supabase = useSupabaseClient();
 const { profile } = useProfile();
+const route = useRoute();
 
 // --- ESTADO DOS FILTROS E PAGINAÇÃO ---
 const selectedStatus = ref(null);
@@ -113,6 +114,12 @@ const columns = [
   { key: 'data_contrato', label: 'Data' }, { key: 'valor_total', label: 'Valor Total' },
   { key: 'status', label: 'Status' }, { key: 'actions', label: 'Ações' }
 ];
+
+// --- LÓGICA PARA FILTRO VIA URL ---
+const { data: todosClientes } = await useAsyncData('todosClientes', () => supabase.from('clientes').select('id, nome_completo').order('nome_completo').then(res => res.data));
+const selectedCliente = ref(route.query.cliente_id ? parseInt(route.query.cliente_id) : null);
+const clienteSearchTerm = ref(route.query.cliente_id ? todosClientes.value?.find(c => c.id === selectedCliente.value)?.nome_completo : '');
+
 
 // --- CARREGAMENTO DE DADOS PARA DROPDOWNS ---
 const { data: todasLojas } = await useAsyncData('todasLojas', () => supabase.from('lojas').select('id, nome, regional_id').order('nome').then(res => res.data));
@@ -224,6 +231,7 @@ const { data: contratos, pending, refresh } = useAsyncData(
     // Aplicar filtros da UI
     if (selectedStatus.value) { query = query.eq('status', selectedStatus.value); totalQuery = totalQuery.eq('status', selectedStatus.value); }
     if (selectedLoja.value) { query = query.eq('loja_id', selectedLoja.value); totalQuery = totalQuery.eq('loja_id', selectedLoja.value); }
+    if (selectedCliente.value) { query = query.eq('cliente_id', selectedCliente.value); totalQuery = totalQuery.eq('cliente_id', selectedCliente.value); }
     if (selectedConsultor.value) { query = query.eq('consultor_id', selectedConsultor.value); totalQuery = totalQuery.eq('consultor_id', selectedConsultor.value); }
     if (startDate.value) { query = query.gte('data_contrato', startDate.value); totalQuery = totalQuery.gte('data_contrato', startDate.value); }
     if (endDate.value) { query = query.lte('data_contrato', endDate.value); totalQuery = totalQuery.lte('data_contrato', endDate.value); }
@@ -246,7 +254,7 @@ const { data: contratos, pending, refresh } = useAsyncData(
     
     return data;
   }, {
-    watch: [page, selectedStatus, selectedLoja, selectedConsultor, startDate, endDate, profile]
+    watch: [page, selectedStatus, selectedLoja, selectedConsultor, selectedCliente, startDate, endDate, profile]
   }
 );
 

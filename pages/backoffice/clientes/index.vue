@@ -9,14 +9,32 @@
 
     <UCard>
       <template #header>
-        <UInput v-model="searchTerm" placeholder="Filtrar por nome ou CPF..." icon="i-heroicons-magnifying-glass" />
+        <div class="flex justify-between items-center gap-4">
+          <UInput v-model="searchTerm" placeholder="Filtrar por nome ou CPF..." icon="i-heroicons-magnifying-glass" class="flex-grow" />
+          <UDropdown :items="exportOptions" :ui="{ item: { disabled: 'cursor-not-allowed opacity-50' } }">
+            <UButton color="gray" label="Exportar" icon="i-heroicons-document-arrow-down" trailing-icon="i-heroicons-chevron-down-20-solid" :loading="exporting" />
+          </UDropdown>
+        </div>
       </template>
       <UTable :rows="clientes || []" :columns="columns" :loading="pending">
         <template #actions-data="{ row }">
           <UButton icon="i-heroicons-pencil" size="sm" color="gray" variant="ghost" @click="openModal(row)" />
-          <UButton icon="i-heroicons-eye" size="sm" color="gray" variant="ghost" :to="`/clientes/${row.id}`" />
+          <UButton icon="i-heroicons-eye" size="sm" color="gray" variant="ghost" :to="`/backoffice/clientes/${row.id}`" />
+        </template>
+
+        <template #contratos-data="{ row }">
+          <NuxtLink :to="`/backoffice/contratos?cliente_id=${row.id}`">
+            <UBadge :label="row.contratos[0]?.count || 0" variant="subtle"
+              class="cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700" />
+          </NuxtLink>
         </template>
       </UTable>
+
+      <template #footer>
+        <div class="flex justify-end">
+          <UPagination v-model="page" :page-count="pageCount" :total="totalClients" />
+        </div>
+      </template>
     </UCard>
     <!-- Modal de Criação/Edição -->
     <USlideover v-model="isModalOpen" :ui="{ width: 'sm:max-w-2xl' }">
@@ -147,8 +165,12 @@ const saving = ref(false);
 const cepLoading = ref(false);
 const searchTerm = ref('');
 const cpfError = ref('');
-const clientes = ref([]); // Onde guardaremos os clientes exibidos
-const pending = ref(true); // Para o estado de carregamento da tabela
+const exporting = ref(false);
+
+// --- ESTADO DA PAGINAÇÃO ---
+const page = ref(1);
+const pageCount = ref(15);
+const totalClients = ref(0);
 
 const getInitialFormData = () => ({
   id: null,
@@ -171,80 +193,72 @@ const getInitialFormData = () => ({
 const formData = reactive(getInitialFormData());
 
 // --- LÓGICA DE FORMATAÇÃO (MÁSCARAS) ---
-watch(() => formData.cpf, (newCpf) => {
-  if (typeof newCpf !== 'string') return;
-  const cleaned = newCpf.replace(/\D/g, '').slice(0, 11);
-  let formatted = cleaned;
-  if (cleaned.length > 9) {
-    formatted = `${cleaned.slice(0, 3)}.${cleaned.slice(3, 6)}.${cleaned.slice(6, 9)}-${cleaned.slice(9)}`;
-  } else if (cleaned.length > 6) {
-    formatted = `${cleaned.slice(0, 3)}.${cleaned.slice(3, 6)}.${cleaned.slice(6)}`;
-  } else if (cleaned.length > 3) {
-    formatted = `${cleaned.slice(0, 3)}.${cleaned.slice(3)}`;
+watch(() => formData.cpf, (value) => {
+  if (!value) return;
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  let result = digits;
+  if (digits.length > 9) {
+    result = `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+  } else if (digits.length > 6) {
+    result = `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  } else if (digits.length > 3) {
+    result = `${digits.slice(0, 3)}.${digits.slice(3)}`;
   }
-  formData.cpf = formatted;
+  formData.cpf = result;
 });
 
-const formatPhone = (phone) => {
-  if (typeof phone !== 'string') return '';
-  const cleaned = phone.replace(/\D/g, '').slice(0, 11);
-  let formatted = cleaned;
-  if (cleaned.length > 10) {
-    formatted = `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
-  } else if (cleaned.length > 6) {
-    formatted = `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
-  } else if (cleaned.length > 2) {
-    formatted = `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
+const applyPhoneMask = (value) => {
+  if (!value) return '';
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length > 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
   }
-  return formatted;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6, 10)}`;
 };
 
-watch(() => formData.telefone, (newPhone) => { formData.telefone = formatPhone(newPhone); });
-watch(() => formData.telefone_secundario, (newPhone) => { formData.telefone_secundario = formatPhone(newPhone); });
+watch(() => formData.telefone, (value) => { formData.telefone = applyPhoneMask(value); });
+watch(() => formData.telefone_secundario, (value) => { formData.telefone_secundario = applyPhoneMask(value); });
 
 // --- TABELA ---
 const columns = [
   { key: 'nome_completo', label: 'Nome Completo', sortable: true },
   { key: 'cpf', label: 'CPF', sortable: true },
   { key: 'cidade', label: 'Cidade' },
+  { key: 'contratos', label: 'Contratos', sortable: false },
   { key: 'telefone', label: 'Telefone' },
   { key: 'actions', label: 'Ações' }
 ];
 
-// --- LÓGICA DE BUSCA DE DADOS OTIMIZADA ---
-const fetchInitialClients = async () => {
-  pending.value = true;
-  const { data, error } = await supabase
-    .from('clientes')
-    .select('*')
-    .order('created_at', { ascending: false }) // Ordena pelos mais recentes
-    .limit(15); // Limita a 15 resultados
+// --- LÓGICA DE BUSCA DE DADOS COM PAGINAÇÃO ---
+const debouncedSearchTerm = ref('');
+watch(searchTerm, useDebounceFn((newVal) => {
+  debouncedSearchTerm.value = newVal;
+  page.value = 1; // Volta para a primeira página ao pesquisar
+}, 300));
 
-  if (error) {
-    toast.add({ title: 'Erro!', description: error.message, color: 'red' });
-  } else {
-    clientes.value = data;
-  }
-  pending.value = false;
-};
+const { data: clientes, pending, refresh } = useAsyncData(
+  'clientes',
+  async () => {
+    const from = (page.value - 1) * pageCount.value;
+    const to = from + pageCount.value - 1;
 
-const searchClients = async (term) => {
-  pending.value = true;
-  const { data, error } = await supabase
-    .from('clientes')
-    .select('*')
-    .or(`nome_completo.ilike.%${term}%,cpf.ilike.%${term}%`)
-    .limit(15); // Também limitamos a pesquisa
+    let query = supabase
+      .from('clientes')
+      .select('*, contratos(count)', { count: 'exact' });
 
-  if (error) {
-    toast.add({ title: 'Erro!', description: error.message, color: 'red' });
-  } else {
-    clientes.value = data;
-  }
-  pending.value = false;
-};
+    if (debouncedSearchTerm.value) {
+      query = query.or(`nome_completo.ilike.%${debouncedSearchTerm.value}%,cpf.ilike.%${debouncedSearchTerm.value}%`);
+    }
 
-onMounted(fetchInitialClients);
+    const { data, error, count } = await query
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+    totalClients.value = count;
+    return data;
+  }, { watch: [page, debouncedSearchTerm] }
+);
 
 // Observa o campo de busca e executa a pesquisa com debounce
 watch(searchTerm, useDebounceFn((newSearchTerm) => {
@@ -254,6 +268,130 @@ watch(searchTerm, useDebounceFn((newSearchTerm) => {
     fetchInitialClients(); // Se o campo for limpo, volta a mostrar os últimos 15
   }
 }, 300));
+
+// --- OPÇÕES DE EXPORTAÇÃO ---
+const exportOptions = [
+  [{
+    label: 'Exportar para CSV',
+    icon: 'i-heroicons-document-text',
+    click: () => exportToCSV()
+  }, {
+    label: 'Exportar para PDF',
+    icon: 'i-heroicons-document',
+    click: () => exportToPDF()
+  }]
+];
+
+// --- LÓGICA DE EXPORTAÇÃO PARA PDF ---
+const exportToPDF = async () => {
+  exporting.value = true;
+  try {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+
+    // 1. Busca os dados filtrados (semelhante ao CSV)
+    let query = supabase
+      .from('clientes')
+      .select('nome_completo, cpf, cidade, estado, contratos(count)');
+
+    if (debouncedSearchTerm.value) {
+      query = query.or(`nome_completo.ilike.%${debouncedSearchTerm.value}%,cpf.ilike.%${debouncedSearchTerm.value}%`);
+    }
+
+    const { data: allClients, error } = await query.order('nome_completo', { ascending: true });
+
+    if (error) throw error;
+    if (!allClients || allClients.length === 0) {
+      toast.add({ title: 'Nenhum dado para exportar', color: 'amber' });
+      return; // Adicionado 'exporting.value = false' no finally
+    }
+
+    // 2. Gera o documento PDF
+    const doc = new jsPDF();
+    const tableColumn = ["Nome Completo", "CPF", "Cidade", "Estado", "Contratos"];
+    const tableRows = [];
+
+    allClients.forEach(client => {
+      const clientData = [
+        client.nome_completo,
+        client.cpf,
+        client.cidade,
+        client.estado,
+        client.contratos[0]?.count || 0,
+      ];
+      tableRows.push(clientData);
+    });
+
+    // CORREÇÃO: A função autoTable é acessada através de 'doc.default.autoTable'
+    // ou podemos chamar a função importada diretamente.
+    // Usando a chamada direta para maior clareza.
+    autoTable(doc, { head: [tableColumn], body: tableRows, startY: 20 });
+    doc.text("Relatório de Clientes", 14, 15);
+    doc.save(`clientes_export_${new Date().toISOString().split('T')[0]}.pdf`);
+
+  } catch (err) {
+    toast.add({ title: 'Erro na Exportação', description: 'Não foi possível gerar o arquivo PDF.', color: 'red' });
+  } finally {
+    exporting.value = false;
+  }
+};
+
+// --- LÓGICA DE EXPORTAÇÃO PARA CSV ---
+const exportToCSV = async () => {
+  exporting.value = true;
+  try {
+    // 1. Monta a query para buscar TODOS os clientes filtrados, sem paginação
+    let query = supabase
+      .from('clientes')
+      .select('nome_completo, cpf, email, telefone, telefone_secundario, cidade, estado, contratos(count)');
+
+    if (debouncedSearchTerm.value) {
+      query = query.or(`nome_completo.ilike.%${debouncedSearchTerm.value}%,cpf.ilike.%${debouncedSearchTerm.value}%`);
+    }
+
+    const { data: allClients, error } = await query.order('nome_completo', { ascending: true });
+
+    if (error) throw error;
+    if (!allClients || allClients.length === 0) {
+      toast.add({ title: 'Nenhum dado para exportar', description: 'A seleção atual de filtros não retornou clientes.', color: 'amber' });
+      return;
+    }
+
+    // 2. Prepara o conteúdo do CSV
+    const headers = ['Nome Completo', 'CPF', 'Email', 'Telefone', 'Telefone Secundário', 'Cidade', 'Estado', 'Qtd. Contratos'];
+    const rows = allClients.map(client => [
+      client.nome_completo,
+      client.cpf,
+      client.email,
+      client.telefone,
+      client.telefone_secundario,
+      client.cidade,
+      client.estado,
+      client.contratos[0]?.count || 0
+    ]);
+
+    // Função para escapar células que possam conter vírgulas
+    const escapeCell = (cell) => `"${String(cell || '').replace(/"/g, '""')}"`;
+
+    let csvContent = "data:text/csv;charset=utf-8," 
+      + headers.map(escapeCell).join(',') + '\n' 
+      + rows.map(row => row.map(escapeCell).join(',')).join('\n');
+
+    // 3. Cria o link e dispara o download
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `clientes_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+  } catch (err) {
+    toast.add({ title: 'Erro na Exportação', description: 'Não foi possível gerar o arquivo CSV.', color: 'red' });
+  } finally {
+    exporting.value = false;
+  }
+};
 
 // --- LÓGICA DO FORMULÁRIO ---
 const openModal = (cliente = null) => {
@@ -288,7 +426,7 @@ const consultarCEP = async () => {
       toast.add({ title: 'Atenção!', description: 'CEP não encontrado.', color: 'amber' });
       return;
     }
-    formData.endereco = data.logouro;
+    formData.endereco = data.logradouro;
     formData.bairro = data.bairro;
     formData.cidade = data.localidade;
     formData.estado = data.uf;
@@ -333,7 +471,7 @@ const handleFormSubmit = async () => {
       toast.add({ title: 'Sucesso!', description: 'Novo cliente criado.' });
     }
     isModalOpen.value = false;
-    await fetchInitialClients();
+    await refresh(); // Recarrega os dados da tabela
   } catch (error) {
     toast.add({ title: 'Erro!', description: error.message, color: 'red' });
   } finally {

@@ -18,7 +18,14 @@ export default defineNuxtConfig({
       supabase: {
         url: process.env.SUPABASE_URL,
         key: process.env.SUPABASE_ANON_KEY,
-        redirect: false
+        redirect: false,
+        clientOptions: {
+          auth: {
+            // Garante que a sessão seja armazenada no sessionStorage.
+            // A sessão será encerrada quando o navegador/aba for fechado.
+            persistSession: true
+          }
+        }
       }
     }
   },
