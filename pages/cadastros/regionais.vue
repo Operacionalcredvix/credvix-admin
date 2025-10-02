@@ -64,6 +64,8 @@
 </template>
 
 <script setup>
+definePageMeta({ layout: 'admin' });
+
 import { ref, reactive } from 'vue';
 
 const supabase = useSupabaseClient();

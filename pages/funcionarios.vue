@@ -181,6 +181,10 @@
 <script setup>
 import { ref, reactive, computed, watch } from 'vue';
 
+definePageMeta({
+  layout: 'admin'
+});
+
 const supabase = useSupabaseClient();
 const saving = ref(false);
 const toast = useToast(); // Sistema de notificações do Nuxt UI

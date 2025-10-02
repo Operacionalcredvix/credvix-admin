@@ -88,6 +88,8 @@
 </template>
 
 <script setup>
+definePageMeta({ layout: 'admin' });
+
 import { ref, computed, watch, watchEffect } from 'vue';
 
 const supabase = useSupabaseClient();

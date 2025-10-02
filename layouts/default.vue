@@ -15,7 +15,7 @@
           </li>
 
           <template v-if="profile?.perfis?.nome !== 'Consultor'">
-            <li v-for="menu in menuItems" :key="menu.label">
+            <li v-for="menu in filteredMenuItems" :key="menu.label">
               <UAccordion :items="[menu]" variant="ghost" :ui="{ 'item': { 'padding': 'p-0' } }">
                 <template #default="{ item, open }">
                   <UButton color="gray" variant="ghost" class="nav-link w-full justify-between">
@@ -76,6 +76,7 @@
 <script setup>
 const supabase = useSupabaseClient();
 const router = useRouter();
+import { computed } from 'vue';
 const { profile } = useProfile();
 
 // Estrutura completa dos itens do menu principal
@@ -116,6 +117,30 @@ const menuItems = [
     ]
   }
 ];
+
+// Filtra os itens do menu com base no perfil do utilizador
+const filteredMenuItems = computed(() => {
+  const userProfile = profile.value?.perfis?.nome;
+  if (!userProfile) return [];
+
+  // Mapeamento de permissões por menu
+  const menuPermissions = {
+    'Cadastros': ['Master', 'RH', 'Coordenador'],
+    'RH': ['Master', 'RH'],
+    'Backoffice': ['Master', 'Backoffice']
+  };
+
+  return menuItems.filter(menu => {
+    // Se o perfil do utilizador estiver na lista de permissões do menu, mostra o menu
+    return menuPermissions[menu.label]?.includes(userProfile);
+  }).map(menu => {
+    // Para o Coordenador, mostra apenas o link "Funcionários" dentro de "Cadastros"
+    if (userProfile === 'Coordenador' && menu.label === 'Cadastros') {
+      return { ...menu, links: menu.links.filter(link => link.label === 'Funcionários') };
+    }
+    return menu;
+  });
+});
 
 const handleLogout = async () => {
   const { error } = await supabase.auth.signOut();

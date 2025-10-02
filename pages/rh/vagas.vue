@@ -78,6 +78,10 @@
 </template>
 
 <script setup>
+definePageMeta({ layout: 'admin' });
+
+import { ref, reactive, computed } from 'vue';
+
 const supabase = useSupabaseClient();
 const toast = useToast();
 
