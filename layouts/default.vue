@@ -188,7 +188,9 @@ const menuItems = [
     icon: 'i-heroicons-shield-check',
     slot: 'item',
     links: [
-      { label: 'Metas', to: '/admin/metas', icon: 'i-heroicons-trophy' }
+      { label: 'Metas', to: '/admin/metas', icon: 'i-heroicons-trophy' },
+      { label: 'Importações', to: '/admin/importacoes', icon: 'i-heroicons-arrow-up-tray' },
+      { label: 'Relatório de Importações', to: '/admin/relatorio-importacoes', icon: 'i-heroicons-chart-pie' }
       // Futuramente: Outras configurações de admin
     ]
   },

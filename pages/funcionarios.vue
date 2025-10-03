@@ -233,7 +233,12 @@ const { data: initialData } = await useAsyncData('funcionarios-form-data', async
     supabase.from('perfis').select('id, nome').order('nome'),
     supabase.from('regionais').select('id, nome_regional, coordenador_id').order('nome_regional'),
     supabase.from('lojas').select('id, nome, regional_id').order('nome'),
-    supabase.from('funcionarios').select('*, perfis(nome), lojas(id, regional_id)').eq('user_id', user.value.id).single()
+    // CORREÇÃO: Evita o uso de select('*') para prevenir erros de schema cache com colunas virtuais (_vts).
+    supabase.from('funcionarios').select(`
+      id, user_id, perfil_id, loja_id,
+      perfis (nome),
+      lojas (id, regional_id)
+    `).eq('user_id', user.value.id).single()
   ]);
   return { perfis: perfisRes.data, regionais: regionaisRes.data, lojas: lojasRes.data, meuPerfil: meuPerfilRes.data };
 });
@@ -263,7 +268,11 @@ if (initialData.value) {
 watch(searchTerm, async (newVal) => {
   if (newVal.length < 3) { searchResults.value = []; return; }
   searching.value = true;
-  const { data } = await supabase.from('funcionarios').select('*, perfis(nome), lojas(nome)').or(`nome_completo.ilike.%${newVal}%,cpf.ilike.%${newVal}%`).limit(10);
+  const { data } = await supabase
+    .from('funcionarios')
+    // CORREÇÃO: Seleciona colunas explicitamente para evitar o erro _vts
+    .select('id, nome_completo, is_active, perfis(nome), lojas(nome)')
+    .or(`nome_completo.ilike.%${newVal}%,cpf.ilike.%${newVal}%`).limit(10);
   searchResults.value = data || [];
   searching.value = false;
 });
@@ -672,7 +681,11 @@ async function handleFormSubmit() {
 
     // Atualiza a lista de busca para refletir as alterações
     if (searchTerm.value) {
-      const { data } = await supabase.from('funcionarios').select('*, perfis(nome), lojas(nome)').or(`nome_completo.ilike.%${searchTerm.value}%,cpf.ilike.%${searchTerm.value}%`).limit(10);
+      const { data } = await supabase
+        .from('funcionarios')
+        // CORREÇÃO: Seleciona colunas explicitamente para evitar o erro _vts
+        .select('id, nome_completo, is_active, perfis(nome), lojas(nome)')
+        .or(`nome_completo.ilike.%${searchTerm.value}%,cpf.ilike.%${searchTerm.value}%`).limit(10);
       searchResults.value = data || [];
     }
 

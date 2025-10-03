@@ -172,7 +172,10 @@ const { data: goals, pending, refresh } = await useAsyncData('metas', async () =
   const firstDayOfMonth = `${selectedPeriod.value}-01`;
   const { data } = await supabase
     .from('metas')
-    .select('*, lojas(nome, regionais(funcionarios(nome_completo)))')
+    .select(`
+      id, loja_id, periodo, meta_cnc, meta_card, meta_card_beneficio, meta_consignado, meta_bmg_med, meta_seguro_familiar, meta_fgts,
+      lojas ( nome, regionais ( funcionarios ( nome_completo ) ) )
+    `)
     .eq('periodo', firstDayOfMonth);
   return data || [];
 }, { watch: [selectedPeriod] });

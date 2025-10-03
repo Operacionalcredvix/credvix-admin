@@ -154,7 +154,11 @@ const { data: contratos, pending } = useAsyncData(
 
     let query = supabase
       .from('contratos')
-      .select('status, valor_total, loja_id, consultor_id, produtos(nome), lojas(nome, regional_id)');
+      .select(`
+        status, valor_total, loja_id, consultor_id,
+        produtos (nome),
+        lojas (nome, regional_id)
+      `);
 
     const userProfileName = profile.value.perfis?.nome;
     switch (userProfileName) {

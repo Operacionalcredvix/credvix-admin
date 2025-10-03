@@ -39,7 +39,10 @@
 
         <UForm :state="formData" @submit="handleFormSubmit" class="p-4 space-y-4">
           <UFormGroup label="Nome da Loja" name="nome" required>
-            <UInput v-model="formData.nome" />
+            <UInput v-model="formData.nome" placeholder="Nome da Loja" />
+          </UFormGroup>
+          <UFormGroup label="Nome da Franquia" name="franquia" required>
+            <UInput v-model="formData.franquia" placeholder="Nome da Franquia" />
           </UFormGroup>
 
           <UFormGroup label="Selecione a Regional" name="regional_id" required>
@@ -97,6 +100,7 @@ const searchTerm = ref('');
 const getInitialFormData = () => ({
   id: null,
   nome: '',
+  franquia: '',
   regional_id: null,
   city: '',
   state: '',
@@ -110,6 +114,7 @@ const formData = reactive(getInitialFormData());
 
 // --- DEFINIÇÃO DAS COLUNAS DA TABELA ---
 const columns = [
+  { key: 'franquia', label: 'Franquia', sortable: true },
   { key: 'nome', label: 'Nome da Loja', sortable: true },
   { key: 'regionais.nome_regional', label: 'Regional', sortable: true },
   { key: 'city', label: 'Cidade' },
@@ -120,7 +125,12 @@ const columns = [
 
 // --- CARREGAMENTO DE DADOS ---
 const { data: lojas, pending, refresh } = await useAsyncData('lojas', async () => {
-  const { data } = await supabase.from('lojas').select('*, regionais(nome_regional)').order('nome');
+  // CORREÇÃO: Evita o uso de select('*') para prevenir erros de schema cache com colunas virtuais (_vts).
+  // Seleciona explicitamente todas as colunas necessárias para a tabela e o formulário.
+  const { data } = await supabase
+    .from('lojas')
+    .select('id, nome, franquia, regional_id, city, state, phone, whatsapp, address, instagram_url, is_active, regionais(nome_regional)')
+    .order('nome');
   return data;
 });
 
