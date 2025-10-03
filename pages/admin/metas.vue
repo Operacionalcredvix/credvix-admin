@@ -1,0 +1,268 @@
+<template>
+  <div>
+    <header class="mb-8">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-primary-500 text-3xl font-bold">Gestão de Metas</h1>
+          <p class="text-gray-500 mt-1">Defina e acompanhe as metas mensais das lojas.</p>
+        </div>
+        <UButton icon="i-heroicons-plus-circle" size="lg" @click="openModal()">
+          Nova Meta
+        </UButton>
+      </div>
+    </header>
+
+    <!-- Filtros -->
+    <UCard class="mb-8">
+      <div class="flex items-end gap-4">
+        <UFormGroup label="Período" name="period">
+          <UInput type="month" v-model="selectedPeriod" />
+        </UFormGroup>
+      </div>
+    </UCard>
+
+    <!-- Tabela de Metas -->
+    <div v-if="pending" class="text-center py-10 text-gray-500">
+      <UIcon name="i-heroicons-arrow-path" class="text-2xl animate-spin" />
+      <p>A carregar metas...</p>
+    </div>
+    <div v-else-if="groupedGoals.length === 0" class="text-center py-10 text-gray-500">
+      <UIcon name="i-heroicons-trophy" class="text-4xl" />
+      <p class="mt-2">Nenhuma meta encontrada para o período selecionado.</p>
+    </div>
+    <div v-else class="space-y-8">
+      <UCard v-for="group in groupedGoals" :key="group.coordinatorName">
+        <template #header>
+          <h3 class="text-lg font-semibold text-primary-600">Coordenador: {{ group.coordinatorName }}</h3>
+        </template>
+        <UTable :rows="group.goals" :columns="columns">
+          <template #loja-data="{ row }">
+            <span class="font-medium">{{ row.loja }}</span>
+          </template>
+
+          <template #meta_multi_volume-data="{ row }">
+            <span class="font-bold">{{ formatCurrency(row.meta_multi_volume) }}</span>
+          </template>
+
+          <template #meta_cnc-data="{ row }">{{ formatCurrency(row.meta_cnc) }}</template>
+          <template #meta_card-data="{ row }">{{ formatCurrency(row.meta_card) }}</template>
+          <template #meta_card_beneficio-data="{ row }">{{ formatCurrency(row.meta_card_beneficio) }}</template>
+          <template #meta_consignado-data="{ row }">{{ formatCurrency(row.meta_consignado) }}</template>
+          <template #meta_fgts-data="{ row }">{{ formatCurrency(row.meta_fgts) }}</template>
+
+          <template #actions-data="{ row }">
+            <UButton icon="i-heroicons-pencil" size="sm" color="gray" variant="ghost" @click="handleEdit(row)" />
+            <UButton icon="i-heroicons-trash" size="sm" color="red" variant="ghost" @click="handleDelete(row)" />
+          </template>
+        </UTable>
+      </UCard>
+    </div>
+
+    <!-- Modal para Nova/Edição de Meta -->
+    <UModal v-model="isModalOpen">
+      <UForm :state="formData" @submit="handleSave">
+        <UCard>
+          <template #header>
+            <h2 class="text-lg font-bold">{{ isEditing ? 'Editar Meta' : 'Definir Nova Meta' }}</h2>
+          </template>
+
+          <div class="space-y-4">
+            <UFormGroup label="Loja" name="loja_id" required>
+              <USelectMenu v-model="formData.loja_id" :options="lojas" value-attribute="id" option-attribute="nome"
+                placeholder="Selecione a loja" :disabled="isEditing" />
+            </UFormGroup>
+            <UFormGroup label="Período" name="periodo" required>
+              <UInput type="month" v-model="formData.periodo" :disabled="isEditing" />
+            </UFormGroup>
+
+            <div class="grid grid-cols-2 gap-4 pt-4">
+              <UFormGroup label="CNC (Valor)" name="meta_cnc"><UInput v-model.number="formData.meta_cnc" type="number" step="0.01" /></UFormGroup>
+              <UFormGroup label="CARD (Valor)" name="meta_card"><UInput v-model.number="formData.meta_card" type="number" step="0.01" /></UFormGroup>
+              <UFormGroup label="CARD Benefício (Valor)" name="meta_card_beneficio"><UInput v-model.number="formData.meta_card_beneficio" type="number" step="0.01" /></UFormGroup>
+              <UFormGroup label="Consignado (Valor)" name="meta_consignado"><UInput v-model.number="formData.meta_consignado" type="number" step="0.01" /></UFormGroup>
+              <UFormGroup label="FGTS (Valor)" name="meta_fgts"><UInput v-model.number="formData.meta_fgts" type="number" step="0.01" /></UFormGroup>
+              <UFormGroup label="BMG MED (Qtd)" name="meta_bmg_med"><UInput v-model.number="formData.meta_bmg_med" type="number" /></UFormGroup>
+              <UFormGroup label="Seguro Familiar (Qtd)" name="meta_seguro_familiar"><UInput v-model.number="formData.meta_seguro_familiar" type="number" /></UFormGroup>
+            </div>
+
+            <div class="border-t pt-4 mt-4">
+              <p class="text-sm text-gray-500">Meta Multi Volume (Calculado)</p>
+              <p class="text-xl font-bold text-primary-500">{{ formatCurrency(metaMultiVolumeCalculada) }}</p>
+            </div>
+          </div>
+
+          <template #footer>
+            <div class="flex justify-end gap-4">
+              <UButton color="gray" variant="ghost" @click="isModalOpen = false">Cancelar</UButton>
+              <UButton type="submit" :loading="saving">Salvar</UButton>
+            </div>
+          </template>
+        </UCard>
+      </UForm>
+    </UModal>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, computed, watch } from 'vue';
+
+definePageMeta({
+  middleware: 'auth'
+});
+
+const supabase = useSupabaseClient();
+const toast = useToast();
+
+// --- ESTADO DA PÁGINA ---
+const isModalOpen = ref(false);
+const isEditing = ref(false);
+const saving = ref(false);
+const selectedPeriod = ref(new Date().toISOString().slice(0, 7)); // Formato YYYY-MM
+
+// --- DADOS DO FORMULÁRIO ---
+const getInitialFormData = () => ({
+  id: null,
+  loja_id: null,
+  periodo: selectedPeriod.value,
+  meta_cnc: 0,
+  meta_card: 0,
+  meta_card_beneficio: 0,
+  meta_consignado: 0,
+  meta_bmg_med: 0,
+  meta_seguro_familiar: 0,
+  meta_fgts: 0,
+});
+const formData = reactive(getInitialFormData());
+
+// --- CÁLCULO COMPUTADO PARA O FORMULÁRIO ---
+const metaMultiVolumeCalculada = computed(() => {
+  return (formData.meta_cnc || 0) + (formData.meta_card || 0) + 
+         (formData.meta_card_beneficio || 0) + (formData.meta_consignado || 0) + 
+         (formData.meta_fgts || 0);
+});
+
+// --- CARREGAMENTO DE DADOS ---
+const { data: lojas } = await useAsyncData('lojas-para-metas', async () => {
+  const { data } = await supabase.from('lojas').select('id, nome').order('nome');
+  return data || [];
+});
+
+const { data: goals, pending, refresh } = await useAsyncData('metas', async () => {
+  const firstDayOfMonth = `${selectedPeriod.value}-01`;
+  const { data } = await supabase
+    .from('metas')
+    .select('*, lojas(nome, regionais(funcionarios(nome_completo)))')
+    .eq('periodo', firstDayOfMonth);
+  return data || [];
+}, { watch: [selectedPeriod] });
+
+// --- COLUNAS E FORMATAÇÃO DA TABELA ---
+const columns = [
+  { key: 'loja', label: 'Loja' },
+  { key: 'meta_multi_volume', label: 'Meta Multi Volume' },
+  { key: 'meta_cnc', label: 'CNC' },
+  { key: 'meta_card', label: 'CARD' },
+  { key: 'meta_card_beneficio', label: 'CARD Benefício' },
+  { key: 'meta_consignado', label: 'Consignado' },
+  { key: 'meta_bmg_med', label: 'BMG MED' },
+  { key: 'meta_seguro_familiar', label: 'Seguro Familiar' },
+  { key: 'meta_fgts', label: 'FGTS' },
+  { key: 'actions', label: 'Ações', sortable: false }
+];
+
+const groupedGoals = computed(() => {
+  if (!goals.value) return [];
+
+  const groups = (goals.value || []).reduce((acc, goal) => {
+    const coordinatorName = goal.lojas?.regionais?.funcionarios?.nome_completo || 'Sem Coordenador';
+
+    if (!acc[coordinatorName]) {
+      acc[coordinatorName] = [];
+    }
+
+    acc[coordinatorName].push({
+      ...goal,
+      loja: goal.lojas?.nome || 'Loja não encontrada',
+      meta_multi_volume: (goal.meta_cnc || 0) + (goal.meta_card || 0) + (goal.meta_card_beneficio || 0) + (goal.meta_consignado || 0) + (goal.meta_fgts || 0)
+    });
+
+    return acc;
+  }, {});
+
+  return Object.entries(groups).map(([coordinatorName, goals]) => ({ coordinatorName, goals }));
+});
+
+const formatCurrency = (value) => {
+  if (value === null || value === undefined) return 'R$ 0,00';
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+};
+
+// --- AÇÕES CRUD ---
+const openModal = () => {
+  isEditing.value = false;
+  Object.assign(formData, getInitialFormData());
+  isModalOpen.value = true;
+};
+
+const handleEdit = (row) => {
+  // Encontra o registo original não formatado na lista 'goals'
+  const originalGoal = goals.value.find(g => g.id === row.id);
+  if (!originalGoal) {
+    toast.add({ title: 'Erro', description: 'Não foi possível encontrar os dados originais da meta.', color: 'red' });
+    return;
+  }
+
+  isEditing.value = true;
+  // Usa o registo original para preencher o formulário
+  Object.assign(formData, { ...originalGoal, periodo: originalGoal.periodo.slice(0, 7) });
+  isModalOpen.value = true;
+};
+
+const handleSave = async () => {
+  saving.value = true;
+  try {
+    const dataToSave = { ...formData, periodo: `${formData.periodo}-01` };
+
+    // CORREÇÃO: Remove a propriedade 'lojas' que vem da junção de tabelas e não existe na tabela 'metas'.
+    delete dataToSave.lojas;
+
+    let error;
+
+    if (isEditing.value) {
+      const { id, ...updateData } = dataToSave;
+      ({ error } = await supabase.from('metas').update(updateData).eq('id', id));
+    } else {
+      const { id, ...insertData } = dataToSave;
+      ({ error } = await supabase.from('metas').insert(insertData));
+    }
+
+    if (error) {
+      if (error.code === '23505') { // Código de violação de constraint única
+        throw new Error('Já existe uma meta definida para esta loja neste período.');
+      }
+      throw error;
+    }
+
+    toast.add({ title: 'Sucesso!', description: `Meta ${isEditing.value ? 'atualizada' : 'criada'} com sucesso.` });
+    isModalOpen.value = false;
+    await refresh();
+  } catch (err) {
+    toast.add({ title: 'Erro!', description: err.message, color: 'red' });
+  } finally {
+    saving.value = false;
+  }
+};
+
+const handleDelete = async (row) => {
+  if (confirm(`Tem a certeza que quer apagar a meta da loja "${row.loja}" para o período de ${selectedPeriod.value}?`)) {
+    try {
+      const { error } = await supabase.from('metas').delete().eq('id', row.id);
+      if (error) throw error;
+      toast.add({ title: 'Sucesso!', description: 'Meta apagada com sucesso.' });
+      await refresh();
+    } catch (err) {
+      toast.add({ title: 'Erro!', description: err.message, color: 'red' });
+    }
+  }
+};
+</script>
