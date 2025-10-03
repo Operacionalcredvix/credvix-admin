@@ -507,6 +507,14 @@ async function handleFormSubmit() {
       saving.value = false;
       return;
     }
+
+    // Validação para garantir que um perfil foi selecionado
+    if (!formData.perfil_id) {
+      toast.add({ title: 'Campo Obrigatório', description: 'Por favor, selecione um Perfil de Acesso para o funcionário.', color: 'red' });
+      saving.value = false;
+      return;
+    }
+
     // --- INÍCIO DA VALIDAÇÃO DE CPF DUPLICADO ---
     if (formData.cpf) {
       const cpfLimpo = formData.cpf.replace(/\D/g, '');
