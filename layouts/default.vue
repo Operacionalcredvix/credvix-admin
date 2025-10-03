@@ -6,7 +6,7 @@
       <aside class="flex-shrink-0 bg-gray-800 text-white p-4 flex flex-col transition-all duration-300" :class="[isSidebarCollapsed ? 'w-20 items-center' : 'w-64']">
       <div class="text-center mb-10">
         <img src="/favicon.png" alt="Logo Credvix" class="w-12 mx-auto" />
-        <h3 v-if="!isSidebarCollapsed" class="text-xl font-bold mt-2">Credvix Admin</h3>
+        <h3 v-if="!isSidebarCollapsed" class="text-xl font-bold mt-2">Farol Credvix</h3>
       </div>
 
       <nav class="flex-grow">
@@ -152,7 +152,7 @@ const menuItems = [
   {
     label: 'Cadastros',
     icon: 'i-heroicons-archive-box',
-    defaultOpen: true, // Para o menu começar aberto
+    defaultOpen: false, // Para o menu começar fechado
     slot: 'item',
     links: [
       { label: 'Regionais', to: '/cadastros/regionais', icon: 'i-heroicons-map-pin' },
