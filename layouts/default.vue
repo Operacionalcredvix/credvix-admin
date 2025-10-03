@@ -6,15 +6,15 @@
       <aside class="flex-shrink-0 bg-gray-800 text-white p-4 flex flex-col transition-all duration-300" :class="[isSidebarCollapsed ? 'w-20 items-center' : 'w-64']">
       <div class="text-center mb-10">
         <img src="/favicon.png" alt="Logo Credvix" class="w-12 mx-auto" />
-        <h3 class="text-xl font-bold mt-2 transition-opacity duration-300" :class="{'opacity-0 pointer-events-none': isSidebarCollapsed}">Farol Credvix</h3>
+        <h3 class="text-xl font-bold mt-2 transition-all duration-300" :class="{'opacity-0 w-0 h-0 overflow-hidden': isSidebarCollapsed}">Farol Credvix</h3>
       </div>
 
       <nav class="flex-grow">
         <ul class="space-y-2">
           <li>
             <NuxtLink to="/" class="nav-link">
-              <UIcon name="i-heroicons-home" class="flex-shrink-0" /> <span v-if="!isSidebarCollapsed">Dashboard</span>
-              <span class="transition-opacity duration-300" :class="{'opacity-0 pointer-events-none': isSidebarCollapsed}">Dashboard</span>
+              <UIcon name="i-heroicons-home" class="flex-shrink-0" /> <span v-if="!isSidebarCollapsed"></span>
+              <span class="transition-all duration-300" :class="{'opacity-0 max-w-0 overflow-hidden': isSidebarCollapsed}">Dashboard</span>
             </NuxtLink>
           </li>
 
@@ -23,9 +23,9 @@
               <UAccordion :items="[menu]" variant="ghost" :ui="{ 'item': { 'padding': 'p-0' } }">
                 <template #default="{ item, open }">
                   <UButton color="gray" variant="ghost" class="nav-link w-full" :class="[isSidebarCollapsed ? 'justify-center' : 'justify-between']">
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-3 overflow-hidden">
                       <UIcon :name="item.icon" class="flex-shrink-0" />
-                      <span class="transition-opacity duration-300" :class="{'opacity-0 pointer-events-none': isSidebarCollapsed}">{{ item.label }}</span>
+                      <span class="transition-all duration-300" :class="{'opacity-0 max-w-0 overflow-hidden': isSidebarCollapsed}">{{ item.label }}</span>
                     </div>
                     <UIcon name="i-heroicons-chevron-right" class="transition-transform"
                       :class="[open && 'rotate-90']" />
@@ -40,8 +40,8 @@
                     @click="isSidebarCollapsed && (isSidebarCollapsed.value = false)"
                   >
                     <li v-for="link in item.links" :key="link.to">
-                      <NuxtLink :to="link.to" class="nav-link-sub" :title="link.label">
-                        <UIcon v-if="link.icon" :name="link.icon" class="text-lg" /> <span class="transition-opacity duration-300" :class="{'opacity-0 pointer-events-none': isSidebarCollapsed}">{{ link.label }}</span>
+                      <NuxtLink :to="link.to" class="nav-link-sub" :title="link.label" :class="{'justify-center': isSidebarCollapsed}">
+                        <UIcon v-if="link.icon" :name="link.icon" class="text-lg" /> <span class="transition-all duration-300" :class="{'opacity-0 max-w-0 overflow-hidden': isSidebarCollapsed}">{{ link.label }}</span>
                       </NuxtLink>
                     </li>
                   </ul>
@@ -50,8 +50,8 @@
             </li>
           </template>
           <li v-if="profile?.perfis?.nome === 'Master'">
-            <NuxtLink to="/auditoria" class="nav-link">
-              <UIcon name="i-heroicons-shield-check" class="flex-shrink-0" /> <span class="transition-opacity duration-300" :class="{'opacity-0 pointer-events-none': isSidebarCollapsed}">Auditoria</span>
+            <NuxtLink to="/auditoria" class="nav-link" :class="{'justify-center': isSidebarCollapsed}">
+              <UIcon name="i-heroicons-shield-check" class="flex-shrink-0" /> <span class="transition-all duration-300" :class="{'opacity-0 max-w-0 overflow-hidden': isSidebarCollapsed}">Auditoria</span>
             </NuxtLink>
           </li>
         </ul>
@@ -60,7 +60,7 @@
       <!-- Botão para recolher/expandir -->
       <div class="mt-auto border-t border-gray-700 pt-4">
         <UButton color="gray" variant="ghost" class="nav-link w-full" :class="[isSidebarCollapsed ? 'justify-center' : 'justify-between']" @click="isSidebarCollapsed = !isSidebarCollapsed">
-          <UIcon name="i-heroicons-arrows-right-left" class="flex-shrink-0" /> <span class="transition-opacity duration-300" :class="{'opacity-0 pointer-events-none': isSidebarCollapsed}">{{ isSidebarCollapsed ? '' : 'Recolher' }}</span>
+          <UIcon name="i-heroicons-arrows-right-left" class="flex-shrink-0" /> <span class="transition-all duration-300" :class="{'opacity-0 max-w-0 overflow-hidden': isSidebarCollapsed}">{{ isSidebarCollapsed ? '' : 'Recolher' }}</span>
         </UButton>
       </div>
 
