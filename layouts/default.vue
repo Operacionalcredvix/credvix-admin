@@ -182,7 +182,16 @@ const menuItems = [
       { label: 'Bancos e Tabelas', to: '/cadastros/banco-tabelas', icon: 'i-heroicons-table-cells' }
       // Futuramente: Metas, Produtos, Bancos, etc.
     ]
-  }
+  },
+  {
+    label: 'Admin',
+    icon: 'i-heroicons-shield-check',
+    slot: 'item',
+    links: [
+      { label: 'Metas', to: '/admin/metas', icon: 'i-heroicons-trophy' }
+      // Futuramente: Outras configurações de admin
+    ]
+  },
 ];
 
 // --- LÓGICA DO BREADCRUMB DINÂMICO ---
@@ -272,7 +281,8 @@ const filteredMenuItems = computed(() => {
   const menuPermissions = {
     'Cadastros': ['Master', 'RH', 'Coordenador'],
     'RH': ['Master', 'RH'],
-    'Backoffice': ['Master', 'Backoffice']
+    'Backoffice': ['Master', 'Backoffice'],
+    'Admin': ['Master']
   };
 
   return menuItems.filter(menu => {

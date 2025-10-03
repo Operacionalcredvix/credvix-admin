@@ -18,6 +18,7 @@
         <div class="pt-6 flex gap-2">
           <UButton @click="setDateRange('current_month')" label="Mês Atual" color="gray" variant="ghost" />
           <UButton @click="setDateRange('last_30_days')" label="Últimos 30 dias" color="gray" variant="ghost" />
+          <UButton @click="exportToPDF" label="Exportar PDF" color="gray" icon="i-heroicons-document-arrow-down" :loading="exporting" />
         </div>
       </div>
     </UCard>
@@ -82,7 +83,7 @@
         <UCard>
           <template #header><h3 class="font-semibold">Contratos por Status</h3></template>
           <div v-if="hasData" class="h-80">
-            <Doughnut :data="chartData.status" :options="chartOptions" />
+            <Doughnut ref="doughnutChartRef" :data="chartData.status" :options="chartOptions" />
           </div>
           <p v-else class="text-center text-gray-500">Sem dados para exibir no período selecionado.</p>
         </UCard>
@@ -90,7 +91,7 @@
         <UCard class="lg:col-span-2">
           <template #header><h3 class="font-semibold">Top 10 Lojas por Contrato</h3></template>
           <div v-if="hasData" class="h-80">
-            <Bar :data="chartData.lojas" :options="chartOptions" />
+            <Bar ref="barChartLojasRef" :data="chartData.lojas" :options="chartOptions" />
           </div>
           <p v-else class="text-center text-gray-500">Sem dados para exibir no período selecionado.</p>
         </UCard>
@@ -98,7 +99,7 @@
         <UCard class="lg:col-span-3">
           <template #header><h3 class="font-semibold">Contratos por Produto</h3></template>
           <div v-if="hasData" class="h-80">
-            <Bar :data="chartData.produtos" :options="chartOptions" />
+            <Bar ref="barChartProdutosRef" :data="chartData.produtos" :options="chartOptions" />
           </div>
           <p v-else class="text-center text-gray-500">Sem dados para exibir no período selecionado.</p>
         </UCard>
@@ -116,6 +117,13 @@ ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale,
 
 const supabase = useSupabaseClient();
 const { profile } = useProfile();
+const toast = useToast();
+
+// --- ESTADO DA EXPORTAÇÃO E REFERÊNCIAS DOS GRÁFICOS ---
+const exporting = ref(false);
+const doughnutChartRef = ref(null);
+const barChartLojasRef = ref(null);
+const barChartProdutosRef = ref(null);
 
 // --- LÓGICA DE DATAS ---
 const dateRange = reactive({ start: '', end: '' });
@@ -265,5 +273,67 @@ const chartOptions = {
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return 'R$ 0,00';
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+};
+
+// --- LÓGICA DE EXPORTAÇÃO PARA PDF ---
+const exportToPDF = async () => {
+  if (pending.value || !hasData.value) {
+    toast.add({ title: 'Nenhum dado para exportar', color: 'amber' });
+    return;
+  }
+
+  exporting.value = true;
+  try {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+
+    const doc = new jsPDF();
+    const finalY = (doc.lastAutoTable && doc.lastAutoTable.finalY) || 10;
+
+    // 1. Título e Período
+    doc.setFontSize(18);
+    doc.text('Relatório de Produção', 14, 20);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Período: ${new Date(dateRange.start).toLocaleDateString('pt-BR', {timeZone: 'UTC'})} a ${new Date(dateRange.end).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}`, 14, 28);
+
+    // 2. Tabela de Estatísticas
+    autoTable(doc, {
+      startY: 36,
+      head: [['Indicador', 'Valor']],
+      body: [
+        ['Contratos Totais', stats.value.total],
+        ['Contratos Pagos', stats.value.pagos],
+        ['Contratos Pendentes', stats.value.pendentes],
+        ['Contratos Cancelados', stats.value.cancelados],
+        ['Valor Total Pago', formatCurrency(stats.value.valorTotal)],
+      ],
+      theme: 'striped',
+      headStyles: { fillColor: [37, 99, 235] }, // Cor primária
+    });
+
+    // 3. Adicionar Gráficos como Imagens
+    const addChartToPDF = (chartRef, title, y) => {
+      if (chartRef.value?.chart.canvas) {
+        const imgData = chartRef.value.chart.canvas.toDataURL('image/png');
+        doc.setFontSize(14);
+        doc.text(title, 14, y + 15);
+        doc.addImage(imgData, 'PNG', 14, y + 20, 180, 90);
+      }
+    };
+
+    doc.addPage();
+    addChartToPDF(doughnutChartRef, 'Contratos por Status', 10);
+    addChartToPDF(barChartLojasRef, 'Top 10 Lojas por Contrato', 130);
+    doc.addPage();
+    addChartToPDF(barChartProdutosRef, 'Contratos por Produto', 10);
+
+    doc.save(`dashboard_producao_${new Date().toISOString().split('T')[0]}.pdf`);
+  } catch (err) {
+    toast.add({ title: 'Erro na Exportação', description: 'Não foi possível gerar o arquivo PDF.', color: 'red' });
+    console.error(err);
+  } finally {
+    exporting.value = false;
+  }
 };
 </script>
