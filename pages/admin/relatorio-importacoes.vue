@@ -14,6 +14,18 @@
         <UFormGroup label="Tipo de Produto" name="productType" class="w-64">
           <USelectMenu v-model="selectedProduct" :options="productOptions" placeholder="Todos os produtos" clearable />
         </UFormGroup>
+        <UFormGroup label="Coordenador" name="coordenador" class="w-64">
+          <USelectMenu v-model="selectedCoordenador" :options="coordenadores" value-attribute="id" option-attribute="nome_completo" placeholder="Todos os coordenadores" clearable />
+        </UFormGroup>
+        <UFormGroup label="Supervisor" name="supervisor" class="w-64">
+          <USelectMenu v-model="selectedSupervisor" :options="supervisores" value-attribute="id" option-attribute="nome_completo" placeholder="Todos os supervisores" clearable />
+        </UFormGroup>
+        <UFormGroup label="Consultor" name="consultor" class="w-64">
+          <USelectMenu v-model="selectedConsultor" :options="consultors" value-attribute="id" option-attribute="nome_completo" placeholder="Todos os consultores" clearable />
+        </UFormGroup>
+        <div class="self-end">
+          <UButton @click="limparFiltros" label="Limpar Filtros" color="gray" variant="ghost" icon="i-heroicons-x-circle" />
+        </div>
       </div>
     </UCard>
 
@@ -62,6 +74,40 @@ const totalSales = ref(0);
 const selectedPeriod = ref(new Date().toISOString().slice(0, 7));
 const selectedProduct = ref(null);
 const productOptions = ['bmg_med', 'seguro_familiar'];
+const selectedCoordenador = ref(null);
+const selectedSupervisor = ref(null);
+const selectedConsultor = ref(null);
+
+const limparFiltros = () => {
+  selectedPeriod.value = new Date().toISOString().slice(0, 7);
+  selectedProduct.value = null;
+  selectedCoordenador.value = null;
+  selectedSupervisor.value = null;
+  selectedConsultor.value = null;
+  page.value = 1;
+};
+
+// --- CARREGAMENTO DE DADOS PARA FILTROS ---
+const { data: coordenadores } = useAsyncData('coordenadores-list', async () => {
+  const { data: perfil } = await supabase.from('perfis').select('id').eq('nome', 'Coordenador').single();
+  if (!perfil) return [];
+  const { data } = await supabase.from('funcionarios').select('id, nome_completo').eq('perfil_id', perfil.id).order('nome_completo');
+  return data || [];
+});
+
+const { data: supervisores } = useAsyncData('supervisores-list', async () => {
+  const { data: perfil } = await supabase.from('perfis').select('id').eq('nome', 'Supervisor').single();
+  if (!perfil) return [];
+  const { data } = await supabase.from('funcionarios').select('id, nome_completo').eq('perfil_id', perfil.id).order('nome_completo');
+  return data || [];
+});
+
+const { data: consultors } = useAsyncData('consultores-list', async () => {
+  const { data: perfil } = await supabase.from('perfis').select('id').eq('nome', 'Consultor').single();
+  if (!perfil) return [];
+  const { data } = await supabase.from('funcionarios').select('id, nome_completo').eq('perfil_id', perfil.id).order('nome_completo');
+  return data || [];
+});
 
 const columns = [
   { key: 'adesao', label: 'Adesão' },
@@ -85,10 +131,10 @@ const { data: sales, pending } = useAsyncData('vendas-externas-report', async ()
     .from('vendas_externas')
     .select(`
       id, adesao, tipo_produto, data_venda, quantidade,
-      lojas (nome),
-      consultor:funcionarios!vendas_externas_consultor_id_fkey (nome_completo),
-      supervisor:funcionarios!vendas_externas_supervisor_id_fkey (nome_completo),
-      coordenador:funcionarios!vendas_externas_coordenador_id_fkey (nome_completo)
+      lojas!inner(nome),
+      consultor:consultor_id(nome_completo),
+      supervisor:supervisor_id(nome_completo),
+      coordenador:coordenador_id(nome_completo)
     `, { count: 'exact' })
     .gte('data_venda', firstDayOfMonth)
     .lte('data_venda', lastDayOfMonth);
@@ -97,10 +143,21 @@ const { data: sales, pending } = useAsyncData('vendas-externas-report', async ()
     query = query.eq('tipo_produto', selectedProduct.value);
   }
 
+  if (selectedCoordenador.value) {
+    query = query.eq('coordenador_id', selectedCoordenador.value);
+  }
+
+  if (selectedSupervisor.value) {
+    query = query.eq('supervisor_id', selectedSupervisor.value);
+  }
+
+  if (selectedConsultor.value) {
+    query = query.eq('consultor_id', selectedConsultor.value);
+  }
   const { data, count, error } = await query.order('data_venda', { ascending: false }).range(from, to);
   if (error) throw error;
 
   totalSales.value = count;
   return data;
-}, { watch: [page, selectedPeriod, selectedProduct] });
+}, { watch: [page, selectedPeriod, selectedProduct, selectedCoordenador, selectedSupervisor, selectedConsultor] });
 </script>

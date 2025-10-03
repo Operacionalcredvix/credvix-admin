@@ -67,6 +67,13 @@
           <template #meta_consignado-data="{ row }">{{ formatCurrency(row.meta_consignado) }}</template>
           <template #meta_fgts-data="{ row }">{{ formatCurrency(row.meta_fgts) }}</template>
 
+          <template #meta_bmg_med-data="{ row }">
+            <span :class="row.atingido_bmg_med >= row.meta_bmg_med ? 'text-green-500 font-bold' : ''">{{ row.atingido_bmg_med }} / {{ row.meta_bmg_med }}</span>
+          </template>
+          <template #meta_seguro_familiar-data="{ row }">
+            <span :class="row.atingido_seguro_familiar >= row.meta_seguro_familiar ? 'text-green-500 font-bold' : ''">{{ row.atingido_seguro_familiar }} / {{ row.meta_seguro_familiar }}</span>
+          </template>
+
           <template #actions-data="{ row }">
             <UButton icon="i-heroicons-pencil" size="sm" color="gray" variant="ghost" @click="handleEdit(row)" />
             <UButton icon="i-heroicons-trash" size="sm" color="red" variant="ghost" @click="handleDelete(row)" />
@@ -193,6 +200,18 @@ const { data: contractData, pending: pendingContracts } = await useAsyncData('co
   return data || [];
 }, { watch: [selectedPeriod] });
 
+const { data: vendasExternasData, pending: pendingVendasExternas } = await useAsyncData('vendas-externas-para-metas', async () => {
+  const firstDayOfMonth = `${selectedPeriod.value}-01`;
+  const lastDayOfMonth = new Date(new Date(firstDayOfMonth).getFullYear(), new Date(firstDayOfMonth).getMonth() + 1, 0).toISOString().split('T')[0];
+
+  const { data } = await supabase
+    .from('vendas_externas')
+    .select('loja_id, tipo_produto, quantidade')
+    .gte('data_venda', firstDayOfMonth)
+    .lte('data_venda', lastDayOfMonth);
+  return data || [];
+}, { watch: [selectedPeriod] });
+
 // --- COLUNAS E FORMATAÇÃO DA TABELA ---
 const columns = [
   { key: 'loja', label: 'Loja' },
@@ -208,12 +227,26 @@ const columns = [
 ];
 
 const groupedGoals = computed(() => {
-  if (!goals.value || !contractData.value) return [];
+  if (!goals.value || !contractData.value || !vendasExternasData.value) return [];
 
-  // 1. Calcula o valor atingido por loja
-  const achievedValues = contractData.value.reduce((acc, contract) => {
+  // 1. Calcula o valor atingido (Multi Volume) por loja a partir dos contratos
+  const achievedInternalValues = contractData.value.reduce((acc, contract) => {
     if (contract.loja_id && contract.valor_total) {
       acc[contract.loja_id] = (acc[contract.loja_id] || 0) + contract.valor_total;
+    }
+    return acc;
+  }, {});
+
+  // 2. Calcula a quantidade atingida (Vendas Externas) por loja
+  const achievedExternalValues = vendasExternasData.value.reduce((acc, venda) => {
+    if (!venda.loja_id) return acc;
+    if (!acc[venda.loja_id]) {
+      acc[venda.loja_id] = { bmg_med: 0, seguro_familiar: 0 };
+    }
+    if (venda.tipo_produto === 'bmg_med') {
+      acc[venda.loja_id].bmg_med += venda.quantidade;
+    } else if (venda.tipo_produto === 'seguro_familiar') {
+      acc[venda.loja_id].seguro_familiar += venda.quantidade;
     }
     return acc;
   }, {});
@@ -226,12 +259,17 @@ const groupedGoals = computed(() => {
       acc[coordinatorName] = [];
     }
 
-    const atingido = achievedValues[goal.loja_id] || 0;
+    const atingidoMultiVolume = achievedInternalValues[goal.loja_id] || 0;
+    const atingidoBmgMed = achievedExternalValues[goal.loja_id]?.bmg_med || 0;
+    const atingidoSeguroFamiliar = achievedExternalValues[goal.loja_id]?.seguro_familiar || 0;
+
     acc[coordinatorName].push({
       ...goal,
       loja: goal.lojas?.nome || 'Loja não encontrada',
       meta_multi_volume: (goal.meta_cnc || 0) + (goal.meta_card || 0) + (goal.meta_card_beneficio || 0) + (goal.meta_consignado || 0) + (goal.meta_fgts || 0),
-      atingido: atingido
+      atingido_multi_volume: atingidoMultiVolume,
+      atingido_bmg_med: atingidoBmgMed,
+      atingido_seguro_familiar: atingidoSeguroFamiliar,
     });
 
     return acc;
@@ -241,10 +279,10 @@ const groupedGoals = computed(() => {
   return Object.entries(groups).map(([coordinatorName, goalsInGroup]) => {
     const chartLabels = goalsInGroup.map(g => g.lojas?.nome || 'N/A');
     const chartDataMeta = goalsInGroup.map(g => g.meta_multi_volume);
-    const chartDataAtingido = goalsInGroup.map(g => g.atingido);
+    const chartDataAtingido = goalsInGroup.map(g => g.atingido_multi_volume);
 
     const totalMetaMultiVolume = goalsInGroup.reduce((sum, goal) => sum + goal.meta_multi_volume, 0);
-    const totalAtingido = goalsInGroup.reduce((sum, goal) => sum + goal.atingido, 0);
+    const totalAtingido = goalsInGroup.reduce((sum, goal) => sum + goal.atingido_multi_volume, 0);
 
     return {
       coordinatorName,

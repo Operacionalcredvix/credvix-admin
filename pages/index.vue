@@ -76,6 +76,24 @@
             </div>
           </div>
         </UCard>
+        <UCard>
+          <div class="flex items-center gap-4">
+            <UIcon name="i-heroicons-heart" class="text-3xl text-rose-500" />
+            <div>
+              <p class="text-sm text-gray-500">BMG MED</p>
+              <p class="text-2xl font-bold">{{ stats.bmgMed }}</p>
+            </div>
+          </div>
+        </UCard>
+        <UCard>
+          <div class="flex items-center gap-4">
+            <UIcon name="i-heroicons-shield-check" class="text-3xl text-sky-500" />
+            <div>
+              <p class="text-sm text-gray-500">Seguro Familiar</p>
+              <p class="text-2xl font-bold">{{ stats.seguroFamiliar }}</p>
+            </div>
+          </div>
+        </UCard>
       </div>
 
       <!-- Gráficos -->
@@ -196,11 +214,48 @@ const { data: contratos, pending } = useAsyncData(
   }
 );
 
+const { data: vendasExternas, pending: pendingVendas } = useAsyncData(
+  'dashboard-vendas-externas',
+  async () => {
+    if (!profile.value?.id) return [];
+
+    let query = supabase
+      .from('vendas_externas')
+      .select('loja_id, consultor_id, tipo_produto, quantidade');
+
+    const userProfileName = profile.value.perfis?.nome;
+    switch (userProfileName) {
+      case 'Coordenador': {
+        const { data: minhasRegionais } = await supabase.from('regionais').select('id').eq('coordenador_id', profile.value.id);
+        const idsRegionais = minhasRegionais?.map(r => r.id) || [];
+        if (idsRegionais.length === 0) return [];
+        const { data: lojasDaRegional } = await supabase.from('lojas').select('id').in('regional_id', idsRegionais);
+        const idsLojas = lojasDaRegional?.map(l => l.id) || [];
+        if (idsLojas.length === 0) return [];
+        query = query.in('loja_id', idsLojas);
+        break;
+      }
+      case 'Supervisor':
+        query = query.eq('loja_id', profile.value.loja_id);
+        break;
+      case 'Consultor':
+        query = query.eq('consultor_id', profile.value.id);
+        break;
+    }
+
+    if (dateRange.start) query = query.gte('data_venda', dateRange.start);
+    if (dateRange.end) query = query.lte('data_venda', dateRange.end);
+
+    const { data } = await query;
+    return data || [];
+  }, { watch: [profile, dateRange] }
+);
+
 // --- CÁLCULOS PARA AS ESTATÍSTICAS E GRÁFICOS ---
 const hasData = computed(() => contratos.value && contratos.value.length > 0);
 
 const stats = computed(() => {
-  if (!hasData.value) return { total: 0, pagos: 0, pendentes: 0, cancelados: 0, valorTotal: 0 };
+  if (!contratos.value && !vendasExternas.value) return { total: 0, pagos: 0, pendentes: 0, cancelados: 0, valorTotal: 0, bmgMed: 0, seguroFamiliar: 0 };
 
   const statusPagos = ['Pago', 'Aprovado'];
   const statusPendentes = ['Pendente', 'Em Análise'];
@@ -213,7 +268,9 @@ const stats = computed(() => {
     cancelados: contratos.value.filter(c => statusCancelados.includes(c.status)).length,
     valorTotal: contratos.value
       .filter(c => statusPagos.includes(c.status))
-      .reduce((sum, c) => sum + (c.valor_total || 0), 0)
+      .reduce((sum, c) => sum + (c.valor_total || 0), 0),
+    bmgMed: (vendasExternas.value || []).filter(v => v.tipo_produto === 'bmg_med').reduce((sum, v) => sum + v.quantidade, 0),
+    seguroFamiliar: (vendasExternas.value || []).filter(v => v.tipo_produto === 'seguro_familiar').reduce((sum, v) => sum + v.quantidade, 0),
   };
 });
 

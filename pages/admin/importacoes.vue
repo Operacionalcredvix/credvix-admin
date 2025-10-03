@@ -122,8 +122,12 @@ const handleImport = async () => {
       supabase.from('lojas').select('id, franquia'),
       supabase.from('funcionarios').select('id, nome_completo')
     ]);
-    const lojasMap = new Map(lojasRes.data.map(l => [l.franquia.trim().toLowerCase(), l.id]));
-    const funcsMap = new Map(funcsRes.data.map(f => [f.nome_completo.trim().toLowerCase(), f.id]));
+    // CORREÇÃO: Filtra lojas que não têm um nome de franquia definido para evitar o erro .trim() em valores nulos.
+    const lojasMap = new Map(
+      lojasRes.data.filter(l => l.franquia).map(l => [l.franquia.trim().toLowerCase(), l.id])
+    );
+    // Garante que funcionários com nome nulo (improvável, mas seguro) não quebrem a aplicação.
+    const funcsMap = new Map(funcsRes.data.filter(f => f.nome_completo).map(f => [f.nome_completo.trim().toLowerCase(), f.id]));
 
     // 3. Mapear os dados do Excel para o formato do banco de dados
     progressStatus.value = `A processar ${jsonData.length} registos...`;
@@ -154,11 +158,11 @@ const handleImport = async () => {
         adesao: String(adesao),
         tipo_produto: importType.value,
         data_venda: formattedDate,
-        quantidade: parseInt(String(quantidade), 10),
-        loja_id: lojasMap.get(franquia?.trim().toLowerCase()),
-        consultor_id: funcsMap.get(consultor?.trim().toLowerCase()),
-        supervisor_id: funcsMap.get(supervisor?.trim().toLowerCase()),
-        coordenador_id: funcsMap.get(coordenador?.trim().toLowerCase()),
+        quantidade: parseInt(String(quantidade || '1'), 10),
+        loja_id: franquia ? lojasMap.get(franquia.trim().toLowerCase()) : null,
+        consultor_id: consultor ? funcsMap.get(consultor.trim().toLowerCase()) : null,
+        supervisor_id: supervisor ? funcsMap.get(supervisor.trim().toLowerCase()) : null,
+        coordenador_id: coordenador ? funcsMap.get(coordenador.trim().toLowerCase()) : null,
       };
     }).filter(Boolean); // Filtra quaisquer linhas que retornaram 'null'
 
