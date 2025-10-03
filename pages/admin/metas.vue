@@ -33,8 +33,25 @@
     <div v-else class="space-y-8">
       <UCard v-for="group in groupedGoals" :key="group.coordinatorName">
         <template #header>
-          <h3 class="text-lg font-semibold text-primary-600">Coordenador: {{ group.coordinatorName }}</h3>
+          <div class="flex justify-between items-center">
+            <h3 class="text-lg font-semibold text-primary-600">Coordenador: {{ group.coordinatorName }}</h3>
+            <div class="flex gap-6 text-right">
+              <div>
+                <p class="text-sm text-gray-500">Total Meta Multi Volume</p>
+                <p class="text-xl font-bold text-gray-800 dark:text-gray-200">{{ formatCurrency(group.totalMetaMultiVolume) }}</p>
+              </div>
+              <div>
+                <p class="text-sm text-gray-500">Total Atingido</p>
+                <p class="text-xl font-bold text-primary-500">{{ formatCurrency(group.totalAtingido) }}</p>
+              </div>
+            </div>
+          </div>
         </template>
+          <!-- Gráfico de Comparação -->
+          <div class="mb-8 h-80">
+            <Bar :data="group.chartData" :options="chartOptions" />
+          </div>
+
         <UTable :rows="group.goals" :columns="columns">
           <template #loja-data="{ row }">
             <span class="font-medium">{{ row.loja }}</span>
@@ -105,6 +122,10 @@
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue';
+import { Bar } from 'vue-chartjs';
+import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale } from 'chart.js';
+
+ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale);
 
 definePageMeta({
   middleware: 'auth'
@@ -156,6 +177,19 @@ const { data: goals, pending, refresh } = await useAsyncData('metas', async () =
   return data || [];
 }, { watch: [selectedPeriod] });
 
+const { data: contractData, pending: pendingContracts } = await useAsyncData('contratos-para-metas', async () => {
+  const firstDayOfMonth = `${selectedPeriod.value}-01`;
+  const lastDayOfMonth = new Date(new Date(firstDayOfMonth).getFullYear(), new Date(firstDayOfMonth).getMonth() + 1, 0).toISOString().split('T')[0];
+
+  const { data } = await supabase
+    .from('contratos')
+    .select('loja_id, valor_total')
+    .eq('status', 'Pago')
+    .gte('data_pagamento', firstDayOfMonth)
+    .lte('data_pagamento', lastDayOfMonth);
+  return data || [];
+}, { watch: [selectedPeriod] });
+
 // --- COLUNAS E FORMATAÇÃO DA TABELA ---
 const columns = [
   { key: 'loja', label: 'Loja' },
@@ -171,30 +205,76 @@ const columns = [
 ];
 
 const groupedGoals = computed(() => {
-  if (!goals.value) return [];
+  if (!goals.value || !contractData.value) return [];
 
-  const groups = (goals.value || []).reduce((acc, goal) => {
+  // 1. Calcula o valor atingido por loja
+  const achievedValues = contractData.value.reduce((acc, contract) => {
+    if (contract.loja_id && contract.valor_total) {
+      acc[contract.loja_id] = (acc[contract.loja_id] || 0) + contract.valor_total;
+    }
+    return acc;
+  }, {});
+
+  // 2. Agrupa as metas por coordenador
+  const groups = goals.value.reduce((acc, goal) => {
     const coordinatorName = goal.lojas?.regionais?.funcionarios?.nome_completo || 'Sem Coordenador';
 
     if (!acc[coordinatorName]) {
       acc[coordinatorName] = [];
     }
 
+    const atingido = achievedValues[goal.loja_id] || 0;
     acc[coordinatorName].push({
       ...goal,
       loja: goal.lojas?.nome || 'Loja não encontrada',
-      meta_multi_volume: (goal.meta_cnc || 0) + (goal.meta_card || 0) + (goal.meta_card_beneficio || 0) + (goal.meta_consignado || 0) + (goal.meta_fgts || 0)
+      meta_multi_volume: (goal.meta_cnc || 0) + (goal.meta_card || 0) + (goal.meta_card_beneficio || 0) + (goal.meta_consignado || 0) + (goal.meta_fgts || 0),
+      atingido: atingido
     });
 
     return acc;
   }, {});
 
-  return Object.entries(groups).map(([coordinatorName, goals]) => ({ coordinatorName, goals }));
+  // 3. Formata os dados para a tabela e para o gráfico
+  return Object.entries(groups).map(([coordinatorName, goalsInGroup]) => {
+    const chartLabels = goalsInGroup.map(g => g.lojas?.nome || 'N/A');
+    const chartDataMeta = goalsInGroup.map(g => g.meta_multi_volume);
+    const chartDataAtingido = goalsInGroup.map(g => g.atingido);
+
+    const totalMetaMultiVolume = goalsInGroup.reduce((sum, goal) => sum + goal.meta_multi_volume, 0);
+    const totalAtingido = goalsInGroup.reduce((sum, goal) => sum + goal.atingido, 0);
+
+    return {
+      coordinatorName,
+      goals: goalsInGroup,
+      totalMetaMultiVolume,
+      totalAtingido,
+      chartData: {
+        labels: chartLabels,
+        datasets: [
+          {
+            label: 'Meta Multi Volume',
+            backgroundColor: '#a5b4fc', // Indigo-300
+            data: chartDataMeta
+          },
+          {
+            label: 'Valor Atingido',
+            backgroundColor: '#4f46e5', // Indigo-600
+            data: chartDataAtingido
+          }
+        ]
+      }
+    };
+  });
 });
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return 'R$ 0,00';
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+};
+
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
 };
 
 // --- AÇÕES CRUD ---
