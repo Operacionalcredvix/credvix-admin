@@ -6,7 +6,7 @@
       <aside class="flex-shrink-0 bg-gray-800 text-white p-4 flex flex-col transition-all duration-300" :class="[isSidebarCollapsed ? 'w-20 items-center' : 'w-64']">
       <div class="text-center mb-10">
         <img src="/favicon.png" alt="Logo Credvix" class="w-12 mx-auto" />
-        <h3 v-if="!isSidebarCollapsed" class="text-xl font-bold mt-2">Farol Credvix</h3>
+        <h3 class="text-xl font-bold mt-2 transition-opacity duration-300" :class="{'opacity-0 pointer-events-none': isSidebarCollapsed}">Farol Credvix</h3>
       </div>
 
       <nav class="flex-grow">
@@ -14,6 +14,7 @@
           <li>
             <NuxtLink to="/" class="nav-link">
               <UIcon name="i-heroicons-home" class="flex-shrink-0" /> <span v-if="!isSidebarCollapsed">Dashboard</span>
+              <span class="transition-opacity duration-300" :class="{'opacity-0 pointer-events-none': isSidebarCollapsed}">Dashboard</span>
             </NuxtLink>
           </li>
 
@@ -24,7 +25,7 @@
                   <UButton color="gray" variant="ghost" class="nav-link w-full" :class="[isSidebarCollapsed ? 'justify-center' : 'justify-between']">
                     <div class="flex items-center gap-3">
                       <UIcon :name="item.icon" class="flex-shrink-0" />
-                      <span v-if="!isSidebarCollapsed">{{ item.label }}</span>
+                      <span class="transition-opacity duration-300" :class="{'opacity-0 pointer-events-none': isSidebarCollapsed}">{{ item.label }}</span>
                     </div>
                     <UIcon name="i-heroicons-chevron-right" class="transition-transform"
                       :class="[open && 'rotate-90']" />
@@ -40,8 +41,7 @@
                   >
                     <li v-for="link in item.links" :key="link.to">
                       <NuxtLink :to="link.to" class="nav-link-sub" :title="link.label">
-                        <UIcon v-if="link.icon" :name="link.icon" class="text-lg" />
-                        <span v-if="!isSidebarCollapsed">{{ link.label }}</span>
+                        <UIcon v-if="link.icon" :name="link.icon" class="text-lg" /> <span class="transition-opacity duration-300" :class="{'opacity-0 pointer-events-none': isSidebarCollapsed}">{{ link.label }}</span>
                       </NuxtLink>
                     </li>
                   </ul>
@@ -51,7 +51,7 @@
           </template>
           <li v-if="profile?.perfis?.nome === 'Master'">
             <NuxtLink to="/auditoria" class="nav-link">
-              <UIcon name="i-heroicons-shield-check" class="flex-shrink-0" /> <span v-if="!isSidebarCollapsed">Auditoria</span>
+              <UIcon name="i-heroicons-shield-check" class="flex-shrink-0" /> <span class="transition-opacity duration-300" :class="{'opacity-0 pointer-events-none': isSidebarCollapsed}">Auditoria</span>
             </NuxtLink>
           </li>
         </ul>
@@ -59,8 +59,8 @@
 
       <!-- Botão para recolher/expandir -->
       <div class="mt-auto border-t border-gray-700 pt-4">
-        <UButton color="gray" variant="ghost" class="nav-link w-full" :class="[isSidebarCollapsed ? 'justify-center' : '']" @click="isSidebarCollapsed = !isSidebarCollapsed">
-          <UIcon name="i-heroicons-arrows-right-left" class="flex-shrink-0" />
+        <UButton color="gray" variant="ghost" class="nav-link w-full" :class="[isSidebarCollapsed ? 'justify-center' : 'justify-between']" @click="isSidebarCollapsed = !isSidebarCollapsed">
+          <UIcon name="i-heroicons-arrows-right-left" class="flex-shrink-0" /> <span class="transition-opacity duration-300" :class="{'opacity-0 pointer-events-none': isSidebarCollapsed}">{{ isSidebarCollapsed ? '' : 'Recolher' }}</span>
         </UButton>
       </div>
 
@@ -312,7 +312,7 @@ const handleLogout = async () => {
 
 <style scoped lang="postcss">
 .nav-link {
-  @apply flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-left;
+  @apply flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-left text-white;
 }
 
 .nav-link.router-link-exact-active {
