@@ -180,16 +180,19 @@
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue';
+import { useDebounceFn } from '@vueuse/core';
+import { useCpfValidation } from '~/composables/useCpfValidation';
+import { useInputMasks } from '~/composables/useInputMasks';
+import { useCepLookup } from '~/composables/useCepLookup';
 
 definePageMeta({
   middleware: 'auth',
-  profiles: ['RH'] // Master já tem acesso global
+  profiles: ['RH']
 });
 
 const supabase = useSupabaseClient();
 const saving = ref(false);
 const toast = useToast(); // Sistema de notificações do Nuxt UI
-const cepLoading = ref(false);
 
 
 // --- ESTADO INICIAL DO FORMULÁRIO (Vazio) ---
@@ -216,67 +219,74 @@ const columns = [
   { key: 'lojas.nome', label: 'Loja' }, { key: 'is_active', label: 'Status' }, { key: 'actions', label: 'Ações' }
 ];
 
-// --- DADOS PARA OS DROPDOWNS ---
-const perfis = ref([]);
-const regionais = ref([]);
-const todasLojas = ref([]);
-const lideres = ref([]);
-const meuPerfil = ref(null);
+// --- COMPOSABLES ---
+const { isValidCPF } = useCpfValidation();
+const { applyCpfMask, applyPhoneMask } = useInputMasks();
+applyCpfMask(computed(() => formData.cpf));
+applyPhoneMask(computed(() => formData.telefone));
+const { loading: cepLoading, error: cepErrorApi, lookupCep } = useCepLookup();
 
-// --- CARREGAMENTO INICIAL DOS DADOS ---
-// Usando Promise.all para carregar dados em paralelo e useAsyncData para garantir que
-// os dados estejam disponíveis antes da renderização do componente.
-// CARREGAMENTO INICIAL DE DADOS (AGORA INCLUI O PERFIL DO UTILIZADOR LOGADO)
+// --- CARREGAMENTO INICIAL DE DADOS (OTIMIZADO) ---
 const { data: initialData } = await useAsyncData('funcionarios-form-data', async () => {
   const user = useSupabaseUser();
-  if (!user.value?.id) return { perfis: [], regionais: [], lojas: [], meuPerfil: null }; // CORREÇÃO: Retorna um valor padrão se o utilizador não estiver pronto
-  const [perfisRes, regionaisRes, lojasRes, meuPerfilRes] = await Promise.all([
+  if (!user.value?.id) return { perfis: [], regionais: [], lojas: [], meuPerfil: null, todosLideres: [] };
+
+  const [perfisRes, regionaisRes, lojasRes, meuPerfilRes, todosLideresRes] = await Promise.all([
     supabase.from('perfis').select('id, nome').order('nome'),
     supabase.from('regionais').select('id, nome_regional, coordenador_id').order('nome_regional'),
     supabase.from('lojas').select('id, nome, regional_id').order('nome'),
-    // CORREÇÃO: Evita o uso de select('*') para prevenir erros de schema cache com colunas virtuais (_vts).
     supabase.from('funcionarios').select(`
       id, user_id, perfil_id, loja_id,
       perfis (nome),
       lojas (id, regional_id)
-    `).eq('user_id', user.value.id).single()
+    `).eq('user_id', user.value.id).single(),
+    // Otimização: Carrega todos os funcionários que podem ser líderes (Coordenadores e Supervisores)
+    supabase.from('funcionarios').select(`
+      id, nome_completo, loja_id,
+      perfil:perfil_id (nome)
+    `).in('perfil_id', (await supabase.from('perfis').select('id').in('nome', ['Coordenador', 'Supervisor'])).data.map(p => p.id))
+      .eq('is_active', true)
   ]);
-  return { perfis: perfisRes.data, regionais: regionaisRes.data, lojas: lojasRes.data, meuPerfil: meuPerfilRes.data };
+
+  return {
+    perfis: perfisRes.data || [],
+    regionais: regionaisRes.data || [],
+    lojas: lojasRes.data || [],
+    meuPerfil: meuPerfilRes.data || null,
+    todosLideres: todosLideresRes.data || []
+  };
 });
 
-if (initialData.value) {
-  perfis.value = initialData.value.perfis || [];
-  regionais.value = initialData.value.regionais || [];
-  todasLojas.value = initialData.value.lojas || [];
-  meuPerfil.value = initialData.value.meuPerfil || null;
+// --- DADOS PARA OS DROPDOWNS (Refs populadas a partir do useAsyncData) ---
+const perfis = ref(initialData.value?.perfis || []);
+const regionais = ref(initialData.value?.regionais || []);
+const todasLojas = ref(initialData.value?.lojas || []);
+const meuPerfil = ref(initialData.value?.meuPerfil || null);
+const todosLideres = ref(initialData.value?.todosLideres || []);
 
-  onMounted(async () => {
-    // --- LÓGICA DE PRÉ-SELEÇÃO PARA GESTORES ---
-    const userProfileName = meuPerfil.value?.perfis?.nome;
-    if (userProfileName === 'Coordenador') {
-      // Um coordenador está ligado a uma regional. Pré-seleciona a regional.
-      const { data: minhaRegional } = await supabase.from('regionais').select('id').eq('coordenador_id', meuPerfil.value.id).single();
-      if (minhaRegional) formData.regional_id = minhaRegional.id;
-    } else if (userProfileName === 'Supervisor') {
-      // Um supervisor está ligado a uma loja. Pré-seleciona a regional e a loja.
-      formData.regional_id = meuPerfil.value?.lojas?.regional_id;
-      formData.loja_id = meuPerfil.value?.lojas?.id;
-    }
-  });
-}
+// --- LÓGICA DE PRÉ-SELEÇÃO PARA GESTORES ---
+onMounted(() => {
+  const userProfileName = meuPerfil.value?.perfis?.nome;
+  if (userProfileName === 'Coordenador') {
+    const minhaRegional = regionais.value.find(r => r.coordenador_id === meuPerfil.value.id);
+    if (minhaRegional) formData.regional_id = minhaRegional.id;
+  } else if (userProfileName === 'Supervisor') {
+    formData.regional_id = meuPerfil.value?.lojas?.regional_id;
+    formData.loja_id = meuPerfil.value?.lojas?.id;
+  }
+});
 
 // LÓGICA DE BUSCA
-watch(searchTerm, async (newVal) => {
+watch(searchTerm, useDebounceFn(async (newVal) => {
   if (newVal.length < 3) { searchResults.value = []; return; }
   searching.value = true;
   const { data } = await supabase
     .from('funcionarios')
-    // CORREÇÃO: Seleciona colunas explicitamente para evitar o erro _vts
     .select('id, nome_completo, is_active, perfis(nome), lojas(nome)')
     .or(`nome_completo.ilike.%${newVal}%,cpf.ilike.%${newVal}%`).limit(10);
   searchResults.value = data || [];
   searching.value = false;
-});
+}, 300));
 
 // LÓGICA DE EDIÇÃO
 const handleEdit = async (employee) => {
@@ -321,18 +331,17 @@ const formSubtitle = computed(() => formData.id ? `A editar o perfil de ${formDa
 const formButtonText = computed(() => formData.id ? 'Salvar Alterações' : 'Salvar Novo Funcionário');
 
 const selectedProfileName = computed(() => perfis.value.find(p => p.id === formData.perfil_id)?.nome || '');
-
+const meuPerfilNome = computed(() => meuPerfil.value?.perfis?.nome);
 // --- LÓGICA DE VISIBILIDADE DOS CAMPOS ORGANIZACIONAIS ---
 const isRegionalVisible = computed(() => ['Supervisor', 'Consultor'].includes(selectedProfileName.value));
 const isLiderVisible = computed(() => ['Supervisor', 'Consultor'].includes(selectedProfileName.value));
 const isLojaVisible = computed(() => ['Supervisor', 'Consultor'].includes(selectedProfileName.value));
 
 const perfisPermitidos = computed(() => {
-  const userProfileName = meuPerfil.value?.perfis?.nome;
-  if (!userProfileName) return [];
-  if (['Master', 'RH'].includes(userProfileName)) return perfis.value;
-  if (userProfileName === 'Coordenador') return perfis.value.filter(p => ['Supervisor', 'Consultor', 'Coordenador'].includes(p.nome));
-  if (userProfileName === 'Supervisor') return perfis.value.filter(p => ['Consultor', 'Supervisor'].includes(p.nome));
+  if (!meuPerfilNome.value) return [];
+  if (['Master', 'RH'].includes(meuPerfilNome.value)) return perfis.value;
+  if (meuPerfilNome.value === 'Coordenador') return perfis.value.filter(p => ['Supervisor', 'Consultor', 'Coordenador'].includes(p.nome));
+  if (meuPerfilNome.value === 'Supervisor') return perfis.value.filter(p => ['Consultor', 'Supervisor'].includes(p.nome));
   return [];
 });
 
@@ -352,31 +361,21 @@ const isLiderDisabled = computed(() => {
   return selectedProfileName.value === 'Supervisor';
 });
 
+// Otimização: Filtra a lista de líderes pré-carregada em vez de fazer uma nova chamada de API.
+const lideres = computed(() => {
+  if (selectedProfileName.value === 'Supervisor') return todosLideres.value.filter(l => l.perfil.nome === 'Coordenador');
+  if (selectedProfileName.value === 'Consultor') return todosLideres.value.filter(l => l.perfil.nome === 'Supervisor');
+  return [];
+});
+
 // WATCHERS PARA REATIVIDADE DO FORMULÁRIO
-watch(() => formData.perfil_id, async (newPerfilId, oldPerfilId) => {
+watch(() => formData.perfil_id, (newPerfilId, oldPerfilId) => {
   if (newPerfilId === oldPerfilId) return;
 
   // Limpa os campos dependentes ao trocar o perfil, respeitando os que podem estar bloqueados
-  if (!isRegionalDisabled.value) {
-    formData.regional_id = null;
-  }
+  if (!isRegionalDisabled.value) formData.regional_id = null;
   formData.loja_id = null;
   formData.gerente_id = null;
-  lideres.value = [];
-
-  let perfilLider = '';
-  // Define qual o perfil do líder baseado no perfil selecionado para o funcionário
-  if (selectedProfileName.value === 'Supervisor') perfilLider = 'Coordenador';
-  if (selectedProfileName.value === 'Consultor') perfilLider = 'Supervisor';
-
-  // Se houver um perfil de líder, busca os funcionários com esse perfil
-  if (perfilLider) {
-    const { data: perfilLiderData } = await supabase.from('perfis').select('id').eq('nome', perfilLider).single();
-    if (perfilLiderData) {
-      const { data: funcs } = await supabase.from('funcionarios').select('id, nome_completo, loja_id').eq('perfil_id', perfilLiderData.id).eq('is_active', true);
-      lideres.value = funcs || [];
-    }
-  }
 });
 
 watch(() => formData.regional_id, (newRegionalId) => {
@@ -400,7 +399,7 @@ watch(() => formData.gerente_id, (newGerenteId) => {
   // Esta lógica aplica-se apenas ao criar um Consultor
   if (!newGerenteId || selectedProfileName.value !== 'Consultor') return;
 
-  const liderSelecionado = lideres.value.find(l => l.id === newGerenteId);
+  const liderSelecionado = todosLideres.value.find(l => l.id === newGerenteId);
   if (!liderSelecionado || !liderSelecionado.loja_id) return;
 
   // Encontra a loja do líder na lista de todas as lojas
@@ -416,84 +415,29 @@ const lojasFiltradas = computed(() => {
     return todasLojas.value.filter(loja => loja.regional_id === formData.regional_id);
   }
   // Se o usuário logado for Master ou RH, mostra todas as lojas. Senão, a lista começa vazia.
-  return ['Master', 'RH'].includes(meuPerfil.value?.perfis?.nome) ? todasLojas.value : [];
+  return ['Master', 'RH'].includes(meuPerfilNome.value) ? todasLojas.value : [];
 });
 
-// --- MÁSCARAS DE INPUT ---
-watch(() => formData.cpf, (newCpf) => {
-  if (typeof newCpf !== 'string') return;
-  const cleaned = newCpf.replace(/\D/g, '').slice(0, 11);
-  let formatted = cleaned;
-  if (cleaned.length > 9) {
-    formatted = `${cleaned.slice(0, 3)}.${cleaned.slice(3, 6)}.${cleaned.slice(6, 9)}-${cleaned.slice(9)}`;
-  } else if (cleaned.length > 6) {
-    formatted = `${cleaned.slice(0, 3)}.${cleaned.slice(3, 6)}.${cleaned.slice(6)}`;
-  } else if (cleaned.length > 3) {
-    formatted = `${cleaned.slice(0, 3)}.${cleaned.slice(3)}`;
-  }
-  formData.cpf = formatted;
-});
-
-watch(() => formData.telefone, (newPhone) => {
-  if (typeof newPhone !== 'string') return;
-  const cleaned = newPhone.replace(/\D/g, '').slice(0, 11);
-  let formatted = cleaned;
-  if (cleaned.length > 10) { // Celular (00) 00000-0000
-    formatted = `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
-  } else if (cleaned.length > 6) { // Fixo (00) 0000-0000
-    formatted = `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
-  } else if (cleaned.length > 2) {
-    formatted = `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
-  }
-  formData.telefone = formatted;
-});
-// FUNÇÃO DE CEP CORRIGIDA
+// --- API EXTERNA ---
 const consultarCEP = async () => {
-  const cep = formData.cep?.replace(/\D/g, '');
-  if (!cep || cep.length !== 8) return;
+  const data = await lookupCep(formData.cep);
 
-  cepLoading.value = true;
-  try {
-    const data = await $fetch(`https://viacep.com.br/ws/${cep}/json/`);
-    if (data.erro) {
-      toast.add({ title: 'Atenção!', description: 'CEP não encontrado.', color: 'amber' });
-      return;
-    }
+  if (data) {
     formData.endereco = data.logradouro;
     formData.bairro = data.bairro;
     formData.cidade = data.localidade;
     formData.estado = data.uf;
     document.getElementById('address-number')?.focus(); // Move o cursor para o campo de número
-  } catch (error) {
-    toast.add({ title: 'Erro!', description: 'Não foi possível consultar o CEP.', color: 'red' });
-  } finally {
-    cepLoading.value = false;
+  } else if (cepErrorApi.value) {
+    toast.add({ 
+      title: cepErrorApi.value === 'CEP não encontrado.' ? 'Atenção!' : 'Erro!', 
+      description: cepErrorApi.value, 
+      color: cepErrorApi.value === 'CEP não encontrado.' ? 'amber' : 'red' 
+    });
   }
 };
 
 // --- VALIDAÇÃO DE CPF ---
-const isValidCPF = (cpf) => {
-  if (typeof cpf !== 'string') return false;
-  cpf = cpf.replace(/[^\d]+/g, ''); // Remove caracteres não numéricos
-
-  // Verifica se tem 11 dígitos e se não são todos iguais
-  if (cpf.length !== 11 || !!cpf.match(/(\d)\1{10}/)) return false;
-
-  const digits = cpf.split('').map(el => +el);
-
-  // Função para calcular um dígito verificador
-  const calcDigit = (sliceEnd) => {
-    let sum = 0;
-    for (let i = 0, j = sliceEnd + 1; i < sliceEnd; i++, j--) {
-      sum += digits[i] * j;
-    }
-    const rest = (sum * 10) % 11;
-    return rest < 10 ? rest : 0;
-  };
-
-  return calcDigit(9) === digits[9] && calcDigit(10) === digits[10];
-};
-
 const validateCpfOnBlur = () => {
   if (formData.cpf && !isValidCPF(formData.cpf)) {
     cpfError.value = 'O CPF digitado não é válido.';
@@ -683,8 +627,7 @@ async function handleFormSubmit() {
     // Atualiza a lista de busca para refletir as alterações
     if (searchTerm.value) {
       const { data } = await supabase
-        .from('funcionarios')
-        // CORREÇÃO: Seleciona colunas explicitamente para evitar o erro _vts
+        .from('funcionarios')        
         .select('id, nome_completo, is_active, perfis(nome), lojas(nome)')
         .or(`nome_completo.ilike.%${searchTerm.value}%,cpf.ilike.%${searchTerm.value}%`).limit(10);
       searchResults.value = data || [];

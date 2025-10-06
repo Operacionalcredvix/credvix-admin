@@ -154,6 +154,7 @@
 <script setup>
 import { ref, reactive, computed, watch } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
+import { useCepLookup } from '~/composables/useCepLookup';
 
 definePageMeta({
   middleware: 'auth',
@@ -166,7 +167,6 @@ const toast = useToast();
 // --- ESTADO DA PÁGINA ---
 const isModalOpen = ref(false);
 const saving = ref(false);
-const cepLoading = ref(false);
 const searchTerm = ref('');
 const cpfError = ref('');
 const exporting = ref(false);
@@ -175,6 +175,9 @@ const exporting = ref(false);
 const page = ref(1);
 const pageCount = ref(15);
 const totalClients = ref(0);
+
+// --- COMPOSABLES ---
+const { loading: cepLoading, error: cepErrorApi, lookupCep } = useCepLookup();
 
 const getInitialFormData = () => ({
   id: null,
@@ -420,24 +423,19 @@ const validateCpf = () => {
 };
 
 const consultarCEP = async () => {
-  const cep = formData.cep?.replace(/\D/g, '');
-  if (cep?.length !== 8) return;
+  const data = await lookupCep(formData.cep);
 
-  cepLoading.value = true;
-  try {
-    const data = await fetch(`https://viacep.com.br/ws/${cep}/json/`).then(res => res.json());
-    if (data.erro) {
-      toast.add({ title: 'Atenção!', description: 'CEP não encontrado.', color: 'amber' });
-      return;
-    }
+  if (data) {
     formData.endereco = data.logradouro;
     formData.bairro = data.bairro;
     formData.cidade = data.localidade;
     formData.estado = data.uf;
-  } catch (error) {
-    toast.add({ title: 'Erro!', description: 'Não foi possível consultar o CEP.', color: 'red' });
-  } finally {
-    cepLoading.value = false;
+  } else if (cepErrorApi.value) {
+    toast.add({
+      title: cepErrorApi.value === 'CEP não encontrado.' ? 'Atenção!' : 'Erro!',
+      description: cepErrorApi.value,
+      color: cepErrorApi.value === 'CEP não encontrado.' ? 'amber' : 'red'
+    });
   }
 };
 
