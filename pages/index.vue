@@ -164,146 +164,56 @@ const setDateRange = (period) => {
 // Define o período inicial como o mês atual
 setDateRange('current_month');
 
-// --- BUSCA DE DADOS COM FILTRO DE DATA E PERMISSÃO ---
-const { data: contratos, pending } = useAsyncData(
-  'dashboard-contratos',
+// --- BUSCA DE DADOS OTIMIZADA COM RPC ---
+const { data: dashboardData, pending } = useAsyncData(
+  'dashboard-data',
   async () => {
-    if (!profile.value?.id) return [];
-
-    let query = supabase
-      .from('contratos')
-      .select(`
-        status, valor_total, loja_id, consultor_id,
-        produtos (nome),
-        lojas (nome, regional_id)
-      `);
-
-    const userProfileName = profile.value.perfis?.nome;
-    switch (userProfileName) {
-      case 'Coordenador': {
-        // Busca as regionais associadas ao coordenador
-        const { data: minhasRegionais } = await supabase.from('regionais').select('id').eq('coordenador_id', profile.value.id);
-        const idsRegionais = minhasRegionais?.map(r => r.id) || [];
-        if (idsRegionais.length === 0) return [];
-
-        // Busca as lojas dessas regionais
-        const { data: lojasDaRegional } = await supabase.from('lojas').select('id').in('regional_id', idsRegionais);
-        const idsLojas = lojasDaRegional?.map(l => l.id) || [];
-        if (idsLojas.length === 0) return [];
-        query = query.in('loja_id', idsLojas);
-        break;
-      }
-      case 'Supervisor':
-        query = query.eq('loja_id', profile.value.loja_id);
-        break;
-      case 'Consultor':
-        query = query.eq('consultor_id', profile.value.id);
-        break;
+    if (!profile.value?.user_id || !dateRange.start || !dateRange.end) {
+      return null;
     }
 
-    // Adiciona o filtro de data à consulta
-    if (dateRange.start) query = query.gte('data_contrato', dateRange.start);
-    if (dateRange.end) query = query.lte('data_contrato', dateRange.end);
+    const { data, error } = await supabase.rpc('get_dashboard_data', {
+      p_user_id: profile.value.user_id,
+      p_start_date: dateRange.start,
+      p_end_date: dateRange.end
+    });
 
-    const { data } = await query;
-    return data || [];
+    if (error) {
+      console.error('Erro ao buscar dados do dashboard via RPC:', error);
+      toast.add({ title: 'Erro ao carregar dados', description: error.message, color: 'red' });
+      return null;
+    }
+    return data;
   },
-  {
-    // Re-executa a busca quando o perfil ou as datas mudarem
-    watch: [profile, dateRange]
-  }
-);
-
-const { data: vendasExternas, pending: pendingVendas } = useAsyncData(
-  'dashboard-vendas-externas',
-  async () => {
-    if (!profile.value?.id) return [];
-
-    let query = supabase
-      .from('vendas_externas')
-      .select('loja_id, consultor_id, tipo_produto, quantidade');
-
-    const userProfileName = profile.value.perfis?.nome;
-    switch (userProfileName) {
-      case 'Coordenador': {
-        const { data: minhasRegionais } = await supabase.from('regionais').select('id').eq('coordenador_id', profile.value.id);
-        const idsRegionais = minhasRegionais?.map(r => r.id) || [];
-        if (idsRegionais.length === 0) return [];
-        const { data: lojasDaRegional } = await supabase.from('lojas').select('id').in('regional_id', idsRegionais);
-        const idsLojas = lojasDaRegional?.map(l => l.id) || [];
-        if (idsLojas.length === 0) return [];
-        query = query.in('loja_id', idsLojas);
-        break;
-      }
-      case 'Supervisor':
-        query = query.eq('loja_id', profile.value.loja_id);
-        break;
-      case 'Consultor':
-        query = query.eq('consultor_id', profile.value.id);
-        break;
-    }
-
-    if (dateRange.start) query = query.gte('data_venda', dateRange.start);
-    if (dateRange.end) query = query.lte('data_venda', dateRange.end);
-
-    const { data } = await query;
-    return data || [];
-  }, { watch: [profile, dateRange] }
+  { watch: [profile, dateRange] }
 );
 
 // --- CÁLCULOS PARA AS ESTATÍSTICAS E GRÁFICOS ---
-const hasData = computed(() => contratos.value && contratos.value.length > 0);
+const hasData = computed(() => dashboardData.value && dashboardData.value.stats?.total > 0);
 
 const stats = computed(() => {
-  if (!contratos.value && !vendasExternas.value) return { total: 0, pagos: 0, pendentes: 0, cancelados: 0, valorTotal: 0, bmgMed: 0, seguroFamiliar: 0 };
-
-  const statusPagos = ['Pago', 'Aprovado'];
-  const statusPendentes = ['Pendente', 'Em Análise'];
-  const statusCancelados = ['Cancelado', 'Reprovado'];
-
-  return {
-    total: contratos.value.length,
-    pagos: contratos.value.filter(c => statusPagos.includes(c.status)).length,
-    pendentes: contratos.value.filter(c => statusPendentes.includes(c.status)).length,
-    cancelados: contratos.value.filter(c => statusCancelados.includes(c.status)).length,
-    valorTotal: contratos.value
-      .filter(c => statusPagos.includes(c.status))
-      .reduce((sum, c) => sum + (c.valor_total || 0), 0),
-    bmgMed: (vendasExternas.value || []).filter(v => v.tipo_produto === 'bmg_med').reduce((sum, v) => sum + v.quantidade, 0),
-    seguroFamiliar: (vendasExternas.value || []).filter(v => v.tipo_produto === 'seguro_familiar').reduce((sum, v) => sum + v.quantidade, 0),
-  };
+  const defaultStats = { total: 0, pagos: 0, pendentes: 0, cancelados: 0, valorTotal: 0, bmgMed: 0, seguroFamiliar: 0 };
+  return dashboardData.value?.stats ? { ...defaultStats, ...dashboardData.value.stats } : defaultStats;
 });
 
 const chartData = computed(() => {
-  if (!hasData.value) return { status: { labels: [], datasets: [] }, produtos: { labels: [], datasets: [] }, lojas: { labels: [], datasets: [] } };
+  const emptyChart = { labels: [], datasets: [] };
+  if (!hasData.value || !dashboardData.value) {
+    return { status: emptyChart, produtos: emptyChart, lojas: emptyChart };
+  }
 
-  const statusCounts = contratos.value.reduce((acc, c) => {
-    acc[c.status] = (acc[c.status] || 0) + 1;
-    return acc;
-  }, {});
-
-  const lojasCounts = contratos.value.reduce((acc, c) => {
-    const nomeLoja = c.lojas?.nome || 'Loja não identificada';
-    acc[nomeLoja] = (acc[nomeLoja] || 0) + 1;
-    return acc;
-  }, {});
-  const top10Lojas = Object.entries(lojasCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
-
-  const produtosCounts = contratos.value.reduce((acc, c) => {
-    const nomeProduto = c.produtos?.nome || 'Não identificado';
-    acc[nomeProduto] = (acc[nomeProduto] || 0) + 1;
-    return acc;
-  }, {});
+  const { statusChart, lojasChart, produtosChart } = dashboardData.value;
 
   // Paleta de cores para os produtos. Se houver mais produtos que cores, elas se repetirão.
   const productColors = [
     '#3b82f6', '#22c55e', '#ef4444', '#eab308', '#8b5cf6',
     '#f97316', '#14b8a6', '#ec4899', '#64748b', '#d946ef'
   ];
-  const produtosBackgroundColors = Object.keys(produtosCounts).map((_, index) => productColors[index % productColors.length]);
+  const produtosBackgroundColors = Object.keys(produtosChart).map((_, index) => productColors[index % productColors.length]);
 
-  const statusLabels = Object.keys(statusCounts);
-  const statusColors = statusLabels.map(label => {
+  const statusLabels = Object.keys(statusChart);
+  const statusData = Object.values(statusChart);
+  const statusBackgroundColors = statusLabels.map(label => {
     if (['Pago', 'Aprovado'].includes(label)) return '#10b981'; // Verde
     if (['Pendente', 'Em Análise'].includes(label)) return '#f59e0b'; // Ambar
     if (['Cancelado', 'Reprovado'].includes(label)) return '#ef4444'; // Vermelho
@@ -313,15 +223,15 @@ const chartData = computed(() => {
   return {
     status: {
       labels: statusLabels,
-      datasets: [{ backgroundColor: statusColors, data: Object.values(statusCounts) }]
+      datasets: [{ backgroundColor: statusBackgroundColors, data: statusData }]
     },
     lojas: {
-      labels: top10Lojas.map(item => item[0]),
-      datasets: [{ label: 'Quantidade de Contratos', backgroundColor: '#8b5cf6', data: top10Lojas.map(item => item[1]) }]
+      labels: Object.keys(lojasChart),
+      datasets: [{ label: 'Quantidade de Contratos', backgroundColor: '#8b5cf6', data: Object.values(lojasChart) }]
     },
     produtos: {
-      labels: Object.keys(produtosCounts),
-      datasets: [{ label: 'Quantidade de Contratos', backgroundColor: produtosBackgroundColors, data: Object.values(produtosCounts) }]
+      labels: Object.keys(produtosChart),
+      datasets: [{ label: 'Quantidade de Contratos', backgroundColor: produtosBackgroundColors, data: Object.values(produtosChart) }]
     }
   };
 });
