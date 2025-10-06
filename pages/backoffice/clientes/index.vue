@@ -37,9 +37,8 @@
       </template>
     </UCard>
     <!-- Modal de Criação/Edição -->
-    <USlideover v-model="isModalOpen" :ui="{ width: 'sm:max-w-2xl' }">
-      <UCard class="flex flex-col flex-1"
-        :ui="{ body: { padding: '', base: 'flex-1' }, ring: '', divide: 'divide-y divide-gray-100 dark:divide-gray-800' }">
+    <UModal v-model="isModalOpen" :ui="{ width: 'sm:max-w-4xl' }">
+      <UCard :ui="{ ring: '', divide: 'divide-y divide-gray-100 dark:divide-gray-800', body: { padding: 'p-4 sm:p-6' } }">
         <template #header>
           <div class="flex items-center justify-between">
             <h3 class="text-base font-semibold">
@@ -50,7 +49,7 @@
           </div>
         </template>
 
-        <div class="p-4 overflow-y-auto flex-1">
+        <div>
           <UForm :state="formData" @submit.prevent="handleFormSubmit" class="space-y-6">
             <UCard>
               <template #header>
@@ -85,18 +84,18 @@
                 <p class="text-sm text-gray-500">Registe até dois benefícios para este cliente.</p>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
                   <UFormGroup label="Espécie Benefício 1" name="especie_beneficio_1">
-                    <UInput v-model="formData.especie_beneficio_1" />
+                    <UInput v-model="formData.especie_beneficio_1" placeholder="Especie do benefício" />
                   </UFormGroup>
                   <UFormGroup label="Número Benefício 1" name="numero_beneficio_1">
-                    <UInput v-model="formData.numero_beneficio_1" />
+                    <UInput v-model="formData.numero_beneficio_1" placeholder="Número do benefício"/>
                   </UFormGroup>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
                   <UFormGroup label="Espécie Benefício 2" name="especie_beneficio_2">
-                    <UInput v-model="formData.especie_beneficio_2" />
+                    <UInput v-model="formData.especie_beneficio_2" placeholder="Especie do benefício"/>
                   </UFormGroup>
                   <UFormGroup label="Número Benefício 2" name="numero_beneficio_2">
-                    <UInput v-model="formData.numero_beneficio_2" />
+                    <UInput v-model="formData.numero_beneficio_2" placeholder="Número do benefício"/>
                   </UFormGroup>
                 </div>
               </div>
@@ -108,31 +107,31 @@
               <div class="space-y-4">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <UFormGroup label="CEP" name="cep">
-                    <UInput v-model="formData.cep" @blur="consultarCEP" :loading="cepLoading" />
+                    <UInput v-model="formData.cep" @blur="consultarCEP" :loading="cepLoading" placeholder="Apenas números"/>
                   </UFormGroup>
                   <div class="md:col-span-2">
                     <UFormGroup label="Endereço" name="endereco">
-                      <UInput v-model="formData.endereco" />
+                      <UInput v-model="formData.endereco" placeholder="Endereço completo"/>
                     </UFormGroup>
                   </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <UFormGroup label="Número" name="numero_endereco">
-                    <UInput v-model="formData.numero_endereco" />
+                    <UInput v-model="formData.numero_endereco" placeholder="Número" />
                   </UFormGroup>
                   <UFormGroup label="Complemento" name="complemento_endereco">
-                    <UInput v-model="formData.complemento_endereco" />
+                    <UInput v-model="formData.complemento_endereco" placeholder="Complemento" />
                   </UFormGroup>
                   <UFormGroup label="Bairro" name="bairro">
-                    <UInput v-model="formData.bairro" />
+                    <UInput v-model="formData.bairro" placeholder="Bairro" />
                   </UFormGroup>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <UFormGroup label="Cidade" name="cidade">
-                    <UInput v-model="formData.cidade" />
+                    <UInput v-model="formData.cidade" placeholder="Cidade" />
                   </UFormGroup>
                   <UFormGroup label="Estado" name="estado">
-                    <UInput v-model="formData.estado" />
+                    <UInput v-model="formData.estado" placeholder="Estado" />
                   </UFormGroup>
                 </div>
               </div>
@@ -148,7 +147,7 @@
           </div>
         </template>
       </UCard>
-    </USlideover>
+    </UModal>
   </div>
 </template>
 
