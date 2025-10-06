@@ -106,6 +106,11 @@
 <script setup>
 import { ref, reactive, computed, watch } from 'vue';
 
+definePageMeta({
+  middleware: 'auth',
+  profiles: ['Master', 'Backoffice']
+});
+
 const supabase = useSupabaseClient();
 const { profile } = useProfile();
 const toast = useToast();

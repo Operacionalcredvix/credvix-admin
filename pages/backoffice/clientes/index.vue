@@ -156,6 +156,11 @@
 import { ref, reactive, computed, watch } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
 
+definePageMeta({
+  middleware: 'auth',
+  profiles: ['Master', 'Backoffice']
+});
+
 const supabase = useSupabaseClient();
 const toast = useToast();
 

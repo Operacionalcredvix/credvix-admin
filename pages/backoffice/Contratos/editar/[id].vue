@@ -113,7 +113,8 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 
 definePageMeta({
-  middleware: 'auth'
+  middleware: 'auth',
+  profiles: ['Backoffice', 'Master']
 });
 
 const supabase = useSupabaseClient();

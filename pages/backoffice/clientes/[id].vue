@@ -69,6 +69,11 @@ const route = useRoute();
 const supabase = useSupabaseClient();
 const clienteId = route.params.id;
 
+definePageMeta({
+  middleware: 'auth',
+  profiles: ['Master', 'Backoffice']
+});
+
 // --- CARREGAMENTO DE DADOS DO CLIENTE ESPECÍFICO ---
 const { data: cliente, pending } = await useAsyncData(`cliente-${clienteId}`, async () => {
   const { data } = await supabase

@@ -88,7 +88,8 @@
 </template>
 
 <script setup>
-definePageMeta({ middleware: 'auth' });
+definePageMeta({ middleware: 'auth',
+profiles: ['Master', 'Backoffice'] });
 
 import { ref, computed, watch, watchEffect } from 'vue';
 
@@ -102,7 +103,7 @@ const selectedLoja = ref(null);
 const selectedConsultor = ref(null);
 const startDate = ref(null);
 const endDate = ref(null);
-const statusOptions = ['Em Análise','Reprovado', 'Pendente', 'Pago', 'Cancelado'];
+const statusOptions = ['Em Análise', 'Reprovado', 'Pendente', 'Pago', 'Cancelado'];
 const page = ref(1);
 const pageCount = ref(15);
 const totalRows = ref(0);
@@ -171,8 +172,8 @@ const consultoresParaFiltro = computed(() => {
     return todosConsultores.value.filter(c => c.loja_id === selectedLoja.value);
   }
   if (profile.value?.perfis?.nome === 'Coordenador') {
-     const idsLojas = lojasParaFiltro.value.map(l => l.id);
-     return todosConsultores.value.filter(c => idsLojas.includes(c.loja_id));
+    const idsLojas = lojasParaFiltro.value.map(l => l.id);
+    return todosConsultores.value.filter(c => idsLojas.includes(c.loja_id));
   }
   return todosConsultores.value;
 });
@@ -251,11 +252,11 @@ const { data: contratos, pending, refresh } = useAsyncData(
     if (!totalError) {
       totalValorContratos.value = totalData.reduce((acc, item) => acc + (item.valor_total || 0), 0);
     }
-    
+
     return data;
   }, {
-    watch: [page, selectedStatus, selectedLoja, selectedConsultor, selectedCliente, startDate, endDate, profile]
-  }
+  watch: [page, selectedStatus, selectedLoja, selectedConsultor, selectedCliente, startDate, endDate, profile]
+}
 );
 
 // O UTable agora usa 'contratos' diretamente, pois a filtragem é no servidor.

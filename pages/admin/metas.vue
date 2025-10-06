@@ -135,7 +135,8 @@ import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, Li
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale);
 
 definePageMeta({
-  middleware: 'auth'
+  middleware: 'auth',
+  profiles: ['Master']
 });
 
 const supabase = useSupabaseClient();

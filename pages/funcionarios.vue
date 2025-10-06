@@ -182,7 +182,8 @@
 import { ref, reactive, computed, watch } from 'vue';
 
 definePageMeta({
-  middleware: 'auth'
+  middleware: 'auth',
+  profiles: ['RH'] // Master já tem acesso global
 });
 
 const supabase = useSupabaseClient();

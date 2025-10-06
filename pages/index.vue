@@ -127,7 +127,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, onBeforeUnmount } from 'vue';
 import { Bar, Doughnut } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement } from 'chart.js';
 
@@ -397,4 +397,19 @@ const exportToPDF = async () => {
     exporting.value = false;
   }
 };
+
+// --- LIMPEZA DOS GRÁFICOS ---
+// Garante que as instâncias dos gráficos sejam destruídas ao sair da página
+// para evitar vazamentos de memória e o erro 'dispose'.
+onBeforeUnmount(() => {
+  if (doughnutChartRef.value?.chart) {
+    doughnutChartRef.value.chart.destroy();
+  }
+  if (barChartLojasRef.value?.chart) {
+    barChartLojasRef.value.chart.destroy();
+  }
+  if (barChartProdutosRef.value?.chart) {
+    barChartProdutosRef.value.chart.destroy();
+  }
+});
 </script>

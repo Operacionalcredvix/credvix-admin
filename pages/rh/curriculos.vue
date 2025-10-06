@@ -55,6 +55,12 @@
 
 <script setup>
 const supabase = useSupabaseClient();
+const route = useRoute();
+
+definePageMeta({
+  middleware: 'auth',
+  profiles: ['Master', 'Coordenador', 'Supervisor', 'RH']
+});
 
 // --- ESTADO DOS FILTROS ---
 const searchTerm = ref('');

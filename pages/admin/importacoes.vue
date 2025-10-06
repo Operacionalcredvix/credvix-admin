@@ -83,6 +83,11 @@ const importOptions = [
   { label: 'Metas de Seguro Familiar', value: 'seguro_familiar' },
 ];
 
+definePageMeta({
+  middleware: 'auth',
+  profiles: ['Backoffice', 'Master']
+});
+
 // CORREÇÃO: `file` agora é uma propriedade computada para garantir reatividade.
 const selectedFiles = ref(null);
 const file = computed(() => selectedFiles.value?.[0]);

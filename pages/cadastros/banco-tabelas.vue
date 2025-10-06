@@ -3,6 +3,9 @@
     <header class="mb-8 flex justify-between items-center">
       <h1 class="text-primary-500 text-3xl font-bold">Gestão de Bancos e Tabelas</h1>
       <UButton icon="i-heroicons-plus-circle" size="lg" @click="openModal()">
+        Adicionar Novo Banco
+      </UButton>
+      <UButton icon="i-heroicons-plus-circle" size="lg" @click="openTableModal()">
         Adicionar Nova Tabela
       </UButton>
     </header>
@@ -58,6 +61,11 @@
 </template>
 
 <script setup>
+definePageMeta({
+  middleware: 'auth',
+  profiles: ['Backoffice']
+});
+
 const supabase = useSupabaseClient();
 const toast = useToast();
 

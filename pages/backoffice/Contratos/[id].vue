@@ -125,6 +125,10 @@
 const route = useRoute();
 const supabase = useSupabaseClient();
 const contratoId = route.params.id;
+definePageMeta({
+  middleware: 'auth',
+  profiles: ['Master', 'Backoffice']
+});
 
 // --- CARREGAMENTO DOS DADOS DO CONTRATO ---
 const { data: contrato, pending } = await useAsyncData(`contrato-${contratoId}`, async () => {

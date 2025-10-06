@@ -66,6 +66,11 @@
 <script setup>
 import { ref, watch } from 'vue';
 
+definePageMeta({
+  middleware: 'auth',
+  profiles: ['Master']
+});
+
 const supabase = useSupabaseClient();
 const page = ref(1);
 const pageCount = ref(20);
