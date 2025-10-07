@@ -2,7 +2,7 @@
   <div>
     <header class="mb-8 flex justify-between items-center">
       <h1 class="text-primary-500 text-3xl font-bold">Gestão de Produtos</h1>
-      <UButton icon="i-heroicons-plus-circle" size="lg" @click="openModal()">
+      <UButton icon="i-heroicons-plus-circle" size="lg" @click="openModal(null)">
         Adicionar Novo Produto
       </UButton>
     </header>
@@ -11,6 +11,11 @@
       <UTable :rows="produtos || []" :columns="columns" :loading="pending">
         <template #is_active-data="{ row }">
           <UBadge :label="row.is_active ? 'Ativo' : 'Inativo'" :color="row.is_active ? 'primary' : 'red'" variant="subtle" />
+        </template>
+
+        <template #categoria_meta-data="{ row }">
+          <UBadge v-if="row.categoria_meta" :label="row.categoria_meta" color="gray" variant="soft" />
+          <span v-else class="text-xs text-gray-500">Não definida</span>
         </template>
 
         <template #actions-data="{ row }">
@@ -31,6 +36,10 @@
         <UForm :state="formData" @submit="handleFormSubmit" class="p-4 space-y-4">
           <UFormGroup label="Nome do Produto" name="nome" required>
             <UInput v-model="formData.nome" placeholder="Ex: Empréstimo Consignado" />
+          </UFormGroup>
+
+          <UFormGroup label="Categoria da Meta" name="categoria_meta" required>
+            <USelectMenu v-model="formData.categoria_meta" :options="metaCategories" placeholder="Selecione a categoria principal" />
           </UFormGroup>
 
           <UFormGroup label="Status do Produto" name="is_active" class="flex items-center space-x-2">
@@ -58,20 +67,25 @@ const saving = ref(false);
 const getInitialFormData = () => ({
   id: null,
   nome: '',
+  categoria_meta: null,
   is_active: true
 });
 const formData = reactive(getInitialFormData());
 
+// Opções para o novo campo de categoria
+const metaCategories = ['CNC', 'CARD', 'CARD BENEFÍCIO', 'CONSIGNADO', 'FGTS'];
+
 // --- DEFINIÇÃO DAS COLUNAS DA TABELA ---
 const columns = [
   { key: 'nome', label: 'Nome do Produto', sortable: true },
+  { key: 'categoria_meta', label: 'Categoria da Meta', sortable: true },
   { key: 'is_active', label: 'Status' },
   { key: 'actions', label: 'Ações' }
 ];
 
 // --- CARREGAMENTO DE DADOS ---
 const { data: produtos, pending, refresh } = await useAsyncData('produtos', async () => {
-  const { data } = await supabase.from('produtos').select('*').order('nome');
+  const { data } = await supabase.from('produtos').select('id, nome, is_active, categoria_meta').order('nome');
   return data;
 });
 

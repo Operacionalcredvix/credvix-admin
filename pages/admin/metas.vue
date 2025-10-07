@@ -231,10 +231,20 @@ const groupedGoals = computed(() => {
   if (!goals.value || !contractData.value || !vendasExternasData.value) return [];
 
   // 1. Calcula o valor atingido (Multi Volume) por loja a partir dos contratos
-  const achievedInternalValues = contractData.value.reduce((acc, contract) => {
-    if (contract.loja_id && contract.valor_total) {
-      acc[contract.loja_id] = (acc[contract.loja_id] || 0) + contract.valor_total;
+  const achievedValuesByStore = contractData.value.reduce((acc, contract) => {
+    const storeId = contract.loja_id;
+    const productCategory = contract.produtos?.categoria_meta;
+    const contractValue = contract.valor_total || 0;
+
+    if (!storeId || !productCategory) return acc;
+
+    if (!acc[storeId]) {
+      acc[storeId] = { total: 0, cnc: 0, card: 0, card_beneficio: 0, consignado: 0, fgts: 0 };
     }
+
+    acc[storeId].total += contractValue;
+    acc[storeId][productCategory.toLowerCase().replace(' ', '_').replace('í', 'i')] += contractValue;
+
     return acc;
   }, {});
 
@@ -260,7 +270,7 @@ const groupedGoals = computed(() => {
       acc[coordinatorName] = [];
     }
 
-    const atingidoMultiVolume = achievedInternalValues[goal.loja_id] || 0;
+    const achieved = achievedValuesByStore[goal.loja_id] || { total: 0, cnc: 0, card: 0, card_beneficio: 0, consignado: 0, fgts: 0 };
     const atingidoBmgMed = achievedExternalValues[goal.loja_id]?.bmg_med || 0;
     const atingidoSeguroFamiliar = achievedExternalValues[goal.loja_id]?.seguro_familiar || 0;
 
@@ -268,7 +278,14 @@ const groupedGoals = computed(() => {
       ...goal,
       loja: goal.lojas?.nome || 'Loja não encontrada',
       meta_multi_volume: (goal.meta_cnc || 0) + (goal.meta_card || 0) + (goal.meta_card_beneficio || 0) + (goal.meta_consignado || 0) + (goal.meta_fgts || 0),
-      atingido_multi_volume: atingidoMultiVolume,
+      // Valores atingidos por categoria
+      atingido_multi_volume: achieved.total,
+      atingido_cnc: achieved.cnc,
+      atingido_card: achieved.card,
+      atingido_card_beneficio: achieved.card_beneficio,
+      atingido_consignado: achieved.consignado,
+      atingido_fgts: achieved.fgts,
+      // Vendas externas
       atingido_bmg_med: atingidoBmgMed,
       atingido_seguro_familiar: atingidoSeguroFamiliar,
     });
