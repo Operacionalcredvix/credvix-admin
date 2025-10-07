@@ -57,10 +57,19 @@
             <span class="font-medium">{{ row.loja }}</span>
           </template>
 
-          <template #meta_multi_volume-data="{ row }">
-            <span class="font-bold">{{ formatCurrency(row.meta_multi_volume) }}</span>
+          <template #percentual_multi_volume-data="{ row }">
+            <div class="w-full">
+              <p class="text-center font-bold" :class="getPercentageColor(row.percentual_multi_volume)">
+                {{ row.percentual_multi_volume.toFixed(2) }}%
+              </p>
+              <UProgress :value="row.percentual_multi_volume" :color="getProgressBarColor(row.percentual_multi_volume)" />
+              <p class="text-xs text-gray-500 text-center mt-1">
+                {{ formatCurrency(row.atingido_multi_volume) }} / {{ formatCurrency(row.meta_multi_volume) }}
+              </p>
+            </div>
           </template>
 
+          <!-- As colunas de valor agora mostram o atingido vs a meta -->
           <template #meta_cnc-data="{ row }">{{ formatCurrency(row.meta_cnc) }}</template>
           <template #meta_card-data="{ row }">{{ formatCurrency(row.meta_card) }}</template>
           <template #meta_card_beneficio-data="{ row }">{{ formatCurrency(row.meta_card_beneficio) }}</template>
@@ -99,6 +108,9 @@
               <UInput type="month" v-model="formData.periodo" :disabled="isEditing" />
             </UFormGroup>
 
+            <UFormGroup label="Qtd. Orçados" name="orçados" required>
+              <UInput v-model.number="formData.orçados" type="number" placeholder="Nº ideal de consultores" />
+            </UFormGroup>
             <div class="grid grid-cols-2 gap-4 pt-4">
               <UFormGroup label="CNC (Valor)" name="meta_cnc"><UInput v-model.number="formData.meta_cnc" type="number" step="0.01" /></UFormGroup>
               <UFormGroup label="CARD (Valor)" name="meta_card"><UInput v-model.number="formData.meta_card" type="number" step="0.01" /></UFormGroup>
@@ -153,6 +165,7 @@ const getInitialFormData = () => ({
   id: null,
   loja_id: null,
   periodo: selectedPeriod.value,
+  orçados: 1,
   meta_cnc: 0,
   meta_card: 0,
   meta_card_beneficio: 0,
@@ -176,47 +189,19 @@ const { data: lojas } = await useAsyncData('lojas-para-metas', async () => {
   return data || [];
 });
 
-const { data: goals, pending, refresh } = await useAsyncData('metas', async () => {
+const { data: goals, pending, refresh } = await useAsyncData('metas-progresso', async () => {
   const firstDayOfMonth = `${selectedPeriod.value}-01`;
   const { data } = await supabase
-    .from('metas')
-    .select(`
-      id, loja_id, periodo, meta_cnc, meta_card, meta_card_beneficio, meta_consignado, meta_bmg_med, meta_seguro_familiar, meta_fgts,
-      lojas ( nome, regionais ( funcionarios ( nome_completo ) ) )
-    `)
+    .from('metas_progresso') // <-- MUDANÇA: Usando a nova VIEW
+    .select('*')
     .eq('periodo', firstDayOfMonth);
-  return data || [];
-}, { watch: [selectedPeriod] });
-
-const { data: contractData, pending: pendingContracts } = await useAsyncData('contratos-para-metas', async () => {
-  const firstDayOfMonth = `${selectedPeriod.value}-01`;
-  const lastDayOfMonth = new Date(new Date(firstDayOfMonth).getFullYear(), new Date(firstDayOfMonth).getMonth() + 1, 0).toISOString().split('T')[0];
-
-  const { data } = await supabase
-    .from('contratos')
-    .select('loja_id, valor_total')
-    .eq('status', 'Pago')
-    .gte('data_pagamento', firstDayOfMonth)
-    .lte('data_pagamento', lastDayOfMonth);
-  return data || [];
-}, { watch: [selectedPeriod] });
-
-const { data: vendasExternasData, pending: pendingVendasExternas } = await useAsyncData('vendas-externas-para-metas', async () => {
-  const firstDayOfMonth = `${selectedPeriod.value}-01`;
-  const lastDayOfMonth = new Date(new Date(firstDayOfMonth).getFullYear(), new Date(firstDayOfMonth).getMonth() + 1, 0).toISOString().split('T')[0];
-
-  const { data } = await supabase
-    .from('vendas_externas')
-    .select('loja_id, tipo_produto, quantidade')
-    .gte('data_venda', firstDayOfMonth)
-    .lte('data_venda', lastDayOfMonth);
   return data || [];
 }, { watch: [selectedPeriod] });
 
 // --- COLUNAS E FORMATAÇÃO DA TABELA ---
 const columns = [
-  { key: 'loja', label: 'Loja' },
-  { key: 'meta_multi_volume', label: 'Meta Multi Volume' },
+  { key: 'loja_nome', label: 'Loja', class: 'w-1/12' },
+  { key: 'percentual_multi_volume', label: '% Multi Volume', class: 'w-2/12' },
   { key: 'meta_cnc', label: 'CNC' },
   { key: 'meta_card', label: 'CARD' },
   { key: 'meta_card_beneficio', label: 'CARD Benefício' },
@@ -228,74 +213,22 @@ const columns = [
 ];
 
 const groupedGoals = computed(() => {
-  if (!goals.value || !contractData.value || !vendasExternasData.value) return [];
+  if (!goals.value) return [];
 
-  // 1. Calcula o valor atingido (Multi Volume) por loja a partir dos contratos
-  const achievedValuesByStore = contractData.value.reduce((acc, contract) => {
-    const storeId = contract.loja_id;
-    const productCategory = contract.produtos?.categoria_meta;
-    const contractValue = contract.valor_total || 0;
-
-    if (!storeId || !productCategory) return acc;
-
-    if (!acc[storeId]) {
-      acc[storeId] = { total: 0, cnc: 0, card: 0, card_beneficio: 0, consignado: 0, fgts: 0 };
-    }
-
-    acc[storeId].total += contractValue;
-    acc[storeId][productCategory.toLowerCase().replace(' ', '_').replace('í', 'i')] += contractValue;
-
-    return acc;
-  }, {});
-
-  // 2. Calcula a quantidade atingida (Vendas Externas) por loja
-  const achievedExternalValues = vendasExternasData.value.reduce((acc, venda) => {
-    if (!venda.loja_id) return acc;
-    if (!acc[venda.loja_id]) {
-      acc[venda.loja_id] = { bmg_med: 0, seguro_familiar: 0 };
-    }
-    if (venda.tipo_produto === 'bmg_med') {
-      acc[venda.loja_id].bmg_med += venda.quantidade;
-    } else if (venda.tipo_produto === 'seguro_familiar') {
-      acc[venda.loja_id].seguro_familiar += venda.quantidade;
-    }
-    return acc;
-  }, {});
-
-  // 2. Agrupa as metas por coordenador
+  // 1. Agrupa as metas por coordenador (os dados já vêm calculados da VIEW)
   const groups = goals.value.reduce((acc, goal) => {
-    const coordinatorName = goal.lojas?.regionais?.funcionarios?.nome_completo || 'Sem Coordenador';
-
+    const coordinatorName = goal.coordenador_nome || 'Sem Coordenador';
     if (!acc[coordinatorName]) {
-      acc[coordinatorName] = [];
+      acc[coordinatorName] = { goals: [] };
     }
-
-    const achieved = achievedValuesByStore[goal.loja_id] || { total: 0, cnc: 0, card: 0, card_beneficio: 0, consignado: 0, fgts: 0 };
-    const atingidoBmgMed = achievedExternalValues[goal.loja_id]?.bmg_med || 0;
-    const atingidoSeguroFamiliar = achievedExternalValues[goal.loja_id]?.seguro_familiar || 0;
-
-    acc[coordinatorName].push({
-      ...goal,
-      loja: goal.lojas?.nome || 'Loja não encontrada',
-      meta_multi_volume: (goal.meta_cnc || 0) + (goal.meta_card || 0) + (goal.meta_card_beneficio || 0) + (goal.meta_consignado || 0) + (goal.meta_fgts || 0),
-      // Valores atingidos por categoria
-      atingido_multi_volume: achieved.total,
-      atingido_cnc: achieved.cnc,
-      atingido_card: achieved.card,
-      atingido_card_beneficio: achieved.card_beneficio,
-      atingido_consignado: achieved.consignado,
-      atingido_fgts: achieved.fgts,
-      // Vendas externas
-      atingido_bmg_med: atingidoBmgMed,
-      atingido_seguro_familiar: atingidoSeguroFamiliar,
-    });
-
+    acc[coordinatorName].goals.push(goal);
     return acc;
   }, {});
 
-  // 3. Formata os dados para a tabela e para o gráfico
-  return Object.entries(groups).map(([coordinatorName, goalsInGroup]) => {
-    const chartLabels = goalsInGroup.map(g => g.lojas?.nome || 'N/A');
+  // 2. Formata os dados para a tabela e para o gráfico
+  return Object.entries(groups).map(([coordinatorName, groupData]) => {
+    const goalsInGroup = groupData.goals;
+    const chartLabels = goalsInGroup.map(g => g.loja_nome || 'N/A');
     const chartDataMeta = goalsInGroup.map(g => g.meta_multi_volume);
     const chartDataAtingido = goalsInGroup.map(g => g.atingido_multi_volume);
 
@@ -331,6 +264,18 @@ const formatCurrency = (value) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
+const getPercentageColor = (percentage) => {
+  if (percentage >= 100) return 'text-green-500';
+  if (percentage >= 75) return 'text-yellow-500';
+  return 'text-red-500';
+};
+
+const getProgressBarColor = (percentage) => {
+  if (percentage >= 100) return 'green';
+  if (percentage >= 75) return 'yellow';
+  return 'red';
+};
+
 const chartOptions = {
   responsive: true,
   maintainAspectRatio: false,
@@ -344,7 +289,7 @@ const openModal = () => {
 };
 
 const handleEdit = (row) => {
-  // Encontra o registo original não formatado na lista 'goals'
+  // A VIEW já traz todos os dados necessários, não precisa mais buscar o original.
   const originalGoal = goals.value.find(g => g.id === row.id);
   if (!originalGoal) {
     toast.add({ title: 'Erro', description: 'Não foi possível encontrar os dados originais da meta.', color: 'red' });
@@ -360,10 +305,20 @@ const handleEdit = (row) => {
 const handleSave = async () => {
   saving.value = true;
   try {
-    const dataToSave = { ...formData, periodo: `${formData.periodo}-01` };
-
-    // CORREÇÃO: Remove a propriedade 'lojas' que vem da junção de tabelas e não existe na tabela 'metas'.
-    delete dataToSave.lojas;
+    // Filtra o formData para enviar apenas as colunas que existem na tabela 'metas'
+    const dataToSave = {
+      id: formData.id,
+      loja_id: formData.loja_id,
+      periodo: `${formData.periodo}-01`,
+      orçados: formData.orçados,
+      meta_cnc: formData.meta_cnc,
+      meta_card: formData.meta_card,
+      meta_card_beneficio: formData.meta_card_beneficio,
+      meta_consignado: formData.meta_consignado,
+      meta_bmg_med: formData.meta_bmg_med,
+      meta_seguro_familiar: formData.meta_seguro_familiar,
+      meta_fgts: formData.meta_fgts,
+    };
 
     let error;
 
