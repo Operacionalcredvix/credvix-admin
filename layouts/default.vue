@@ -166,7 +166,8 @@ const menuItems = [
     slot: 'item',
     links: [
       { label: 'Vagas', to: '/rh/vagas', icon: 'i-heroicons-megaphone' },
-      { label: 'Currículos', to: '/rh/curriculos', icon: 'i-heroicons-document-text' }
+      { label: 'Currículos', to: '/rh/curriculos', icon: 'i-heroicons-document-text' },
+      { label: 'Histórico de Alocações', to: '/rh/historico-alocacoes', icon: 'i-heroicons-folder-open' }
       // Futuramente: Relatórios de RH, etc.
     ]
   },
