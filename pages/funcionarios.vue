@@ -280,9 +280,15 @@ onMounted(() => {
 watch(searchTerm, useDebounceFn(async (newVal) => {
   if (newVal.length < 3) { searchResults.value = []; return; }
   searching.value = true;
+  // CORREÇÃO: Expandir o select para trazer todos os dados necessários para a edição.
+  // O '*' busca todos os campos da tabela 'funcionarios'.
   const { data } = await supabase
     .from('funcionarios')
-    .select('id, nome_completo, is_active, perfis(nome), lojas(nome)')
+    .select(`
+      *, 
+      perfis(nome), 
+      lojas(nome)
+    `)
     .or(`nome_completo.ilike.%${newVal}%,cpf.ilike.%${newVal}%`).limit(10);
   searchResults.value = data || [];
   searching.value = false;
@@ -290,38 +296,29 @@ watch(searchTerm, useDebounceFn(async (newVal) => {
 
 // LÓGICA DE EDIÇÃO
 const handleEdit = async (employee) => {
+  // 1. Limpa o formulário para evitar misturar dados
   resetForm();
 
-  // 1. Busca o vínculo mais recente para obter as datas corretas
+  // 2. Busca o vínculo mais recente para obter as datas corretas
   const { data: vinculo } = await supabase
     .from('historico_vinculos')
     .select('*')
     .eq('funcionario_id', employee.id)
     .order('data_admissao', { ascending: false })
     .limit(1)
-    .maybeSingle();
+    .maybeSingle(); // Usa maybeSingle para não dar erro se não encontrar
 
-  // 2. Preenche o formData com os dados do funcionário
+  // 3. Preenche o formData com os dados do funcionário
   Object.assign(formData, employee);
 
-  // 3. Se encontrou um vínculo, preenche as datas e o ID do vínculo
+  // 4. Se encontrou um vínculo, preenche as datas e o ID do vínculo
   if (vinculo) {
     formData.data_admissao = vinculo.data_admissao;
     formData.data_saida = vinculo.data_saida;
     formData.vinculoId = vinculo.id; // Importante para o UPDATE
   }
 
-  // 4. Lógica para garantir que os campos organizacionais não sejam limpos pelo 'watch'
-  // O 'watch' do perfil_id é acionado quando o formulário é preenchido.
-  // Precisamos aguardar o próximo "tick" do Vue e então restaurar os valores.
-  await nextTick();
-  
-  formData.perfil_id = employee.perfil_id;
-  formData.gerente_id = employee.gerente_id;
-  formData.loja_id = employee.loja_id;
-  formData.regional_id = todasLojas.value.find(l => l.id === employee.loja_id)?.regional_id || null;
-
-  // 5. Rola a página até o formulário
+  // 5. Rola a página para o formulário
   document.getElementById('form-title').scrollIntoView({ behavior: 'smooth' });
 };
 
@@ -461,14 +458,6 @@ async function handleFormSubmit() {
       saving.value = false;
       return;
     }
-
-    // Validação para garantir que um perfil foi selecionado
-    if (!formData.perfil_id) {
-      toast.add({ title: 'Campo Obrigatório', description: 'Por favor, selecione um Perfil de Acesso para o funcionário.', color: 'red' });
-      saving.value = false;
-      return;
-    }
-
     // --- INÍCIO DA VALIDAÇÃO DE CPF DUPLICADO ---
     if (formData.cpf) {
       const cpfLimpo = formData.cpf.replace(/\D/g, '');
@@ -568,14 +557,22 @@ async function handleFormSubmit() {
         if (newAllocError) throw newAllocError;
       }
 
-      // PASSO D: Prepara e atualiza a tabela 'historico_vinculos'
+      // PASSO D: Prepara e atualiza/cria o registo na tabela 'historico_vinculos'
       const vinculoData = {
+        funcionario_id: formData.id, // Garante que o ID do funcionário está presente
         data_admissao: formData.data_admissao,
         data_saida: formData.data_saida
       };
 
       if (formData.vinculoId) { // Apenas atualiza se houver um vínculo para editar
         const { error: vincError } = await supabase.from('historico_vinculos').update(vinculoData).eq('id', formData.vinculoId);
+        if (vincError) throw vincError;
+      } else {
+        // Se não houver vinculoId (ex: funcionário antigo sem registo), cria um novo.
+        const { error: vincError } = await supabase.from('historico_vinculos').insert({
+          ...vinculoData,
+          funcionario_id: formData.id // Garante que o ID do funcionário está presente na inserção
+        });
         if (vincError) throw vincError;
       }
 
@@ -626,10 +623,7 @@ async function handleFormSubmit() {
 
     // Atualiza a lista de busca para refletir as alterações
     if (searchTerm.value) {
-      const { data } = await supabase
-        .from('funcionarios')        
-        .select('id, nome_completo, is_active, perfis(nome), lojas(nome)')
-        .or(`nome_completo.ilike.%${searchTerm.value}%,cpf.ilike.%${searchTerm.value}%`).limit(10);
+      const { data } = await supabase.from('funcionarios').select('*, perfis(nome), lojas(nome)').or(`nome_completo.ilike.%${searchTerm.value}%,cpf.ilike.%${searchTerm.value}%`).limit(10);
       searchResults.value = data || [];
     }
 
