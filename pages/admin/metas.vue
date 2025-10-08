@@ -58,15 +58,27 @@
           </template>
 
           <template #percentual_multi_volume-data="{ row }">
-            <div class="w-full">
-              <p class="text-center font-bold" :class="getPercentageColor(row.percentual_multi_volume)">
-                {{ row.percentual_multi_volume.toFixed(2) }}%
-              </p>
-              <UProgress :value="row.percentual_multi_volume" :color="getProgressBarColor(row.percentual_multi_volume)" />
-              <p class="text-xs text-gray-500 text-center mt-1">
-                {{ formatCurrency(row.atingido_multi_volume) }} / {{ formatCurrency(row.meta_multi_volume) }}
-              </p>
-            </div>
+            <UTooltip>
+              <template #text>
+                <div class="text-xs p-1">
+                  <p>Divisor da Meta: <span class="font-bold">{{ row.divisor_meta }}</span></p>
+                  <p class="mt-1 text-gray-400">Cálculo: Menor valor entre Orçados e Ativos.</p>
+                  <ul class="list-disc list-inside mt-1">
+                    <li>Nº Orçados: {{ row.orçados }}</li>
+                    <li>Consultores Ativos: {{ row.qtd_consultores_ativos }}</li>
+                  </ul>
+                </div>
+              </template>
+              <div class="w-full">
+                <p class="text-center font-bold" :class="getPercentageColor(row.percentual_multi_volume)">
+                  {{ row.percentual_multi_volume.toFixed(2) }}%
+                </p>
+                <UProgress :value="row.percentual_multi_volume" :color="getProgressBarColor(row.percentual_multi_volume)" />
+                <p class="text-xs text-gray-500 text-center mt-1">
+                  {{ formatCurrency(row.atingido_multi_volume) }} / {{ formatCurrency(row.meta_multi_volume) }}
+                </p>
+              </div>
+            </UTooltip>
           </template>
 
           <!-- As colunas de valor agora mostram o atingido vs a meta -->

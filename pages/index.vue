@@ -7,6 +7,84 @@
       </p>
     </header>
 
+    <!-- Seção de Desempenho Individual para Consultor -->
+    <div v-if="meuDesempenho?.consultor_id && profile?.perfis?.nome === 'Consultor'" class="mb-8">
+      <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">Meu Desempenho - {{ new Date(meuDesempenho.periodo).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }) }}</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        <!-- CNC -->
+        <UCard>
+          <div class="flex justify-between items-start">
+            <h3 class="text-sm font-medium text-gray-500">CNC</h3>
+            <span class="font-bold text-sm" :class="getPercentageColor(calculatePercentage(meuDesempenho.atingido_cnc, meuDesempenho.meta_individual_cnc))">{{ calculatePercentage(meuDesempenho.atingido_cnc, meuDesempenho.meta_individual_cnc).toFixed(1) }}%</span>
+          </div>
+          <p class="text-xl font-bold mt-1">{{ formatCurrency(meuDesempenho.atingido_cnc) }}</p>
+          <p class="text-xs text-gray-400">Meta: {{ formatCurrency(meuDesempenho.meta_individual_cnc) }}</p>
+          <UProgress :value="calculatePercentage(meuDesempenho.atingido_cnc, meuDesempenho.meta_individual_cnc)" class="mt-2" />
+        </UCard>
+        <!-- CARD -->
+        <UCard>
+          <div class="flex justify-between items-start">
+            <h3 class="text-sm font-medium text-gray-500">CARD</h3>
+            <span class="font-bold text-sm" :class="getPercentageColor(calculatePercentage(meuDesempenho.atingido_card, meuDesempenho.meta_individual_card))">{{ calculatePercentage(meuDesempenho.atingido_card, meuDesempenho.meta_individual_card).toFixed(1) }}%</span>
+          </div>
+          <p class="text-xl font-bold mt-1">{{ formatCurrency(meuDesempenho.atingido_card) }}</p>
+          <p class="text-xs text-gray-400">Meta: {{ formatCurrency(meuDesempenho.meta_individual_card) }}</p>
+          <UProgress :value="calculatePercentage(meuDesempenho.atingido_card, meuDesempenho.meta_individual_card)" class="mt-2" />
+        </UCard>
+        <!-- CARD Benef. -->
+        <UCard>
+          <div class="flex justify-between items-start">
+            <h3 class="text-sm font-medium text-gray-500">CARD Benef.</h3>
+            <span class="font-bold text-sm" :class="getPercentageColor(calculatePercentage(meuDesempenho.atingido_card_beneficio, meuDesempenho.meta_individual_card_beneficio))">{{ calculatePercentage(meuDesempenho.atingido_card_beneficio, meuDesempenho.meta_individual_card_beneficio).toFixed(1) }}%</span>
+          </div>
+          <p class="text-xl font-bold mt-1">{{ formatCurrency(meuDesempenho.atingido_card_beneficio) }}</p>
+          <p class="text-xs text-gray-400">Meta: {{ formatCurrency(meuDesempenho.meta_individual_card_beneficio) }}</p>
+          <UProgress :value="calculatePercentage(meuDesempenho.atingido_card_beneficio, meuDesempenho.meta_individual_card_beneficio)" class="mt-2" />
+        </UCard>
+        <!-- Consignado -->
+        <UCard>
+          <div class="flex justify-between items-start">
+            <h3 class="text-sm font-medium text-gray-500">Consignado</h3>
+            <span class="font-bold text-sm" :class="getPercentageColor(calculatePercentage(meuDesempenho.atingido_consignado, meuDesempenho.meta_individual_consignado))">{{ calculatePercentage(meuDesempenho.atingido_consignado, meuDesempenho.meta_individual_consignado).toFixed(1) }}%</span>
+          </div>
+          <p class="text-xl font-bold mt-1">{{ formatCurrency(meuDesempenho.atingido_consignado) }}</p>
+          <p class="text-xs text-gray-400">Meta: {{ formatCurrency(meuDesempenho.meta_individual_consignado) }}</p>
+          <UProgress :value="calculatePercentage(meuDesempenho.atingido_consignado, meuDesempenho.meta_individual_consignado)" class="mt-2" />
+        </UCard>
+        <!-- FGTS -->
+        <UCard>
+          <div class="flex justify-between items-start">
+            <h3 class="text-sm font-medium text-gray-500">FGTS</h3>
+            <span class="font-bold text-sm" :class="getPercentageColor(calculatePercentage(meuDesempenho.atingido_fgts, meuDesempenho.meta_individual_fgts))">{{ calculatePercentage(meuDesempenho.atingido_fgts, meuDesempenho.meta_individual_fgts).toFixed(1) }}%</span>
+          </div>
+          <p class="text-xl font-bold mt-1">{{ formatCurrency(meuDesempenho.atingido_fgts) }}</p>
+          <p class="text-xs text-gray-400">Meta: {{ formatCurrency(meuDesempenho.meta_individual_fgts) }}</p>
+          <UProgress :value="calculatePercentage(meuDesempenho.atingido_fgts, meuDesempenho.meta_individual_fgts)" class="mt-2" />
+        </UCard>
+        <!-- BMG MED -->
+        <UCard>
+          <div class="flex justify-between items-start">
+            <h3 class="text-sm font-medium text-gray-500">BMG MED</h3>
+            <span class="font-bold text-sm" :class="getPercentageColor(calculatePercentage(meuDesempenho.atingido_bmg_med, meuDesempenho.meta_individual_bmg_med))">{{ calculatePercentage(meuDesempenho.atingido_bmg_med, meuDesempenho.meta_individual_bmg_med).toFixed(1) }}%</span>
+          </div>
+          <p class="text-xl font-bold mt-1">{{ meuDesempenho.atingido_bmg_med }}</p>
+          <p class="text-xs text-gray-400">Meta: {{ meuDesempenho.meta_individual_bmg_med }}</p>
+          <UProgress :value="calculatePercentage(meuDesempenho.atingido_bmg_med, meuDesempenho.meta_individual_bmg_med)" class="mt-2" />
+        </UCard>
+        <!-- Seg. Familiar -->
+        <UCard>
+          <div class="flex justify-between items-start">
+            <h3 class="text-sm font-medium text-gray-500">Seg. Familiar</h3>
+            <span class="font-bold text-sm" :class="getPercentageColor(calculatePercentage(meuDesempenho.atingido_seguro_familiar, meuDesempenho.meta_individual_seguro_familiar))">{{ calculatePercentage(meuDesempenho.atingido_seguro_familiar, meuDesempenho.meta_individual_seguro_familiar).toFixed(1) }}%</span>
+          </div>
+          <p class="text-xl font-bold mt-1">{{ meuDesempenho.atingido_seguro_familiar }}</p>
+          <p class="text-xs text-gray-400">Meta: {{ meuDesempenho.meta_individual_seguro_familiar }}</p>
+          <UProgress :value="calculatePercentage(meuDesempenho.atingido_seguro_familiar, meuDesempenho.meta_individual_seguro_familiar)" class="mt-2" />
+        </UCard>
+      </div>
+      <UDivider class="my-8" />
+    </div>
+
     <UCard class="mb-8">
       <div class="flex flex-wrap items-center gap-4">
         <UFormGroup label="Período de:" name="startDate" class="flex-grow">
@@ -14,6 +92,10 @@
         </UFormGroup>
         <UFormGroup label="Até:" name="endDate" class="flex-grow">
           <UInput type="date" v-model="dateRange.end" />
+        </UFormGroup>
+        <UFormGroup v-if="regionais.length > 0" label="Regional" name="regional" class="flex-grow">
+          <USelectMenu v-model="selectedRegional" :options="regionais" value-attribute="id"
+            option-attribute="nome_regional" placeholder="Todas as Regionais" clearable />
         </UFormGroup>
         <div class="pt-6 flex gap-2">
           <UButton @click="setDateRange('current_month')" label="Mês Atual" color="gray" variant="ghost" />
@@ -29,72 +111,78 @@
     </div>
 
     <div v-else>
-      <!-- Cards de Estatísticas -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-        <UCard>
-          <div class="flex items-center gap-4">
-            <UIcon name="i-heroicons-document-text" class="text-3xl text-primary-500" />
-            <div>
-              <p class="text-sm text-gray-500">Contratos Totais</p>
-              <p class="text-2xl font-bold">{{ stats.total }}</p>
+      <!-- NOVOS Cards de Estatísticas Agrupados -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Card de Contratos -->
+        <UCard class="lg:col-span-2">
+          <template #header>
+            <div class="flex items-center gap-2">
+              <UIcon name="i-heroicons-document-text" class="text-xl text-primary-500" />
+              <h3 class="font-semibold">Resumo de Contratos</h3>
             </div>
+          </template>
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-center">
+            <div><p class="text-sm text-gray-500">Totais</p><p class="text-2xl font-bold">{{ stats.total }}</p></div>
+            <div><p class="text-sm text-gray-500">Pagos</p><p class="text-2xl font-bold text-green-500">{{ stats.pagos }}</p></div>
+            <div><p class="text-sm text-gray-500">Pendentes</p><p class="text-2xl font-bold text-amber-500">{{ stats.pendentes }}</p></div>
+            <div><p class="text-sm text-gray-500">Cancelados</p><p class="text-2xl font-bold text-red-500">{{ stats.cancelados }}</p></div>
+            <div class="col-span-2 md:col-span-3 lg:col-span-1 border-t lg:border-t-0 lg:border-l pt-4 lg:pt-0 lg:pl-4 mt-4 lg:mt-0"><p class="text-sm text-gray-500">Valor Total Pago</p><p class="text-2xl font-bold text-green-400">{{ formatCurrency(stats.valorTotal) }}</p></div>
           </div>
         </UCard>
+
+        <!-- Card de Vendas Externas -->
         <UCard>
-          <div class="flex items-center gap-4">
-            <UIcon name="i-heroicons-check-circle" class="text-3xl text-green-500" />
-            <div>
-              <p class="text-sm text-gray-500">Contratos Pagos</p>
-              <p class="text-2xl font-bold">{{ stats.pagos }}</p>
+           <template #header>
+            <div class="flex items-center gap-2">
+              <UIcon name="i-heroicons-arrow-trending-up" class="text-xl text-primary-500" />
+              <h3 class="font-semibold">Vendas Externas</h3>
             </div>
-          </div>
-        </UCard>
-        <UCard>
-          <div class="flex items-center gap-4">
-            <UIcon name="i-heroicons-clock" class="text-3xl text-amber-500" />
-            <div>
-              <p class="text-sm text-gray-500">Contratos Pendentes</p>
-              <p class="text-2xl font-bold">{{ stats.pendentes }}</p>
-            </div>
-          </div>
-        </UCard>
-        <UCard>
-          <div class="flex items-center gap-4">
-            <UIcon name="i-heroicons-x-circle" class="text-3xl text-red-500" />
-            <div>
-              <p class="text-sm text-gray-500">Contratos Cancelados</p>
-              <p class="text-2xl font-bold">{{ stats.cancelados }}</p>
-            </div>
-          </div>
-        </UCard>
-        <UCard>
-          <div class="flex items-center gap-4">
-            <UIcon name="i-heroicons-banknotes" class="text-3xl text-green-400" />
-            <div>
-              <p class="text-sm text-gray-500">Valor Total Pago</p>
-              <p class="text-2xl font-bold">{{ formatCurrency(stats.valorTotal) }}</p>
-            </div>
-          </div>
-        </UCard>
-        <UCard>
-          <div class="flex items-center gap-4">
-            <UIcon name="i-heroicons-heart" class="text-3xl text-rose-500" />
-            <div>
-              <p class="text-sm text-gray-500">BMG MED</p>
+          </template>
+          <div class="grid grid-cols-2 gap-4 text-center">
+            <div class="flex flex-col items-center justify-center">
+              <UIcon name="i-heroicons-heart" class="text-3xl text-rose-500" />
+              <p class="text-sm text-gray-500 mt-2">BMG MED</p>
               <p class="text-2xl font-bold">{{ stats.bmgMed }}</p>
             </div>
-          </div>
-        </UCard>
-        <UCard>
-          <div class="flex items-center gap-4">
-            <UIcon name="i-heroicons-shield-check" class="text-3xl text-sky-500" />
-            <div>
-              <p class="text-sm text-gray-500">Seguro Familiar</p>
+            <div class="flex flex-col items-center justify-center">
+              <UIcon name="i-heroicons-shield-check" class="text-3xl text-sky-500" />
+              <p class="text-sm text-gray-500 mt-2">Seguro Familiar</p>
               <p class="text-2xl font-bold">{{ stats.seguroFamiliar }}</p>
             </div>
           </div>
         </UCard>
       </div>
+
+      <!-- Tabela de Desempenho Individual para Gestores -->
+      <UCard v-if="desempenhoConsultores.length > 0" class="mb-8">
+        <template #header>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-heroicons-users" class="text-xl text-primary-500" />
+            <h3 class="font-semibold">Desempenho por Consultor</h3>
+          </div>
+        </template>
+        <UTable :rows="desempenhoConsultores" :columns="desempenhoColumns">
+          <template #consultor_nome-data="{ row }">
+            <div>
+              <p class="font-bold">{{ row.consultor_nome }}</p>
+              <p class="text-xs text-gray-500">{{ row.loja_nome }}</p>
+            </div>
+          </template>
+
+          <template #desempenho_cnc-data="{ row }">
+            <PerformanceCell :atingido="row.atingido_cnc" :meta="row.meta_individual_cnc" type="currency" />
+          </template>
+          <template #desempenho_card-data="{ row }">
+            <PerformanceCell :atingido="row.atingido_card" :meta="row.meta_individual_card" type="currency" />
+          </template>
+          <template #desempenho_consignado-data="{ row }">
+            <PerformanceCell :atingido="row.atingido_consignado" :meta="row.meta_individual_consignado" type="currency" />
+          </template>
+          <template #desempenho_fgts-data="{ row }">
+            <PerformanceCell :atingido="row.atingido_fgts" :meta="row.meta_individual_fgts" type="currency" />
+          </template>
+        </UTable>
+      </UCard>
 
       <!-- Gráficos -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -143,6 +231,20 @@ const doughnutChartRef = ref(null);
 const barChartLojasRef = ref(null);
 const barChartProdutosRef = ref(null);
 
+// --- ESTADO DOS FILTROS ---
+const selectedRegional = ref(null);
+const { data: regionais } = await useAsyncData('regionais-filtro', async () => {
+  if (!profile.value || !['Master', 'Coordenador'].includes(profile.value.perfis?.nome)) {
+    return [];
+  }
+  let query = supabase.from('regionais').select('id, nome_regional').order('nome_regional');
+  if (profile.value.perfis?.nome === 'Coordenador') {
+    query = query.eq('coordenador_id', profile.value.id);
+  }
+  const { data } = await query;
+  return data || [];
+});
+
 // --- LÓGICA DE DATAS ---
 const dateRange = reactive({ start: '', end: '' });
 
@@ -169,24 +271,111 @@ const { data: dashboardData, pending } = useAsyncData(
   'dashboard-data',
   async () => {
     if (!profile.value?.user_id || !dateRange.start || !dateRange.end) {
-      return null;
+      return { stats: {}, statusChart: {}, lojasChart: {}, produtosChart: {} };
     }
 
     const { data, error } = await supabase.rpc('get_dashboard_data', {
       p_user_id: profile.value.user_id,
       p_start_date: dateRange.start,
-      p_end_date: dateRange.end
+      p_end_date: dateRange.end,
+      p_regional_id: selectedRegional.value // Passa o ID da regional selecionada
     });
 
     if (error) {
       console.error('Erro ao buscar dados do dashboard via RPC:', error);
       toast.add({ title: 'Erro ao carregar dados', description: error.message, color: 'red' });
-      return null;
+      return { stats: {}, statusChart: {}, lojasChart: {}, produtosChart: {} };
     }
     return data;
   },
-  { watch: [profile, dateRange] }
+  { watch: [profile, dateRange, selectedRegional] }
 );
+
+const { data: meuDesempenho, pending: meuDesempenhoPending } = await useAsyncData('meu-desempenho-pessoal', async () => {
+  if (profile.value?.perfis?.nome !== 'Consultor' || !profile.value.id) {
+    return null;
+  }
+
+  // Define o período atual
+  const today = new Date();
+  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+  const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+
+  // 1. Busca os valores ATINGIDOS pelo consultor no mês, independentemente de ter meta ou não.
+  const [atingidoContratosRes, atingidoVendasExternasRes] = await Promise.all([
+    supabase
+      .from('contratos')
+      .select('valor_total, produtos!inner(categoria_meta)')
+      .eq('consultor_id', profile.value.id)
+      .eq('status', 'Pago')
+      .gte('data_pagamento', firstDayOfMonth)
+      .lte('data_pagamento', lastDayOfMonth),
+    supabase
+      .from('vendas_externas')
+      .select('quantidade, tipo_produto')
+      .eq('consultor_id', profile.value.id)
+      .gte('data_venda', firstDayOfMonth)
+      .lte('data_venda', lastDayOfMonth)
+  ]);
+
+  // Calcula os totais atingidos
+  const atingido = {
+    atingido_cnc: atingidoContratosRes.data?.filter(c => c.produtos.categoria_meta === 'CNC').reduce((sum, c) => sum + c.valor_total, 0) || 0,
+    atingido_card: atingidoContratosRes.data?.filter(c => c.produtos.categoria_meta === 'CARD').reduce((sum, c) => sum + c.valor_total, 0) || 0,
+    atingido_card_beneficio: atingidoContratosRes.data?.filter(c => c.produtos.categoria_meta === 'CARD BENEFÍCIO').reduce((sum, c) => sum + c.valor_total, 0) || 0,
+    atingido_consignado: atingidoContratosRes.data?.filter(c => c.produtos.categoria_meta === 'CONSIGNADO').reduce((sum, c) => sum + c.valor_total, 0) || 0,
+    atingido_fgts: atingidoContratosRes.data?.filter(c => c.produtos.categoria_meta === 'FGTS').reduce((sum, c) => sum + c.valor_total, 0) || 0,
+    atingido_bmg_med: atingidoVendasExternasRes.data?.filter(v => v.tipo_produto === 'bmg_med').reduce((sum, v) => sum + v.quantidade, 0) || 0,
+    atingido_seguro_familiar: atingidoVendasExternasRes.data?.filter(v => v.tipo_produto === 'seguro_familiar').reduce((sum, v) => sum + v.quantidade, 0) || 0,
+  };
+
+  // 2. Tenta buscar as METAS individuais da view.
+  const { data: metas } = await supabase
+    .from('desempenho_consultores')
+    .select('periodo, meta_individual_cnc, meta_individual_card, meta_individual_card_beneficio, meta_individual_consignado, meta_individual_fgts, meta_individual_bmg_med, meta_individual_seguro_familiar')
+    .eq('consultor_id', profile.value.id)
+    .eq('periodo', firstDayOfMonth)
+    .maybeSingle(); // .maybeSingle() não dá erro se não encontrar nada, retorna null.
+
+  // 3. Combina os resultados. Se não houver metas, os valores de meta serão 0.
+  return {
+    consultor_id: profile.value.id,
+    periodo: metas?.periodo || firstDayOfMonth,
+    ...atingido,
+    meta_individual_cnc: metas?.meta_individual_cnc || 0,
+    meta_individual_card: metas?.meta_individual_card || 0,
+    meta_individual_card_beneficio: metas?.meta_individual_card_beneficio || 0,
+    meta_individual_consignado: metas?.meta_individual_consignado || 0,
+    meta_individual_fgts: metas?.meta_individual_fgts || 0,
+    meta_individual_bmg_med: metas?.meta_individual_bmg_med || 0,
+    meta_individual_seguro_familiar: metas?.meta_individual_seguro_familiar || 0,
+  };
+});
+
+// --- BUSCA DE DADOS PARA O RELATÓRIO DE CONSULTORES (PARA GESTORES) ---
+const { data: desempenhoConsultores } = await useAsyncData('desempenho-consultores-dashboard', async () => {
+  // Só busca os dados se o usuário for um gestor
+  if (!profile.value || ['Master', 'Coordenador', 'Supervisor'].includes(profile.value.perfis?.nome) === false) {
+    return [];
+  }
+
+  let query = supabase
+    .from('desempenho_consultores')
+    .select('consultor_nome, loja_nome, atingido_cnc, meta_individual_cnc, atingido_card, meta_individual_card, atingido_consignado, meta_individual_consignado, atingido_fgts, meta_individual_fgts')
+    .gte('periodo', dateRange.start)
+    .lte('periodo', dateRange.end);
+
+  // Filtra por loja se o supervisor estiver a ver
+  if (profile.value.perfis?.nome === 'Supervisor') {
+    query = query.eq('loja_id', profile.value.loja_id);
+  }
+
+  const { data, error } = await query;
+  if (error) console.error("Erro ao buscar desempenho dos consultores:", error);
+  return data || [];
+}, {
+  watch: [profile, dateRange]
+});
 
 // --- CÁLCULOS PARA AS ESTATÍSTICAS E GRÁFICOS ---
 const hasData = computed(() => dashboardData.value && dashboardData.value.stats?.total > 0);
@@ -241,9 +430,32 @@ const chartOptions = {
   maintainAspectRatio: false
 };
 
+// --- COLUNAS PARA A NOVA TABELA DE DESEMPENHO ---
+const desempenhoColumns = [
+  { key: 'consultor_nome', label: 'Consultor' },
+  { key: 'desempenho_cnc', label: 'CNC' },
+  { key: 'desempenho_card', label: 'CARD' },
+  { key: 'desempenho_consignado', label: 'Consignado' },
+  { key: 'desempenho_fgts', label: 'FGTS' },
+];
+
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return 'R$ 0,00';
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+};
+
+// --- NOVAS FUNÇÕES DE APOIO PARA O DESEMPENHO INDIVIDUAL ---
+const calculatePercentage = (atingido, meta) => {
+  if (!meta || meta === 0) {
+    return atingido > 0 ? 100 : 0; // Se não há meta, mas produziu algo, considera 100%
+  }
+  return (atingido / meta) * 100;
+};
+
+const getPercentageColor = (percentage) => {
+  if (percentage >= 100) return 'text-green-500';
+  if (percentage >= 75) return 'text-yellow-500';
+  return 'text-red-500';
 };
 
 // --- LÓGICA DE EXPORTAÇÃO PARA PDF ---
