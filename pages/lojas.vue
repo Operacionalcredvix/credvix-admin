@@ -166,12 +166,18 @@ const handleFormSubmit = async () => {
     // Omitir a propriedade 'regionais' se ela existir, pois é apenas para exibição
     delete dataToSave.regionais;
 
-    if (dataToSave.id) { // Modo de Edição
-      const { error } = await supabase.from('lojas').update(dataToSave).eq('id', dataToSave.id);
+    // CORREÇÃO: A verificação deve ser feita no `formData.id` original.
+    if (formData.id) { // Modo de Edição
+      // Remove o 'id' do objeto a ser salvo para não tentar atualizar a chave primária.
+      delete dataToSave.id;
+
+      const { error } = await supabase.from('lojas').update(dataToSave).eq('id', formData.id);
       if (error) throw error;
       toast.add({ title: 'Sucesso!', description: 'Loja atualizada com sucesso.' });
     } else { // Modo de Criação
+      // Garante que o id não seja enviado na criação.
       delete dataToSave.id;
+
       const { error } = await supabase.from('lojas').insert(dataToSave);
       if (error) throw error;
       toast.add({ title: 'Sucesso!', description: 'Loja criada com sucesso.' });
