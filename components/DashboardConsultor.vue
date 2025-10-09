@@ -79,6 +79,34 @@
       </UCard>
     </div>
     <UDivider class="my-8" />
+
+    <!-- NOVA SEÇÃO: META DA LOJA -->
+    <div v-if="metaLoja" class="mb-8">
+      <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">Meta da Loja - {{ metaLoja.loja_nome }}</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <UCard>
+          <h3 class="text-sm font-medium text-gray-500">Meta Multi Volume</h3>
+          <p class="text-xl font-bold mt-1">{{ formatCurrency(metaLoja.meta_multi_volume) }}</p>
+        </UCard>
+        <UCard>
+          <h3 class="text-sm font-medium text-gray-500">Atingido Multi Volume</h3>
+          <p class="text-xl font-bold mt-1">{{ formatCurrency(metaLoja.atingido_multi_volume) }}</p>
+        </UCard>
+        <UCard>
+          <div class="w-full">
+            <p class="text-center font-bold text-lg" :class="getPercentageColor(metaLoja.percentual_multi_volume)">
+              {{ metaLoja.percentual_multi_volume.toFixed(2) }}%
+            </p>
+            <UProgress :value="metaLoja.percentual_multi_volume" class="mt-2" />
+            <p class="text-xs text-gray-500 text-center mt-1">
+              {{ formatCurrency(metaLoja.atingido_multi_volume) }} / {{ formatCurrency(metaLoja.meta_multi_volume) }}
+            </p>
+          </div>
+        </UCard>
+      </div>
+      <UDivider class="my-8" />
+    </div>
+
   </div>
 </template>
 
@@ -145,6 +173,23 @@ const { data: meuDesempenho, pending } = await useAsyncData('meu-desempenho-pess
     meta_individual_bmg_med: metas?.meta_individual_bmg_med || 0,
     meta_individual_seguro_familiar: metas?.meta_individual_seguro_familiar || 0,
   };
+});
+
+const { data: metaLoja } = await useAsyncData('meta-loja-consultor', async () => {
+  if (profile.value?.perfis?.nome !== 'Consultor' || !profile.value.loja_id) {
+    return null;
+  }
+
+  const today = new Date();
+  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+
+  const { data } = await supabase
+    .from('metas_progresso')
+    .select('*')
+    .eq('loja_id', profile.value.loja_id)
+    .eq('periodo', firstDayOfMonth)
+    .maybeSingle();
+  return data;
 });
 
 const formatCurrency = (value) => {

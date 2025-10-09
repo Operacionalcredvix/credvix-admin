@@ -280,45 +280,55 @@ onMounted(() => {
 watch(searchTerm, useDebounceFn(async (newVal) => {
   if (newVal.length < 3) { searchResults.value = []; return; }
   searching.value = true;
-  // CORREÇÃO: Expandir o select para trazer todos os dados necessários para a edição.
-  // O '*' busca todos os campos da tabela 'funcionarios'.
+  // OTIMIZAÇÃO: Expande o select para trazer todos os dados necessários para a edição de uma só vez,
+  // incluindo o histórico de vínculo, evitando uma consulta extra ao clicar em "Editar".
   const { data } = await supabase
     .from('funcionarios')
     .select(`
-      *, 
-      perfis(nome), 
-      lojas(nome)
+      *,
+      perfis ( nome ),
+      lojas ( *, regionais ( id, nome_regional ) ),
+      historico_vinculos ( * )
     `)
     .or(`nome_completo.ilike.%${newVal}%,cpf.ilike.%${newVal}%`).limit(10);
   searchResults.value = data || [];
   searching.value = false;
 }, 300));
 
-// LÓGICA DE EDIÇÃO
-const handleEdit = async (employee) => {
+// LÓGICA DE EDIÇÃO (AGORA MAIS RÁPIDA)
+const handleEdit = (employee) => {
   // 1. Limpa o formulário para evitar misturar dados
   resetForm();
 
-  // 2. Busca o vínculo mais recente para obter as datas corretas
-  const { data: vinculo } = await supabase
-    .from('historico_vinculos')
-    .select('*')
-    .eq('funcionario_id', employee.id)
-    .order('data_admissao', { ascending: false })
-    .limit(1)
-    .maybeSingle(); // Usa maybeSingle para não dar erro se não encontrar
+  // 2. OTIMIZAÇÃO: Processa o histórico de vínculo que já foi carregado na busca,
+  // em vez de fazer uma nova chamada ao banco de dados.
+  let vinculo = null;
+  if (employee.historico_vinculos && employee.historico_vinculos.length > 0) {
+    // Ordena os vínculos localmente para encontrar o mais recente (maior data de admissão)
+    const vinculosOrdenados = [...employee.historico_vinculos].sort((a, b) => new Date(b.data_admissao) - new Date(a.data_admissao));
+    vinculo = vinculosOrdenados[0];
+  }
 
-  // 3. Preenche o formData com os dados do funcionário
+  // 3. Preenche o formData com os dados básicos do funcionário
   Object.assign(formData, employee);
+  
+  // 4. CORREÇÃO: Preenche os dados organizacionais na ordem correta para garantir que os
+  //    menus de seleção (regionais, lojas, líderes) funcionem corretamente.
+  if (employee.lojas && employee.lojas.regional_id) {
+    formData.regional_id = employee.lojas.regional_id;
+  }
+  // Garante que o loja_id e gerente_id do funcionário sejam usados.
+  formData.loja_id = employee.loja_id;
+  formData.gerente_id = employee.gerente_id;
 
-  // 4. Se encontrou um vínculo, preenche as datas e o ID do vínculo
+  // 5. Se encontrou um vínculo, preenche as datas e o ID do vínculo
   if (vinculo) {
     formData.data_admissao = vinculo.data_admissao;
     formData.data_saida = vinculo.data_saida;
     formData.vinculoId = vinculo.id; // Importante para o UPDATE
   }
 
-  // 5. Rola a página para o formulário
+  // 6. Rola a página para o formulário
   document.getElementById('form-title').scrollIntoView({ behavior: 'smooth' });
 };
 

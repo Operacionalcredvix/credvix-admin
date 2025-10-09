@@ -1,12 +1,16 @@
 <template>
   <div>
     <UCard class="mb-8">
-      <div class="flex flex-wrap items-center gap-4">
+      <div class="flex flex-wrap items-end gap-4">
         <UFormGroup label="Período de:" name="startDate" class="flex-grow">
           <UInput type="date" v-model="dateRange.start" />
         </UFormGroup>
         <UFormGroup label="Até:" name="endDate" class="flex-grow">
           <UInput type="date" v-model="dateRange.end" />
+        </UFormGroup>
+        <!-- CORREÇÃO: Adiciona um filtro de mês específico para as metas -->
+        <UFormGroup label="Mês da Meta" name="goalMonth" class="flex-grow">
+          <UInput type="month" v-model="selectedPeriod" />
         </UFormGroup>
         <UFormGroup v-if="regionais.length > 1" label="Regional" name="regional" class="flex-grow">
           <USelectMenu v-model="selectedRegional" :options="regionais" value-attribute="id"
@@ -64,6 +68,27 @@
           </div>
         </UCard>
       </div>
+
+      <!-- NOVO: Card de Ranking de Lojas -->
+      <UCard v-if="rankedStores.length > 0" class="mb-8">
+        <template #header>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-heroicons-trophy" class="text-xl text-amber-500" />
+            <h3 class="font-semibold">Ranking de Lojas (Multi Volume)</h3>
+          </div>
+        </template>
+        <UTable :rows="rankedStores" :columns="rankingColumns">
+          <template #rank-data="{ row }">
+            <UBadge :color="getRankColor(row.rank)" variant="subtle" size="lg" :label="`#${row.rank}`" />
+          </template>
+          <template #loja_nome-data="{ row }">
+            <span class="font-bold">{{ row.loja_nome }}</span>
+          </template>
+          <template #percentual_multi_volume-data="{ row }">
+            <span class="font-semibold text-lg" :class="getPercentageColor(row.percentual_multi_volume)">{{ row.percentual_multi_volume.toFixed(2) }}%</span>
+          </template>
+        </UTable>
+      </UCard>
 
       <!-- Tabela de Desempenho Individual -->
       <UCard v-if="desempenhoConsultores.length > 0" class="mb-8">
@@ -202,6 +227,9 @@ const toast = useToast();
 // --- ESTADO ---
 const selectedRegional = ref(null);
 const dateRange = reactive({ start: '', end: '' });
+// --- CORREÇÃO: Inicializa a variável para o filtro de metas ---
+const selectedPeriod = ref(new Date().toISOString().slice(0, 7)); // Formato YYYY-MM
+
 
 // --- LÓGICA DE DATAS ---
 const setDateRange = (period) => {
@@ -243,7 +271,11 @@ const { data: desempenhoConsultores } = await useAsyncData('desempenho-consultor
   const regionalIds = regionais.value?.map(r => r.id) || [];
   if (regionalIds.length === 0) return [];
 
-  let query = supabase.from('desempenho_consultores').select('consultor_nome, loja_nome, atingido_cnc, meta_individual_cnc, atingido_card, meta_individual_card, atingido_consignado, meta_individual_consignado, atingido_fgts, meta_individual_fgts').gte('periodo', dateRange.start).lte('periodo', dateRange.end);
+  // A busca de desempenho deve ser feita pelo mês da meta, não pelo intervalo de produção.
+  const referenceDate = new Date(dateRange.start);
+  const firstDayOfMonth = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1).toISOString().split('T')[0];
+
+  let query = supabase.from('desempenho_consultores').select('consultor_nome, loja_nome, atingido_cnc, meta_individual_cnc, atingido_card, meta_individual_card, atingido_consignado, meta_individual_consignado, atingido_fgts, meta_individual_fgts').eq('periodo', firstDayOfMonth);
   
   if (selectedRegional.value) {
     query = query.eq('regional_id', selectedRegional.value);
@@ -259,10 +291,9 @@ const { data: desempenhoConsultores } = await useAsyncData('desempenho-consultor
 const { data: metasProgresso, pending: metasPending } = useAsyncData('metas-progresso-coordenador', async () => {
   const regionalIds = regionais.value?.map(r => r.id);
   if (!regionalIds || regionalIds.length === 0 || !dateRange.start) return [];
-
-  // Usa o mês do início do período selecionado para buscar a meta correspondente.
-  const firstDayOfMonth = new Date(dateRange.start.slice(0, 7) + '-02').toISOString().slice(0, 10);
-
+  // CORREÇÃO: Usa o novo filtro de período 'selectedPeriod'
+  if (!selectedPeriod.value) return [];
+  const firstDayOfMonth = `${selectedPeriod.value}-01`;
   let query = supabase
     .from('metas_progresso')
     .select('*')
@@ -276,7 +307,7 @@ const { data: metasProgresso, pending: metasPending } = useAsyncData('metas-prog
   const { data, error } = await query;
   if (error) toast.add({ title: 'Erro ao buscar metas', description: error.message, color: 'red' });
   return data || [];
-}, { watch: [dateRange, selectedRegional, regionais] });
+}, { watch: [selectedPeriod, selectedRegional, regionais] }); // CORREÇÃO: Observa a variável correta
 
 // --- CÁLCULOS E FORMATAÇÃO ---
 const hasData = computed(() => dashboardData.value && dashboardData.value.stats?.total > 0);
@@ -316,6 +347,23 @@ const calculatePercentage = (atingido, meta) => {
   return (atingido / meta) * 100;
 };
 
+// --- LÓGICA PARA O RANKING DE LOJAS ---
+const rankingColumns = [
+  { key: 'rank', label: 'Posição' },
+  { key: 'loja_nome', label: 'Loja' },
+  { key: 'percentual_multi_volume', label: '% Atingido' },
+];
+
+const rankedStores = computed(() => {
+  if (!metasProgresso.value || metasProgresso.value.length === 0) return [];
+  return metasProgresso.value
+    .slice()
+    .sort((a, b) => b.percentual_multi_volume - a.percentual_multi_volume)
+    .map((store, index) => ({
+      ...store,
+      rank: index + 1,
+    }));
+});
 // --- NOVAS COLUNAS E LÓGICA PARA A TABELA DE METAS ---
 const metasColumns = [
   { key: 'loja_nome', label: 'Loja' },
@@ -368,5 +416,12 @@ const getProgressBarColor = (percentage) => {
   if (percentage >= 100) return 'green';
   if (percentage >= 75) return 'yellow';
   return 'red';
+};
+
+const getRankColor = (rank) => {
+  if (rank === 1) return 'amber';
+  if (rank === 2) return 'gray';
+  if (rank === 3) return 'orange';
+  return 'gray';
 };
 </script>

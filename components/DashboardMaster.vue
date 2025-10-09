@@ -1,12 +1,16 @@
 <template>
   <div>
     <UCard class="mb-8">
-      <div class="flex flex-wrap items-center gap-4">
+      <div class="flex flex-wrap items-end gap-4">
         <UFormGroup label="Período de:" name="startDate" class="flex-grow">
           <UInput type="date" v-model="dateRange.start" />
         </UFormGroup>
         <UFormGroup label="Até:" name="endDate" class="flex-grow">
           <UInput type="date" v-model="dateRange.end" />
+        </UFormGroup>
+        <!-- CORREÇÃO: Adiciona um filtro de mês específico para as metas -->
+        <UFormGroup label="Mês da Meta" name="goalMonth" class="flex-grow">
+          <UInput type="month" v-model="selectedPeriod" />
         </UFormGroup>
         <UFormGroup label="Regional" name="regional" class="flex-grow">
           <USelectMenu v-model="selectedRegional" :options="regionais" value-attribute="id"
@@ -105,6 +109,65 @@
           <p v-else class="text-center text-gray-500">Sem dados para exibir.</p>
         </UCard>
       </div>
+
+      <!-- NOVA SEÇÃO: ACOMPANHAMENTO DE METAS (COPIADO E ADAPTADO DO COORDENADOR) -->
+      <div v-if="metasPending" class="text-center py-10 text-gray-500">
+        <UIcon name="i-heroicons-arrow-path" class="text-2xl animate-spin" />
+        <p>A carregar metas...</p>
+      </div>
+      <div v-else-if="groupedGoals.length === 0" class="text-center py-10 text-gray-500 mt-8">
+        <UIcon name="i-heroicons-trophy" class="text-4xl" />
+        <p class="mt-2">Nenhuma meta encontrada para o período selecionado.</p>
+      </div>
+      <div v-else class="space-y-8 mt-8">
+        <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200">Acompanhamento de Metas</h2>
+        <UCard v-for="group in groupedGoals" :key="group.regionalName">
+          <template #header>
+            <div class="flex justify-between items-center">
+              <h3 class="text-lg font-semibold text-primary-600">Regional: {{ group.regionalName }}</h3>
+              <div class="flex gap-6 text-right">
+                <div>
+                  <p class="text-sm text-gray-500">Total Meta Multi Volume</p>
+                  <p class="text-xl font-bold text-gray-800 dark:text-gray-200">{{ formatCurrency(group.totalMetaMultiVolume) }}</p>
+                </div>
+                <div>
+                  <p class="text-sm text-gray-500">Total Atingido</p>
+                  <p class="text-xl font-bold text-primary-500">{{ formatCurrency(group.totalAtingido) }}</p>
+                </div>
+              </div>
+            </div>
+          </template>
+            <!-- Gráfico de Comparação -->
+            <div class="mb-8 h-80">
+              <Bar :data="group.chartData" :options="chartOptions" />
+            </div>
+
+          <UTable :rows="group.goals" :columns="metasColumns">
+            <template #loja_nome-data="{ row }">
+              <span class="font-medium">{{ row.loja_nome }}</span>
+            </template>
+
+            <template #percentual_multi_volume-data="{ row }">
+              <div class="w-full">
+                <p class="text-center font-bold" :class="getPercentageColor(row.percentual_multi_volume)">
+                  {{ row.percentual_multi_volume.toFixed(2) }}%
+                </p>
+                <UProgress :value="row.percentual_multi_volume" :color="getProgressBarColor(row.percentual_multi_volume)" />
+                <p class="text-xs text-gray-500 text-center mt-1">
+                  {{ formatCurrency(row.atingido_multi_volume) }} / {{ formatCurrency(row.meta_multi_volume) }}
+                </p>
+              </div>
+            </template>
+
+            <template #meta_bmg_med-data="{ row }">
+              <span :class="row.atingido_bmg_med >= row.meta_bmg_med ? 'text-green-500 font-bold' : ''">{{ row.atingido_bmg_med }} / {{ row.meta_bmg_med }}</span>
+            </template>
+            <template #meta_seguro_familiar-data="{ row }">
+              <span :class="row.atingido_seguro_familiar >= row.meta_seguro_familiar ? 'text-green-500 font-bold' : ''">{{ row.atingido_seguro_familiar }} / {{ row.meta_seguro_familiar }}</span>
+            </template>
+          </UTable>
+        </UCard>
+      </div>
     </div>
   </div>
 </template>
@@ -123,6 +186,9 @@ const toast = useToast();
 // --- ESTADO ---
 const selectedRegional = ref(null);
 const dateRange = reactive({ start: '', end: '' });
+
+// --- CORREÇÃO: Inicializa a variável para o filtro de metas ---
+const selectedPeriod = ref(new Date().toISOString().slice(0, 7)); // Formato YYYY-MM
 
 // --- LÓGICA DE DATAS ---
 const setDateRange = (period) => {
@@ -168,6 +234,24 @@ const { data: desempenhoConsultores } = await useAsyncData('desempenho-consultor
   return data || [];
 }, { watch: [dateRange, selectedRegional] });
 
+// --- NOVA BUSCA DE DADOS PARA METAS ---
+const { data: metasProgresso, pending: metasPending } = useAsyncData('metas-progresso-master', async () => {
+  // CORREÇÃO: Usa o novo filtro de período 'selectedPeriod'
+  if (!selectedPeriod.value) return [];
+
+  const firstDayOfMonth = `${selectedPeriod.value}-01`;
+
+  let query = supabase.from('metas_progresso').select('*').eq('periodo', firstDayOfMonth);
+
+  if (selectedRegional.value) {
+    query = query.eq('regional_id', selectedRegional.value);
+  }
+
+  const { data, error } = await query;
+  if (error) toast.add({ title: 'Erro ao buscar metas', description: error.message, color: 'red' });
+  return data || [];
+}, { watch: [selectedPeriod, selectedRegional] }); // CORREÇÃO: Observa a variável correta
+
 // --- CÁLCULOS E FORMATAÇÃO ---
 const hasData = computed(() => dashboardData.value && dashboardData.value.stats?.total > 0);
 const stats = computed(() => {
@@ -197,4 +281,58 @@ const chartData = computed(() => {
 const chartOptions = { responsive: true, maintainAspectRatio: false };
 const desempenhoColumns = [{ key: 'consultor_nome', label: 'Consultor' }, { key: 'desempenho_cnc', label: 'CNC' }, { key: 'desempenho_card', label: 'CARD' }, { key: 'desempenho_consignado', label: 'Consignado' }, { key: 'desempenho_fgts', label: 'FGTS' }];
 const formatCurrency = (value) => value == null ? 'R$ 0,00' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
+// --- NOVAS COLUNAS E LÓGICA PARA A TABELA DE METAS ---
+const metasColumns = [
+  { key: 'loja_nome', label: 'Loja' },
+  { key: 'percentual_multi_volume', label: '% Multi Volume' },
+  { key: 'meta_bmg_med', label: 'BMG MED' },
+  { key: 'meta_seguro_familiar', label: 'Seguro Familiar' },
+];
+
+const groupedGoals = computed(() => {
+  if (!metasProgresso.value) return [];
+
+  const groups = metasProgresso.value.reduce((acc, goal) => {
+    const regionalName = goal.nome_regional || 'Sem Regional';
+    if (!acc[regionalName]) {
+      acc[regionalName] = { goals: [] };
+    }
+    acc[regionalName].goals.push(goal);
+    return acc;
+  }, {});
+
+  return Object.entries(groups).map(([regionalName, groupData]) => {
+    const goalsInGroup = groupData.goals;
+    const chartLabels = goalsInGroup.map(g => g.loja_nome || 'N/A');
+    const chartDataMeta = goalsInGroup.map(g => g.meta_multi_volume);
+    const chartDataAtingido = goalsInGroup.map(g => g.atingido_multi_volume);
+
+    return {
+      regionalName,
+      goals: goalsInGroup,
+      totalMetaMultiVolume: goalsInGroup.reduce((sum, goal) => sum + goal.meta_multi_volume, 0),
+      totalAtingido: goalsInGroup.reduce((sum, goal) => sum + goal.atingido_multi_volume, 0),
+      chartData: {
+        labels: chartLabels,
+        datasets: [
+          { label: 'Meta Multi Volume', backgroundColor: '#a5b4fc', data: chartDataMeta },
+          { label: 'Valor Atingido', backgroundColor: '#4f46e5', data: chartDataAtingido }
+        ]
+      }
+    };
+  });
+});
+
+const getPercentageColor = (percentage) => {
+  if (percentage >= 100) return 'text-green-500';
+  if (percentage >= 75) return 'text-yellow-500';
+  return 'text-red-500';
+};
+
+const getProgressBarColor = (percentage) => {
+  if (percentage >= 100) return 'green';
+  if (percentage >= 75) return 'yellow';
+  return 'red';
+};
 </script>
