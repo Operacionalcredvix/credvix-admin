@@ -63,7 +63,7 @@
           </div>
           <div>
             <UFormGroup label="Email *" name="email">
-              <UInput v-model="formData.email" id="employee-email" type="email" required placeholder="Email" />
+              <UInput v-model="formData.email" id="employee-email" type="email" required placeholder="Email" :disabled="!!formData.id" />
             </UFormGroup>
           </div>
           <div>
@@ -485,100 +485,59 @@ async function handleFormSubmit() {
     }
     // --- FIM DA VALIDAÇÃO ---
 
-    // 1. Prepara os dados que pertencem APENAS à tabela 'funcionarios'
-    const funcionarioData = {
-      nome_completo: formData.nome_completo,
-      data_nascimento: formData.data_nascimento,
-      nome_mae: formData.nome_mae,
-      cpf: formData.cpf,
-      email: formData.email,
-      telefone: formData.telefone,
-      cep: formData.cep,
-      endereco: formData.endereco,
-      numero_endereco: formData.numero_endereco,
-      complemento_endereco: formData.complemento_endereco,
-      bairro: formData.bairro,
-      cidade: formData.cidade,
-      estado: formData.estado,
-      perfil_id: formData.perfil_id,
-      gerente_id: formData.gerente_id,
-      loja_id: formData.loja_id,
-      is_active: formData.is_active,
-    };
+    if (formData.id) {
+      // --- LÓGICA DE ATUALIZAÇÃO (UPDATE) ---
 
-    if (formData.id) { // --- MODO UPDATE ---
-      // PASSO A: Buscar os dados atuais do funcionário para comparar alterações de perfil/loja
-      const { data: oldFuncionarioData, error: fetchOldError } = await supabase
+      // Prepara os dados que pertencem APENAS à tabela 'funcionarios'
+      const funcionarioData = {
+        nome_completo: formData.nome_completo, data_nascimento: formData.data_nascimento, nome_mae: formData.nome_mae,
+        cpf: formData.cpf, telefone: formData.telefone, cep: formData.cep,
+        endereco: formData.endereco, numero_endereco: formData.numero_endereco, complemento_endereco: formData.complemento_endereco,
+        bairro: formData.bairro, cidade: formData.cidade, estado: formData.estado,
+        perfil_id: formData.perfil_id, gerente_id: formData.gerente_id, loja_id: formData.loja_id,
+        is_active: formData.is_active,
+      };
+
+      // PASSO A: Atualiza a tabela 'funcionarios'
+      const { error: funcError } = await supabase
         .from('funcionarios')
-        .select('perfil_id, loja_id')
-        .eq('id', formData.id)
-        .single();
-      if (fetchOldError) throw fetchOldError;
-
-      // PASSO B: Atualiza a tabela 'funcionarios' com os dados corretos
-      const { error: funcError } = await supabase.from('funcionarios').update(funcionarioData).eq('id', formData.id);
+        .update(funcionarioData)
+        .eq('id', formData.id);
       if (funcError) throw funcError;
 
-      // PASSO C: Lógica para historico_alocacoes (se perfil ou loja mudaram)
-      const perfilChanged = oldFuncionarioData.perfil_id !== formData.perfil_id;
-      const lojaChanged = oldFuncionarioData.loja_id !== formData.loja_id;
-
-      if (perfilChanged || lojaChanged) {
-        // Buscar a alocação ativa atual para definir sua data_fim
-        const { data: currentActiveAllocation, error: allocError } = await supabase
-          .from('historico_alocacoes')
-          .select('id')
-          .eq('funcionario_id', formData.id)
-          .is('data_fim', null)
-          .single();
-        // PGRST116 significa "nenhum registo encontrado", o que é normal se não houver alocação ativa
-        if (allocError && allocError.code !== 'PGRST116') throw allocError;
-
-        // Se houver uma alocação ativa, define sua data de fim para o dia anterior
-        if (currentActiveAllocation) {
-          const yesterday = new Date();
-          yesterday.setDate(yesterday.getDate() - 1);
-          const { error: updateAllocError } = await supabase
-            .from('historico_alocacoes')
-            .update({ data_fim: yesterday.toISOString().split('T')[0] })
-            .eq('id', currentActiveAllocation.id);
-          if (updateAllocError) throw updateAllocError;
-        }
-
-        // Insere um novo registo de alocação com os novos dados
-        const { error: newAllocError } = await supabase
-          .from('historico_alocacoes')
-          .insert({
-            funcionario_id: formData.id,
-            perfil_id: formData.perfil_id,
-            loja_id: formData.loja_id,
-            data_inicio: new Date().toISOString().split('T')[0] // Data de hoje
-          });
-        if (newAllocError) throw newAllocError;
-      }
-
-      // PASSO D: Prepara e atualiza/cria o registo na tabela 'historico_vinculos'
+      // PASSO B: Atualiza ou cria o registo de vínculo na tabela 'historico_vinculos'
       const vinculoData = {
-        funcionario_id: formData.id, // Garante que o ID do funcionário está presente
+        funcionario_id: formData.id,
         data_admissao: formData.data_admissao,
         data_saida: formData.data_saida
       };
 
-      if (formData.vinculoId) { // Apenas atualiza se houver um vínculo para editar
-        const { error: vincError } = await supabase.from('historico_vinculos').update(vinculoData).eq('id', formData.vinculoId);
+      // Se já temos um vinculoId, atualizamos (upsert com 'onConflict' não funciona bem aqui)
+      if (formData.vinculoId) {
+        const { error: vincError } = await supabase
+          .from('historico_vinculos')
+          .update(vinculoData)
+          .eq('id', formData.vinculoId);
         if (vincError) throw vincError;
       } else {
-        // Se não houver vinculoId (ex: funcionário antigo sem registo), cria um novo.
-        const { error: vincError } = await supabase.from('historico_vinculos').insert({
-          ...vinculoData,
-          funcionario_id: formData.id // Garante que o ID do funcionário está presente na inserção
-        });
+        // Se não, criamos um novo (caso o funcionário não tivesse um vínculo antes)
+        const { error: vincError } = await supabase
+          .from('historico_vinculos')
+          .insert(vinculoData);
         if (vincError) throw vincError;
       }
 
-      toast.add({ title: 'Sucesso!', description: 'Funcionário atualizado com sucesso.' });
+      // PASSO C: (Opcional) Adicionar lógica para o histórico de alocações se o perfil ou loja mudar.
+      // Por enquanto, a edição não cria um novo registo de alocação para manter o histórico simples.
 
-    } else { // --- MODO CREATE ---
+      toast.add({ title: 'Sucesso!', description: 'Dados do funcionário atualizados.' });
+
+    } else {
+      // --- LÓGICA DE CRIAÇÃO (INSERT) ---
+      if (!formData.email) {
+        toast.add({ title: 'Erro de Validação', description: 'O campo E-mail é obrigatório para criar um novo funcionário.', color: 'red' });
+        throw new Error('E-mail não fornecido.');
+      }
       // PASSO A: Chamar a nossa API segura para convidar o usuário
       const invitedUser = await $fetch('/api/invite-user', {
         method: 'POST',
@@ -588,6 +547,16 @@ async function handleFormSubmit() {
       if (!invitedUser || !invitedUser.id) {
         throw new Error('Não foi possível obter o ID do usuário convidado.');
       }
+
+      // Prepara os dados que pertencem APENAS à tabela 'funcionarios'
+      const funcionarioData = {
+        nome_completo: formData.nome_completo, data_nascimento: formData.data_nascimento, nome_mae: formData.nome_mae,
+        cpf: formData.cpf, email: formData.email, telefone: formData.telefone, cep: formData.cep,
+        endereco: formData.endereco, numero_endereco: formData.numero_endereco, complemento_endereco: formData.complemento_endereco,
+        bairro: formData.bairro, cidade: formData.cidade, estado: formData.estado,
+        perfil_id: formData.perfil_id, gerente_id: formData.gerente_id, loja_id: formData.loja_id,
+        is_active: formData.is_active,
+      };
 
       // Adiciona o user_id retornado pela nossa API aos dados do funcionário
       funcionarioData.user_id = invitedUser.id;
@@ -617,6 +586,7 @@ async function handleFormSubmit() {
       if (allocError) throw allocError;
 
       toast.add({ title: 'Sucesso!', description: 'Funcionário cadastrado e convite enviado por e-mail.' });
+
     }
 
     resetForm();
