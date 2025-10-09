@@ -281,7 +281,7 @@ const formatCurrency = (value) => {
 
 const statusColor = (status) => {
   switch (status) {
-    case 'Pago': return 'primary';
+    case 'Pago': return 'green';
     case 'Pendente': case 'Em Análise': return 'amber';
     case 'Reprovado': case 'Cancelado': return 'red';
     default: return 'gray';

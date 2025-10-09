@@ -253,7 +253,7 @@ watch(() => formData.cliente_id, () => {formData.numero_beneficio = null;});
 watch(() => formData.loja_id, () => { formData.consultor_id = null; });
 watch(() => formData.banco_id, () => { formData.tabela = null; formData.prazo = null; });
 watch(() => formData.tabela, () => { formData.prazo = null; });
-watch(() => formData.status, (newStatus) => {if (newStatus === 'Aprovado' || newStatus === 'Pago') {formData.motivo_status = '';}});
+watch(() => formData.status, (newStatus) => {if (newStatus === 'Pago') {formData.motivo_status = '';}});
 
 // --- LÓGICA DE SUBMISSÃO ATUALIZADA PARA EDIÇÃO ---
 async function handleFormSubmit() {
