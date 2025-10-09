@@ -122,28 +122,6 @@ const isDark = computed({
   }
 });
 
-
-// --- LÓGICA DO TÍTULO DA PÁGINA DINÂMICO ---
-const pageTitle = computed(() => {
-  const baseTitle = 'Credvix Admin';
-  const currentPath = route.path;
-
-  // Lista de todas as rotas com seus títulos
-  const allLinks = [
-    { to: '/', label: 'Dashboard' },
-    { to: '/perfil', label: 'Meu Perfil' },
-    { to: '/auditoria', label: 'Auditoria' },
-    ...menuItems.flatMap(menu => menu.links || [])
-  ];
-
-  const matchedLink = allLinks.find(link => link.to === currentPath);
-
-  return matchedLink ? `${matchedLink.label} | ${baseTitle}` : baseTitle;
-});
-
-useHead({ title: pageTitle });
-
-
 // Estado para controlar se o menu está recolhido
 const isSidebarCollapsed = useCookie('sidebar-collapsed', { default: () => false });
 
@@ -180,7 +158,7 @@ const menuItems = [
       { label: 'Contratos', to: '/backoffice/contratos', icon: 'i-heroicons-document-chart-bar' },
       { label: 'Bancos', to: '/cadastros/bancos', icon: 'i-heroicons-building-library' },
       { label: 'Produtos', to: '/cadastros/produtos', icon: 'i-heroicons-shopping-bag' },
-      { label: 'Bancos e Tabelas', to: '/cadastros/banco-tabelas', icon: 'i-heroicons-table-cells' }
+      { label: 'Tabelas de Comissão', to: '/cadastros/tabelas', icon: 'i-heroicons-table-cells' }
       // Futuramente: Metas, Produtos, Bancos, etc.
     ]
   },
@@ -196,6 +174,26 @@ const menuItems = [
     ]
   },
 ];
+
+// --- LÓGICA DO TÍTULO DA PÁGINA DINÂMICO ---
+const pageTitle = computed(() => {
+  const baseTitle = 'Farol Credvix';
+  const currentPath = route.path;
+
+  // Lista de todas as rotas com seus títulos
+  const allLinks = [
+    { to: '/', label: 'Dashboard' },
+    { to: '/perfil', label: 'Meu Perfil' },
+    { to: '/auditoria', label: 'Auditoria' },
+    ...menuItems.flatMap(menu => menu.links || [])
+  ];
+
+  const matchedLink = allLinks.find(link => link.to === currentPath);
+
+  return matchedLink ? `${matchedLink.label} | ${baseTitle}` : baseTitle;
+});
+
+useHead({ title: pageTitle });
 
 // --- LÓGICA DO BREADCRUMB DINÂMICO ---
 const breadcrumbItems = computed(() => {

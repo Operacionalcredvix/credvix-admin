@@ -125,11 +125,10 @@ const columns = [
 
 // --- CARREGAMENTO DE DADOS ---
 const { data: lojas, pending, refresh } = await useAsyncData('lojas', async () => {
-  // CORREÇÃO: Evita o uso de select('*') para prevenir erros de schema cache com colunas virtuais (_vts).
-  // Seleciona explicitamente todas as colunas necessárias para a tabela e o formulário.
+  // Seleciona explicitamente todas as colunas para evitar erros de cache de schema (_vts).
   const { data } = await supabase
     .from('lojas')
-    .select('id, nome, franquia, regional_id, city, state, phone, whatsapp, address, instagram_url, is_active, regionais(nome_regional)')
+    .select('id, nome, franquia, regional_id, city, state, phone, whatsapp, address, instagram_url, is_active, regionais(id, nome_regional)')
     .order('nome');
   return data;
 });
@@ -152,6 +151,11 @@ const filteredRows = computed(() => {
 const openModal = (loja = null) => {
   if (loja) {
     Object.assign(formData, loja);
+    // Garante que o ID da regional seja atribuído corretamente, pois o objeto 'loja'
+    // pode conter o objeto 'regionais' aninhado em vez do ID direto.
+    if (loja.regionais && loja.regionais.id) {
+      formData.regional_id = loja.regionais.id;
+    }
   } else {
     Object.assign(formData, getInitialFormData());
   }
@@ -178,7 +182,12 @@ const handleFormSubmit = async () => {
       // Garante que o id não seja enviado na criação.
       delete dataToSave.id;
 
-      const { error } = await supabase.from('lojas').insert(dataToSave);
+      // CORREÇÃO: Adiciona .select('id') para evitar que o Supabase tente retornar
+      // a coluna virtual '_vts' que está causando o erro de cache de schema.
+      const { error } = await supabase
+        .from('lojas')
+        .insert(dataToSave)
+        .select('id'); // Especifica o retorno para evitar o erro de cache
       if (error) throw error;
       toast.add({ title: 'Sucesso!', description: 'Loja criada com sucesso.' });
     }
