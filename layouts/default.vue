@@ -168,11 +168,20 @@ const menuItems = [
     slot: 'item',
     links: [
       { label: 'Metas', to: '/admin/metas', icon: 'i-heroicons-trophy' },
-      { label: 'Importações', to: '/admin/importacoes', icon: 'i-heroicons-arrow-up-tray' },
-      { label: 'Relatório de Importações', to: '/admin/relatorio-importacoes', icon: 'i-heroicons-chart-pie' }
+      { label: 'Importações', to: '/admin/importacoes', icon: 'i-heroicons-arrow-up-tray' }
       // Futuramente: Outras configurações de admin
     ]
   },
+  {
+    label: 'Relatórios',
+    icon: 'i-heroicons-chart-bar-square',
+    slot: 'item',
+    links: [
+      { label: 'Desempenho por Equipe', to: '/relatorios/desempenho', icon: 'i-heroicons-chart-bar' },
+      { label: 'Desempenho Individual', to: '/relatorios/desempenho-individual', icon: 'i-heroicons-user-circle' },
+      { label: 'Importações Externas', to: '/admin/relatorio-importacoes', icon: 'i-heroicons-arrow-down-on-square-stack' }
+    ]
+  }
 ];
 
 // --- LÓGICA DO TÍTULO DA PÁGINA DINÂMICO ---
@@ -283,7 +292,8 @@ const filteredMenuItems = computed(() => {
     'Cadastros': ['Master', 'RH', 'Coordenador'],
     'RH': ['Master', 'RH'],
     'Backoffice': ['Master', 'Backoffice'],
-    'Admin': ['Master']
+    'Admin': ['Master'],
+    'Relatórios': ['Master', 'Coordenador', 'Backoffice']
   };
 
   return menuItems.filter(menu => {
