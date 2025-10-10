@@ -207,7 +207,7 @@ const { data: goals, pending, refresh } = await useAsyncData('metas-progresso', 
     .from('metas_progresso') // <-- MUDANÇA: Usando a nova VIEW
     .select('*')
     .eq('periodo', firstDayOfMonth);
-  return data || [];
+  return data || []; // Garante que sempre retorna um array
 }, { watch: [selectedPeriod] });
 
 // --- COLUNAS E FORMATAÇÃO DA TABELA ---

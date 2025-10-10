@@ -177,7 +177,7 @@ const { data: produtos } = await useAsyncData('produtos-form', async () => {
 
 const { data: bancos } = await useAsyncData('bancos-form', async () => {
   const { data } = await supabase.from('bancos').select('id, nome_instituicao').order('nome_instituicao');
-  return data || [];
+  return data || []; // Garante que sempre retorna um array
 });
 
 const { data: lojas } = await useAsyncData('lojas-form', async () => {
@@ -187,7 +187,7 @@ const { data: lojas } = await useAsyncData('lojas-form', async () => {
 
 const { data: todasTabelas } = await useAsyncData('tabelas-form', async () => {
   const { data } = await supabase.from('tabelas').select('banco_id, nome_tabela, prazos');
-  return data || [];
+  return data || []; // Garante que sempre retorna um array
 });
 
 const { data: todosConsultores } = await useAsyncData('consultores-form', async () => {

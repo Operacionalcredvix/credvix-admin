@@ -2,15 +2,35 @@
   <div>
     <header class="mb-8 flex justify-between items-center">
       <h1 class="text-primary-500 text-3xl font-bold">Gestão de Tabelas de Comissão</h1>
-      <UButton icon="i-heroicons-plus-circle" size="lg" @click="openModal()">
-        Adicionar Nova Tabela
-      </UButton>
+      <div class="flex gap-2">
+        <UButton icon="i-heroicons-arrow-up-tray" size="lg" color="gray" @click="isImportModalOpen = true">
+          Importar Excel
+        </UButton>
+        <UButton icon="i-heroicons-plus-circle" size="lg" @click="openModal()">
+          Adicionar Nova Tabela
+        </UButton>
+      </div>
     </header>
 
+    <!-- NOVO: Card de Filtros -->
+    <UCard class="mb-8">
+      <div class="flex items-center gap-4">
+        <UFormGroup label="Filtrar por Produto" name="productFilter" class="w-64">
+          <USelectMenu v-model="selectedProduct" :options="produtos" value-attribute="id" option-attribute="nome"
+            placeholder="Todos os produtos" clearable />
+        </UFormGroup>
+      </div>
+    </UCard>
+
     <UCard>
-      <UTable :rows="tabelas || []" :columns="columns" :loading="pending">
+      <!-- CORREÇÃO: Usa a lista filtrada em vez da lista completa -->
+      <UTable :rows="filteredTabelas || []" :columns="columns" :loading="pending">
         <template #banco-data="{ row }">
           <span>{{ row.bancos.nome_instituicao }}</span>
+        </template>
+
+        <template #produto-data="{ row }">
+          <span>{{ row.produtos?.nome || 'N/A' }}</span>
         </template>
 
         <template #prazos-data="{ row }">
@@ -39,6 +59,10 @@
             <USelectMenu v-model="formData.banco_id" :options="bancos" value-attribute="id" option-attribute="nome_instituicao" placeholder="Selecione o banco" />
           </UFormGroup>
 
+          <UFormGroup label="Produto" name="produto_id" required>
+            <USelectMenu v-model="formData.produto_id" :options="produtos" value-attribute="id" option-attribute="nome" placeholder="Selecione o produto" />
+          </UFormGroup>
+
           <UFormGroup label="Nome da Tabela" name="nome_tabela" required>
             <UInput v-model="formData.nome_tabela" placeholder="Ex: TX 1,85" />
           </UFormGroup>
@@ -54,6 +78,40 @@
         </UForm>
       </UCard>
     </USlideover>
+
+    <!-- NOVO: Modal de Importação -->
+    <UModal v-model="isImportModalOpen">
+      <UCard>
+        <template #header>
+          <h3 class="text-base font-semibold">Importar Tabelas de Comissão via Excel</h3>
+        </template>
+
+        <div class="space-y-4">
+          <p class="text-sm text-gray-500">
+            Selecione um arquivo Excel (.xlsx) com as colunas: <UBadge color="gray" variant="soft">banco</UBadge>, <UBadge color="gray" variant="soft">tabela</UBadge>, <UBadge color="gray" variant="soft">prazo</UBadge>, <UBadge color="gray" variant="soft">produto</UBadge>.
+          </p>
+          <UInput type="file" accept=".xlsx" @change="handleFileSelect" />
+
+          <div v-if="importSummary.total > 0" class="text-sm p-3 bg-gray-50 dark:bg-gray-800 rounded-md">
+            <p><strong>Resumo da Importação:</strong></p>
+            <p>Tabelas encontradas: {{ importSummary.total }}</p>
+            <p class="text-green-500">Novas a serem criadas: {{ importSummary.new }}</p>
+            <p class="text-amber-500">Existentes a serem atualizadas: {{ importSummary.updated }}</p>
+          </div>
+        </div>
+
+        <!-- NOVO: Barra de progresso durante a leitura do arquivo -->
+        <div v-if="readingFile" class="space-y-2 pt-4">
+          <p class="text-sm text-gray-500">A processar o arquivo...</p>
+          <UProgress animation="carousel" />
+        </div>
+
+        <template #footer>
+          <!-- CORREÇÃO: O botão agora é desabilitado se não houver arquivo ou se estiver lendo. -->
+          <UButton label="Processar Importação" :loading="importing" :disabled="!fileToImport || readingFile" @click="processImport" />
+        </template>
+      </UCard>
+    </UModal>
   </div>
 </template>
 
@@ -69,9 +127,22 @@ const toast = useToast();
 // --- ESTADO DA PÁGINA ---
 const isModalOpen = ref(false);
 const saving = ref(false);
+
+// --- NOVO: ESTADO PARA O FILTRO ---
+const selectedProduct = ref(null);
+
+// --- NOVO: ESTADO PARA IMPORTAÇÃO ---
+const isImportModalOpen = ref(false);
+const readingFile = ref(false); // NOVO: Estado para a leitura do arquivo
+const importing = ref(false);
+const fileToImport = ref(null);
+const parsedData = ref([]);
+const importSummary = reactive({ total: 0, new: 0, updated: 0 });
+
 const getInitialFormData = () => ({
   id: null,
   banco_id: null,
+  produto_id: null,
   nome_tabela: '',
   prazos: []
 });
@@ -81,6 +152,7 @@ const prazosInput = ref(''); // Variável auxiliar para o campo de texto dos pra
 // --- DEFINIÇÃO DAS COLUNAS DA TABELA ---
 const columns = [
   { key: 'banco', label: 'Banco', sortable: true },
+  { key: 'produto', label: 'Produto', sortable: true },
   { key: 'nome_tabela', label: 'Nome da Tabela', sortable: true },
   { key: 'prazos', label: 'Prazos Disponíveis' },
   { key: 'actions', label: 'Ações' }
@@ -88,13 +160,32 @@ const columns = [
 
 // --- CARREGAMENTO DE DADOS ---
 const { data: tabelas, pending, refresh } = await useAsyncData('tabelas', async () => {
-  const { data } = await supabase.from('tabelas').select('*, bancos(nome_instituicao)').order('id');
-  return data;
+  // CORREÇÃO: Remove espaços na string do select para evitar erros de parsing no PostgREST.
+  // CORREÇÃO: Especifica explicitamente a relação com 'produtos' usando a coluna 'produto_id'
+  // para resolver a ambiguidade e o erro PGRST200.
+  const selectQuery = '*, bancos(nome_instituicao), produtos:produto_id(nome)';
+  const { data, error } = await supabase.from('tabelas').select(selectQuery).order('id');
+  if (error) console.error("Erro ao buscar tabelas:", error);
+  return data || [];
 });
 
 const { data: bancos } = await useAsyncData('bancos-form', async () => {
   const { data } = await supabase.from('bancos').select('id, nome_instituicao').order('nome_instituicao');
-  return data;
+  return data || [];
+});
+
+const { data: produtos } = await useAsyncData('produtos-form', async () => {
+  const { data } = await supabase.from('produtos').select('id, nome').order('nome');
+  return data || [];
+});
+
+// --- LÓGICA COMPUTADA PARA FILTRAGEM ---
+const filteredTabelas = computed(() => {
+  if (!tabelas.value) return [];
+  if (!selectedProduct.value) {
+    return tabelas.value; // Retorna todas as tabelas se nenhum produto for selecionado
+  }
+  return tabelas.value.filter(tabela => tabela.produto_id === selectedProduct.value);
 });
 
 // --- LÓGICA DO FORMULÁRIO ---
@@ -115,7 +206,7 @@ const handleFormSubmit = async () => {
   formData.prazos = prazosInput.value.split(',').map(p => p.trim()).filter(p => p);
 
   try {
-    const { bancos, ...dataToSave } = formData; // Remove dados de relação antes de salvar
+    const { bancos, produtos, ...dataToSave } = formData; // Remove dados de relação antes de salvar
 
     if (dataToSave.id) {
       const { error } = await supabase.from('tabelas').update(dataToSave).eq('id', dataToSave.id);
@@ -147,5 +238,111 @@ const handleDelete = async (tabela) => {
       toast.add({ title: 'Erro!', description: error.message, color: 'red' });
     }
   }
+};
+
+// --- LÓGICA DE IMPORTAÇÃO ---
+import * as XLSX from 'xlsx';
+
+const handleFileSelect = async (event) => {
+  // CORREÇÃO: O UInput emite a FileList diretamente, não o objeto Event completo.
+  // Portanto, acedemos ao primeiro ficheiro através de event[0].
+  const file = event[0];
+
+  // O evento original do input não é mais diretamente acessível aqui.
+  // A lógica para limpar o input foi movida para o final do processamento.
+
+  if (!file) {
+    resetImport();
+    return;
+  }
+  // CORREÇÃO: Atribui o arquivo imediatamente para habilitar o botão.
+  // A leitura e processamento continuarão de forma assíncrona.
+  fileToImport.value = file;
+
+  readingFile.value = true; // ATIVA a barra de progresso
+  try {
+    const data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(new Uint8Array(e.target.result));
+      reader.onerror = (e) => reject(e);
+      reader.readAsArrayBuffer(file);
+    });
+
+    const workbook = XLSX.read(data, { type: 'array' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: (h) => h.toLowerCase().trim() });
+
+    const grouped = jsonData.reduce((acc, row) => {
+      if (!row.banco || !row.tabela || !row.produto) return acc;
+      const key = `${row.banco.trim()}-${row.produto.trim()}-${row.tabela.trim()}`;
+      if (!acc[key]) {
+        acc[key] = { banco: row.banco.trim(), nome_tabela: row.tabela.trim(), produto: row.produto.trim(), prazos: new Set() };
+      }
+      if (row.prazo) acc[key].prazos.add(String(row.prazo).trim());
+      return acc;
+    }, {});
+
+    parsedData.value = Object.values(grouped).map(item => ({ ...item, prazos: Array.from(item.prazos).sort((a, b) => a - b) }));
+
+    importSummary.total = parsedData.value.length;
+    const existingTableKeys = tabelas.value.map(t => `${t.bancos.nome_instituicao}-${t.produtos?.nome}-${t.nome_tabela}`);
+    importSummary.new = parsedData.value.filter(p => !existingTableKeys.includes(`${p.banco}-${p.produto}-${p.nome_tabela}`)).length;
+    importSummary.updated = importSummary.total - importSummary.new;
+  } catch (error) {
+    toast.add({ title: 'Erro ao ler arquivo', description: error.message, color: 'red' });
+    resetImport();
+  } finally {
+    readingFile.value = false; // DESATIVA a barra de progresso
+    // Limpa o valor do input de ficheiro para permitir que o mesmo ficheiro
+    // seja selecionado novamente e dispare o evento @change.
+    const inputElement = document.querySelector('input[type="file"]');
+    if (inputElement) inputElement.value = '';
+  }
+};
+
+const processImport = async () => {
+  if (parsedData.value.length === 0) {
+    toast.add({ title: 'Atenção', description: 'Nenhum dado válido para importar.', color: 'amber' });
+    return;
+  }
+  importing.value = true;
+
+  try {
+    // Mapeia nome do banco para ID
+    const bankMap = new Map(bancos.value.map(b => [b.nome_instituicao.trim().toUpperCase(), b.id]));
+    const productMap = new Map(produtos.value.map(p => [p.nome.trim().toUpperCase(), p.id]));
+
+    const dataToUpsert = parsedData.value
+      .map(item => ({
+        banco_id: bankMap.get(item.banco.trim().toUpperCase()),
+        produto_id: productMap.get(item.produto.trim().toUpperCase()),
+        nome_tabela: item.nome_tabela,
+        prazos: item.prazos
+      }))
+      .filter(item => item.banco_id && item.produto_id); // Filtra apenas itens com banco e produto correspondentes
+
+    const { error } = await supabase.from('tabelas').upsert(dataToUpsert, {
+      // CORREÇÃO: A chave de conflito não deve conter espaços.
+      onConflict: 'banco_id,produto_id,nome_tabela'
+    });
+
+    if (error) throw error;
+
+    toast.add({ title: 'Sucesso!', description: `${dataToUpsert.length} tabelas foram importadas/atualizadas.` });
+    await refresh();
+    isImportModalOpen.value = false;
+    resetImport();
+  } catch (error) {
+    toast.add({ title: 'Erro na importação', description: error.message, color: 'red' });
+  } finally {
+    importing.value = false;
+  }
+};
+
+const resetImport = () => {
+  fileToImport.value = null;
+  parsedData.value = [];
+  Object.assign(importSummary, { total: 0, new: 0, updated: 0 });
 };
 </script>
