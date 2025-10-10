@@ -497,48 +497,40 @@ async function handleFormSubmit() {
 
     if (formData.id) {
       // --- LÓGICA DE ATUALIZAÇÃO (UPDATE) ---
-
-      // Prepara os dados que pertencem APENAS à tabela 'funcionarios'
+      // 1. Prepara os dados para a tabela 'funcionarios'.
+      // O trigger 'handle_funcionario_alocacao_change' cuidará do histórico de alocação
+      // se o perfil ou a loja forem alterados.
       const funcionarioData = {
         nome_completo: formData.nome_completo, data_nascimento: formData.data_nascimento, nome_mae: formData.nome_mae,
-        cpf: formData.cpf, telefone: formData.telefone, cep: formData.cep,
+        cpf: formData.cpf.replace(/\D/g, ''), telefone: formData.telefone.replace(/\D/g, ''), cep: formData.cep,
         endereco: formData.endereco, numero_endereco: formData.numero_endereco, complemento_endereco: formData.complemento_endereco,
         bairro: formData.bairro, cidade: formData.cidade, estado: formData.estado,
         perfil_id: formData.perfil_id, gerente_id: formData.gerente_id, loja_id: formData.loja_id,
         is_active: formData.is_active,
       };
 
-      // PASSO A: Atualiza a tabela 'funcionarios'
+      // 2. Atualiza a tabela 'funcionarios'
       const { error: funcError } = await supabase
         .from('funcionarios')
         .update(funcionarioData)
         .eq('id', formData.id);
       if (funcError) throw funcError;
 
-      // PASSO B: Atualiza ou cria o registo de vínculo na tabela 'historico_vinculos'
+      // 3. Atualiza ou cria o registo de vínculo na tabela 'historico_vinculos'.
+      // O upsert garante que, mesmo que o funcionário não tivesse um vínculo antes,
+      // ele será criado agora.
       const vinculoData = {
         funcionario_id: formData.id,
         data_admissao: formData.data_admissao,
         data_saida: formData.data_saida
       };
 
-      // Se já temos um vinculoId, atualizamos (upsert com 'onConflict' não funciona bem aqui)
-      if (formData.vinculoId) {
-        const { error: vincError } = await supabase
-          .from('historico_vinculos')
-          .update(vinculoData)
-          .eq('id', formData.vinculoId);
-        if (vincError) throw vincError;
-      } else {
-        // Se não, criamos um novo (caso o funcionário não tivesse um vínculo antes)
-        const { error: vincError } = await supabase
-          .from('historico_vinculos')
-          .insert(vinculoData);
-        if (vincError) throw vincError;
-      }
+      // Usamos o 'funcionario_id' como chave de conflito para o upsert.
+      const { error: vincError } = await supabase
+        .from('historico_vinculos')
+        .upsert(vinculoData, { onConflict: 'funcionario_id' });
 
-      // PASSO C: (Opcional) Adicionar lógica para o histórico de alocações se o perfil ou loja mudar.
-      // Por enquanto, a edição não cria um novo registo de alocação para manter o histórico simples.
+      if (vincError) throw vincError;
 
       toast.add({ title: 'Sucesso!', description: 'Dados do funcionário atualizados.' });
 

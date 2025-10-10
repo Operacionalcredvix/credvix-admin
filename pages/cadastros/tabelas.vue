@@ -100,6 +100,14 @@
           </div>
         </div>
 
+        <!-- NOVO: Bloco de Erros de Validação -->
+        <div v-if="importValidationErrors.length > 0" class="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-md max-h-60 overflow-y-auto">
+          <p class="font-bold text-red-600 dark:text-red-400">Erros de Validação Encontrados:</p>
+          <ul class="list-disc list-inside text-sm text-red-500 dark:text-red-300 mt-2">
+            <li v-for="(error, index) in importValidationErrors" :key="index">{{ error }}</li>
+          </ul>
+        </div>
+
         <!-- NOVO: Barra de progresso durante a leitura do arquivo -->
         <div v-if="readingFile" class="space-y-2 pt-4">
           <p class="text-sm text-gray-500">A processar o arquivo...</p>
@@ -107,8 +115,8 @@
         </div>
 
         <template #footer>
-          <!-- CORREÇÃO: O botão agora é desabilitado se não houver arquivo ou se estiver lendo. -->
-          <UButton label="Processar Importação" :loading="importing" :disabled="!fileToImport || readingFile" @click="processImport" />
+          <!-- CORREÇÃO: O botão agora é desabilitado se houver erros de validação. -->
+          <UButton label="Processar Importação" :loading="importing" :disabled="!fileToImport || readingFile || importValidationErrors.length > 0" @click="processImport" />
         </template>
       </UCard>
     </UModal>
@@ -138,6 +146,7 @@ const importing = ref(false);
 const fileToImport = ref(null);
 const parsedData = ref([]);
 const importSummary = reactive({ total: 0, new: 0, updated: 0 });
+const importValidationErrors = ref([]); // NOVO: Estado para os erros de validação
 
 const getInitialFormData = () => ({
   id: null,
@@ -259,6 +268,9 @@ const handleFileSelect = async (event) => {
   // A leitura e processamento continuarão de forma assíncrona.
   fileToImport.value = file;
 
+  // Limpa erros de validação anteriores
+  importValidationErrors.value = [];
+
   readingFile.value = true; // ATIVA a barra de progresso
   try {
     const data = await new Promise((resolve, reject) => {
@@ -285,6 +297,22 @@ const handleFileSelect = async (event) => {
 
     parsedData.value = Object.values(grouped).map(item => ({ ...item, prazos: Array.from(item.prazos).sort((a, b) => a - b) }));
 
+    // --- NOVA LÓGICA DE VALIDAÇÃO ---
+    const bankMap = new Map(bancos.value.map(b => [b.nome_instituicao.trim().toUpperCase(), b.id]));
+    const productMap = new Map(produtos.value.map(p => [p.nome.trim().toUpperCase(), p.id]));
+    const errors = [];
+
+    parsedData.value.forEach((item, index) => {
+      if (!bankMap.has(item.banco.toUpperCase())) {
+        errors.push(`Linha ${index + 2}: Banco "${item.banco}" não encontrado no sistema.`);
+      }
+      if (!productMap.has(item.produto.toUpperCase())) {
+        errors.push(`Linha ${index + 2}: Produto "${item.produto}" não encontrado no sistema.`);
+      }
+    });
+    importValidationErrors.value = errors;
+    // --- FIM DA VALIDAÇÃO ---
+
     importSummary.total = parsedData.value.length;
     const existingTableKeys = tabelas.value.map(t => `${t.bancos.nome_instituicao}-${t.produtos?.nome}-${t.nome_tabela}`);
     importSummary.new = parsedData.value.filter(p => !existingTableKeys.includes(`${p.banco}-${p.produto}-${p.nome_tabela}`)).length;
@@ -302,7 +330,7 @@ const handleFileSelect = async (event) => {
 };
 
 const processImport = async () => {
-  if (parsedData.value.length === 0) {
+  if (parsedData.value.length === 0 || importValidationErrors.value.length > 0) {
     toast.add({ title: 'Atenção', description: 'Nenhum dado válido para importar.', color: 'amber' });
     return;
   }
@@ -344,5 +372,6 @@ const resetImport = () => {
   fileToImport.value = null;
   parsedData.value = [];
   Object.assign(importSummary, { total: 0, new: 0, updated: 0 });
+  importValidationErrors.value = []; // Limpa os erros
 };
 </script>
