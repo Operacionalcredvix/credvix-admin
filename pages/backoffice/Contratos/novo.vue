@@ -106,10 +106,7 @@
 <script setup>
 import { ref, reactive, computed, watch } from 'vue';
 
-definePageMeta({
-  middleware: 'auth',
-  profiles: ['Master', 'Backoffice']
-});
+definePageMeta({ middleware: 'auth', profiles: ['Master', 'Backoffice', 'Coordenador', 'Consultor'] });
 
 const supabase = useSupabaseClient();
 const { profile } = useProfile();
@@ -229,6 +226,28 @@ const consultoresFiltrados = computed(() => {
   if (!formData.loja_id || !todosConsultores.value) return [];
   return todosConsultores.value.filter(c => c.loja_id === formData.loja_id);
 });
+
+// --- LÓGICA DE PRÉ-SELEÇÃO PARA GESTORES E CONSULTORES ---
+const lojaSelectDisabled = ref(false);
+const consultorSelectDisabled = ref(false);
+
+watch(profile, (userProfile) => {
+  if (!userProfile) return;
+  const profileName = userProfile.perfis?.nome;
+
+  if (profileName === 'Coordenador') {
+    // Coordenador pode selecionar a loja, mas não o consultor (que será ele mesmo)
+    formData.consultor_id = userProfile.id;
+    consultorSelectDisabled.value = true;
+  } else if (profileName === 'Consultor') {
+    // Consultor tem loja e consultor pré-definidos e bloqueados
+    formData.loja_id = userProfile.loja_id;
+    formData.consultor_id = userProfile.id;
+    lojaSelectDisabled.value = true;
+    consultorSelectDisabled.value = true;
+  }
+}, { immediate: true });
+
 
 // Observa a seleção do cliente e limpa o campo de benefício
 watch(() => formData.cliente_id, () => {formData.numero_beneficio = null;});

@@ -88,8 +88,10 @@
 </template>
 
 <script setup>
-definePageMeta({ middleware: 'auth',
-profiles: ['Master', 'Backoffice'] });
+definePageMeta({
+  middleware: 'auth',
+  profiles: ['Master', 'Backoffice', 'Coordenador', 'Consultor']
+});
 
 import { ref, computed, watch, watchEffect } from 'vue';
 

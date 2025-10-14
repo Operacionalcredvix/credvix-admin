@@ -150,12 +150,19 @@ const menuItems = [
     ]
   },
   {
+    label: 'Propostas',
+    icon: 'i-heroicons-bookmark-square',
+    slot: 'item',
+    links: [ 
+      { label: 'Contratos', to: '/backoffice/contratos', icon: 'i-heroicons-document-chart-bar' },
+    ]
+  },
+  {
     label: 'Backoffice',
     icon: 'i-heroicons-banknotes',
     slot: 'item',
     links: [
       { label: 'Clientes', to: '/backoffice/clientes', icon: 'i-heroicons-user-group' },
-      { label: 'Contratos', to: '/backoffice/contratos', icon: 'i-heroicons-document-chart-bar' },
       { label: 'Bancos', to: '/cadastros/bancos', icon: 'i-heroicons-building-library' },
       { label: 'Produtos', to: '/cadastros/produtos', icon: 'i-heroicons-shopping-bag' },
       { label: 'Tabelas de Comissão', to: '/cadastros/tabelas', icon: 'i-heroicons-table-cells' }
@@ -292,7 +299,8 @@ const filteredMenuItems = computed(() => {
     'Cadastros': ['Master', 'RH', 'Coordenador'],
     'RH': ['Master', 'RH'],
     'Backoffice': ['Master', 'Backoffice'],
-    'Admin': ['Master'],
+    'Propostas': ['Master', 'Backoffice', 'Coordenador', 'Consultor'],
+    'Admin': ['Master', 'Backoffice'], // Permitindo Backoffice ver o menu Admin
     'Relatórios': ['Master', 'Coordenador', 'Backoffice']
   };
 
