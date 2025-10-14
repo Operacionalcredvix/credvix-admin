@@ -67,8 +67,8 @@
             <UInput v-model="formData.adesao" placeholder="Número da adesão" />
           </UFormGroup>
           <UFormGroup label="Prazo" name="prazo" required>
-            <USelectMenu v-model="formData.prazo" :options="prazosDisponiveis" placeholder="Selecione o prazo"
-              :disabled="!formData.tabela" />
+            <USelectMenu v-model="formData.prazo" :options="prazosDisponiveis" value-attribute="value"
+              option-attribute="label" placeholder="Selecione o prazo" :disabled="!formData.tabela" />
           </UFormGroup>
           <UFormGroup label="Data da Digitação" name="data_contrato" required>
             <UInput v-model="formData.data_contrato" type="date" />
