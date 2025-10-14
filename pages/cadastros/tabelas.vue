@@ -212,7 +212,10 @@ const openModal = (tabela = null) => {
 const handleFormSubmit = async () => {
   saving.value = true;
   // Converte o texto dos prazos de volta para um array de texto, removendo espaços e itens vazios
-  formData.prazos = prazosInput.value.split(',').map(p => p.trim()).filter(p => p);
+  // CORREÇÃO: Converte para um array de NÚMEROS
+  formData.prazos = prazosInput.value.split(',')
+    .map(p => parseInt(p.trim(), 10))
+    .filter(p => !isNaN(p) && p > 0);
 
   try {
     const { bancos, produtos, ...dataToSave } = formData; // Remove dados de relação antes de salvar

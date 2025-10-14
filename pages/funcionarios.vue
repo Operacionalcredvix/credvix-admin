@@ -354,24 +354,35 @@ const perfisPermitidos = computed(() => {
 
 // --- LÓGICA PARA DESABILITAR CAMPOS ---
 const isRegionalDisabled = computed(() => {
-  // Desabilita para Consultor, pois a regional vem do líder (Supervisor)
-  return selectedProfileName.value === 'Consultor';
+  // CORREÇÃO: A regional nunca deve ser desabilitada se for visível.
+  // A lógica de dependência foi invertida: seleciona-se a regional, depois a loja, depois o líder.
+  return false;
 });
 
 const isLojaDisabled = computed(() => {
-  // Desabilita para Consultor, pois a loja vem do líder (Supervisor)
-  return selectedProfileName.value === 'Consultor';
+  // CORREÇÃO: A loja só é habilitada após selecionar a regional.
+  return !formData.regional_id;
 });
 
 const isLiderDisabled = computed(() => {
-  // Desabilita para Supervisor, pois o líder vem da regional (Coordenador)
-  return selectedProfileName.value === 'Supervisor';
+  // CORREÇÃO: O líder só é habilitado após selecionar a loja.
+  return !formData.loja_id;
 });
 
 // Otimização: Filtra a lista de líderes pré-carregada em vez de fazer uma nova chamada de API.
 const lideres = computed(() => {
-  if (selectedProfileName.value === 'Supervisor') return todosLideres.value.filter(l => l.perfil.nome === 'Coordenador');
-  if (selectedProfileName.value === 'Consultor') return todosLideres.value.filter(l => l.perfil.nome === 'Supervisor');
+  // CORREÇÃO: Filtra líderes pela loja selecionada.
+  if (!formData.loja_id) return [];
+  if (selectedProfileName.value === 'Supervisor') {
+    // O líder de um Supervisor é o Coordenador da regional da loja.
+    const regionalDaLoja = regionais.value.find(r => r.id === formData.regional_id);
+    if (!regionalDaLoja?.coordenador_id) return [];
+    return todosLideres.value.filter(l => l.id === regionalDaLoja.coordenador_id);
+  }
+  if (selectedProfileName.value === 'Consultor') {
+    // O líder de um Consultor é um Supervisor da mesma loja.
+    return todosLideres.value.filter(l => l.perfil.nome === 'Supervisor' && l.loja_id === formData.loja_id);
+  }
   return [];
 });
 
@@ -380,40 +391,24 @@ watch(() => formData.perfil_id, (newPerfilId, oldPerfilId) => {
   if (newPerfilId === oldPerfilId) return;
 
   // Limpa os campos dependentes ao trocar o perfil, respeitando os que podem estar bloqueados
-  if (!isRegionalDisabled.value) formData.regional_id = null;
+  formData.regional_id = null;
   formData.loja_id = null;
   formData.gerente_id = null;
 });
 
 watch(() => formData.regional_id, (newRegionalId) => {
-  // Se o perfil for Supervisor, preenche o líder (Coordenador) automaticamente
-  if (selectedProfileName.value === 'Supervisor' && newRegionalId) {
-    const regionalSelecionada = regionais.value.find(r => r.id === newRegionalId);
-    formData.gerente_id = regionalSelecionada?.coordenador_id || null;
-  }
-
   // Limpa a loja se a regional mudar e a loja não pertencer mais à nova regional
-  if (formData.loja_id && !isLojaDisabled.value) {
-    const lojaAtual = todasLojas.value.find(l => l.id === formData.loja_id);
-    if (lojaAtual && lojaAtual.regional_id !== newRegionalId) {
-      formData.loja_id = null;
-    }
-  }
+  formData.loja_id = null;
+  formData.gerente_id = null;
 });
 
-// NOVO: Observa a seleção do líder para preencher loja e regional automaticamente
-watch(() => formData.gerente_id, (newGerenteId) => {
-  // Esta lógica aplica-se apenas ao criar um Consultor
-  if (!newGerenteId || selectedProfileName.value !== 'Consultor') return;
-
-  const liderSelecionado = todosLideres.value.find(l => l.id === newGerenteId);
-  if (!liderSelecionado || !liderSelecionado.loja_id) return;
-
-  // Encontra a loja do líder na lista de todas as lojas
-  const lojaDoLider = todasLojas.value.find(l => l.id === liderSelecionado.loja_id);
-  if (lojaDoLider) {
-    formData.regional_id = lojaDoLider.regional_id;
-    formData.loja_id = lojaDoLider.id;
+// CORREÇÃO: Observa a seleção da loja para preencher o líder automaticamente quando possível.
+watch(() => formData.loja_id, (newLojaId) => {
+  formData.gerente_id = null; // Limpa o líder ao trocar de loja
+  // Se o perfil for Supervisor, preenche o líder (Coordenador) automaticamente
+  if (selectedProfileName.value === 'Supervisor' && newLojaId) {
+    const regionalSelecionada = regionais.value.find(r => r.id === formData.regional_id);
+    formData.gerente_id = regionalSelecionada?.coordenador_id || null;
   }
 });
 

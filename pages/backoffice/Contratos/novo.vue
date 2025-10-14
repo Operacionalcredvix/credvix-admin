@@ -220,7 +220,9 @@ const tabelasFiltradas = computed(() => {
 const prazosDisponiveis = computed(() => {
   if (!formData.tabela || !todasTabelas.value) return [];
   const tabelaSelecionada = todasTabelas.value.find(t => t.nome_tabela === formData.tabela && t.banco_id === formData.banco_id);
-  return tabelaSelecionada ? tabelaSelecionada.prazos : [];
+  // CORREÇÃO: Formata os prazos (números) para exibição (texto "72x")
+  if (!tabelaSelecionada || !tabelaSelecionada.prazos) return [];
+  return tabelaSelecionada.prazos.map(p => ({ label: `${p}x`, value: p }));
 });
 
 const consultoresFiltrados = computed(() => {
@@ -278,9 +280,7 @@ async function handleFormSubmit() {
 
     const numeroContrato = `CONTR-${Date.now()}`;
     const dataToSubmit = { ...formData, numero_contrato: numeroContrato, digitador_id: profile.value.id };
-    if (dataToSubmit.prazo) {
-      dataToSubmit.prazo = parseInt(String(dataToSubmit.prazo).replace('x', ''), 10);
-    }
+    // CORREÇÃO: Não é mais necessário converter o prazo, pois o 'value' do USelectMenu já é um número.
     
     const { error } = await supabase.from('contratos').insert(dataToSubmit);
     if (error) throw error;
