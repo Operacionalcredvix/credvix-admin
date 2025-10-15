@@ -155,6 +155,7 @@ const menuItems = [
     slot: 'item',
     links: [ 
       { label: 'Contratos', to: '/backoffice/contratos', icon: 'i-heroicons-document-chart-bar' },
+      { label: 'Clientes', to: '/backoffice/clientes', icon: 'i-heroicons-user-group' }
     ]
   },
   {
@@ -162,7 +163,6 @@ const menuItems = [
     icon: 'i-heroicons-banknotes',
     slot: 'item',
     links: [
-      { label: 'Clientes', to: '/backoffice/clientes', icon: 'i-heroicons-user-group' },
       { label: 'Bancos', to: '/cadastros/bancos', icon: 'i-heroicons-building-library' },
       { label: 'Produtos', to: '/cadastros/produtos', icon: 'i-heroicons-shopping-bag' },
       { label: 'Tabelas de Comissão', to: '/cadastros/tabelas', icon: 'i-heroicons-table-cells' }
