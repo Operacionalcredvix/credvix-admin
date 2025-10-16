@@ -54,45 +54,26 @@
 
         <UTable :rows="group.goals" :columns="columns">
           <template #loja-data="{ row }">
-            <span class="font-medium">{{ row.loja }}</span>
+            <span class="font-medium">{{ row.loja_nome }}</span>
           </template>
 
           <template #percentual_multi_volume-data="{ row }">
-            <UTooltip>
-              <template #text>
-                <div class="text-xs p-1">
-                  <p>Divisor da Meta: <span class="font-bold">{{ row.divisor_meta }}</span></p>
-                  <p class="mt-1 text-gray-400">Cálculo: Menor valor entre Orçados e Ativos.</p>
-                  <ul class="list-disc list-inside mt-1">
-                    <li>Nº Orçados: {{ row.orçados }}</li>
-                    <li>Consultores Ativos: {{ row.qtd_consultores_ativos }}</li>
-                  </ul>
-                </div>
-              </template>
-              <div class="w-full">
-                <p class="text-center font-bold" :class="getPercentageColor(row.percentual_multi_volume)">
-                  {{ row.percentual_multi_volume.toFixed(2) }}%
-                </p>
-                <UProgress :value="row.percentual_multi_volume" :color="getProgressBarColor(row.percentual_multi_volume)" />
-                <p class="text-xs text-gray-500 text-center mt-1">
-                  {{ formatCurrency(row.atingido_multi_volume) }} / {{ formatCurrency(row.meta_multi_volume) }}
-                </p>
-              </div>
-            </UTooltip>
+            <GoalProgress :current-value="row.atingido_multi_volume" :goal-value="row.meta_multi_volume"
+              :tooltip-info="{ divisor_meta: row.divisor_meta, orçados: row.orçados, qtd_consultores_ativos: row.qtd_consultores_ativos }" />
           </template>
 
           <!-- As colunas de valor agora mostram o atingido vs a meta -->
-          <template #meta_cnc-data="{ row }">{{ formatCurrency(row.meta_cnc) }}</template>
-          <template #meta_card-data="{ row }">{{ formatCurrency(row.meta_card) }}</template>
-          <template #meta_card_beneficio-data="{ row }">{{ formatCurrency(row.meta_card_beneficio) }}</template>
-          <template #meta_consignado-data="{ row }">{{ formatCurrency(row.meta_consignado) }}</template>
-          <template #meta_fgts-data="{ row }">{{ formatCurrency(row.meta_fgts) }}</template>
+          <template #meta_cnc-data="{ row }"><GoalProgress :current-value="row.atingido_cnc" :goal-value="row.meta_cnc" /></template>
+          <template #meta_card-data="{ row }"><GoalProgress :current-value="row.atingido_card" :goal-value="row.meta_card" /></template>
+          <template #meta_card_beneficio-data="{ row }"><GoalProgress :current-value="row.atingido_card_beneficio" :goal-value="row.meta_card_beneficio" /></template>
+          <template #meta_consignado-data="{ row }"><GoalProgress :current-value="row.atingido_consignado" :goal-value="row.meta_consignado" /></template>
+          <template #meta_fgts-data="{ row }"><GoalProgress :current-value="row.atingido_fgts" :goal-value="row.meta_fgts" /></template>
 
           <template #meta_bmg_med-data="{ row }">
-            <span :class="row.atingido_bmg_med >= row.meta_bmg_med ? 'text-green-500 font-bold' : ''">{{ row.atingido_bmg_med }} / {{ row.meta_bmg_med }}</span>
+            <GoalProgress :current-value="row.atingido_bmg_med" :goal-value="row.meta_bmg_med" format-as="number" />
           </template>
           <template #meta_seguro_familiar-data="{ row }">
-            <span :class="row.atingido_seguro_familiar >= row.meta_seguro_familiar ? 'text-green-500 font-bold' : ''">{{ row.atingido_seguro_familiar }} / {{ row.meta_seguro_familiar }}</span>
+            <GoalProgress :current-value="row.atingido_seguro_familiar" :goal-value="row.meta_seguro_familiar" format-as="number" />
           </template>
 
           <template #actions-data="{ row }">
@@ -155,6 +136,7 @@
 import { ref, reactive, computed, watch } from 'vue';
 import { Bar } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale } from 'chart.js';
+import { useGoalCalculations } from '~/composables/useGoalCalculations';
 
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale);
 
@@ -165,6 +147,7 @@ definePageMeta({
 
 const supabase = useSupabaseClient();
 const toast = useToast();
+const { formatCurrency } = useGoalCalculations();
 
 // --- ESTADO DA PÁGINA ---
 const isModalOpen = ref(false);
@@ -270,23 +253,6 @@ const groupedGoals = computed(() => {
     };
   });
 });
-
-const formatCurrency = (value) => {
-  if (value === null || value === undefined) return 'R$ 0,00';
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-};
-
-const getPercentageColor = (percentage) => {
-  if (percentage >= 100) return 'text-green-500';
-  if (percentage >= 75) return 'text-yellow-500';
-  return 'text-red-500';
-};
-
-const getProgressBarColor = (percentage) => {
-  if (percentage >= 100) return 'green';
-  if (percentage >= 75) return 'yellow';
-  return 'red';
-};
 
 const chartOptions = {
   responsive: true,
