@@ -271,9 +271,9 @@ const { data: desempenhoConsultores } = await useAsyncData('desempenho-consultor
   const regionalIds = regionais.value?.map(r => r.id) || [];
   if (regionalIds.length === 0) return [];
 
-  // A busca de desempenho deve ser feita pelo mês da meta, não pelo intervalo de produção.
-  const referenceDate = new Date(dateRange.start);
-  const firstDayOfMonth = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1).toISOString().split('T')[0];
+  // CORREÇÃO: A busca de desempenho deve ser feita pelo mês da meta (selectedPeriod), não pelo intervalo de produção (dateRange).
+  if (!selectedPeriod.value) return [];
+  const firstDayOfMonth = `${selectedPeriod.value}-01`;
 
   let query = supabase.from('desempenho_consultores').select('consultor_nome, loja_nome, atingido_cnc, meta_individual_cnc, atingido_card, meta_individual_card, atingido_consignado, meta_individual_consignado, atingido_fgts, meta_individual_fgts').eq('periodo', firstDayOfMonth);
   
@@ -285,7 +285,7 @@ const { data: desempenhoConsultores } = await useAsyncData('desempenho-consultor
   
   const { data } = await query;
   return data || [];
-}, { watch: [dateRange, selectedRegional, regionais] });
+}, { watch: [selectedPeriod, selectedRegional, regionais] }); // CORREÇÃO: Observa a variável correta
 
 // --- NOVA BUSCA DE DADOS PARA METAS ---
 const { data: metasProgresso, pending: metasPending } = useAsyncData('metas-progresso-coordenador', async () => {

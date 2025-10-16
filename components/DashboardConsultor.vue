@@ -1,81 +1,50 @@
 <template>
+  <!-- NOVO: Filtro de Período -->
+  <UCard class="mb-8">
+    <div class="flex items-end gap-2">
+      <UButton icon="i-heroicons-chevron-left-20-solid" color="gray" variant="ghost" @click="changeMonth(-1)" aria-label="Mês anterior" />
+      <UFormGroup label="Mês de Referência" name="goalMonth" class="flex-grow">
+        <UInput type="month" v-model="selectedPeriod" />
+      </UFormGroup>
+      <UButton icon="i-heroicons-chevron-right-20-solid" color="gray" variant="ghost" @click="changeMonth(1)" aria-label="Próximo mês" :disabled="isNextMonthDisabled" />
+    </div>
+  </UCard>
+
   <div v-if="pending" class="text-center py-10 text-gray-500">
     <UIcon name="i-heroicons-arrow-path" class="text-2xl animate-spin" />
     <p>A carregar seu desempenho...</p>
   </div>
 
   <div v-else-if="meuDesempenho?.consultor_id" class="mb-8">
-    <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">Meu Desempenho - {{ new Date(meuDesempenho.periodo).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }) }}</h2>
-    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+    <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">Meu Desempenho - {{ new Date(selectedPeriod + '-02').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) }}</h2>
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
       <!-- CNC -->
       <UCard>
-        <div class="flex justify-between items-start">
-          <h3 class="text-sm font-medium text-gray-500">CNC</h3>
-          <span class="font-bold text-sm" :class="getPercentageColor(calculatePercentage(meuDesempenho.atingido_cnc, meuDesempenho.meta_individual_cnc))">{{ calculatePercentage(meuDesempenho.atingido_cnc, meuDesempenho.meta_individual_cnc).toFixed(1) }}%</span>
-        </div>
-        <p class="text-xl font-bold mt-1">{{ formatCurrency(meuDesempenho.atingido_cnc) }}</p>
-        <p class="text-xs text-gray-400">Meta: {{ formatCurrency(meuDesempenho.meta_individual_cnc) }}</p>
-        <UProgress :value="calculatePercentage(meuDesempenho.atingido_cnc, meuDesempenho.meta_individual_cnc)" class="mt-2" />
+        <GoalProgress :current-value="meuDesempenho.atingido_cnc" :goal-value="meuDesempenho.meta_individual_cnc" title="CNC" />
       </UCard>
       <!-- CARD -->
       <UCard>
-        <div class="flex justify-between items-start">
-          <h3 class="text-sm font-medium text-gray-500">CARD</h3>
-          <span class="font-bold text-sm" :class="getPercentageColor(calculatePercentage(meuDesempenho.atingido_card, meuDesempenho.meta_individual_card))">{{ calculatePercentage(meuDesempenho.atingido_card, meuDesempenho.meta_individual_card).toFixed(1) }}%</span>
-        </div>
-        <p class="text-xl font-bold mt-1">{{ formatCurrency(meuDesempenho.atingido_card) }}</p>
-        <p class="text-xs text-gray-400">Meta: {{ formatCurrency(meuDesempenho.meta_individual_card) }}</p>
-        <UProgress :value="calculatePercentage(meuDesempenho.atingido_card, meuDesempenho.meta_individual_card)" class="mt-2" />
+        <GoalProgress :current-value="meuDesempenho.atingido_card" :goal-value="meuDesempenho.meta_individual_card" title="CARD" />
       </UCard>
       <!-- CARD Benef. -->
       <UCard>
-        <div class="flex justify-between items-start">
-          <h3 class="text-sm font-medium text-gray-500">CARD Benef.</h3>
-          <span class="font-bold text-sm" :class="getPercentageColor(calculatePercentage(meuDesempenho.atingido_card_beneficio, meuDesempenho.meta_individual_card_beneficio))">{{ calculatePercentage(meuDesempenho.atingido_card_beneficio, meuDesempenho.meta_individual_card_beneficio).toFixed(1) }}%</span>
-        </div>
-        <p class="text-xl font-bold mt-1">{{ formatCurrency(meuDesempenho.atingido_card_beneficio) }}</p>
-        <p class="text-xs text-gray-400">Meta: {{ formatCurrency(meuDesempenho.meta_individual_card_beneficio) }}</p>
-        <UProgress :value="calculatePercentage(meuDesempenho.atingido_card_beneficio, meuDesempenho.meta_individual_card_beneficio)" class="mt-2" />
+        <GoalProgress :current-value="meuDesempenho.atingido_card_beneficio" :goal-value="meuDesempenho.meta_individual_card_beneficio" title="CARD Benef." />
       </UCard>
       <!-- Consignado -->
       <UCard>
-        <div class="flex justify-between items-start">
-          <h3 class="text-sm font-medium text-gray-500">Consignado</h3>
-          <span class="font-bold text-sm" :class="getPercentageColor(calculatePercentage(meuDesempenho.atingido_consignado, meuDesempenho.meta_individual_consignado))">{{ calculatePercentage(meuDesempenho.atingido_consignado, meuDesempenho.meta_individual_consignado).toFixed(1) }}%</span>
-        </div>
-        <p class="text-xl font-bold mt-1">{{ formatCurrency(meuDesempenho.atingido_consignado) }}</p>
-        <p class="text-xs text-gray-400">Meta: {{ formatCurrency(meuDesempenho.meta_individual_consignado) }}</p>
-        <UProgress :value="calculatePercentage(meuDesempenho.atingido_consignado, meuDesempenho.meta_individual_consignado)" class="mt-2" />
+        <GoalProgress :current-value="meuDesempenho.atingido_consignado" :goal-value="meuDesempenho.meta_individual_consignado" title="Consignado" />
       </UCard>
       <!-- FGTS -->
       <UCard>
-        <div class="flex justify-between items-start">
-          <h3 class="text-sm font-medium text-gray-500">FGTS</h3>
-          <span class="font-bold text-sm" :class="getPercentageColor(calculatePercentage(meuDesempenho.atingido_fgts, meuDesempenho.meta_individual_fgts))">{{ calculatePercentage(meuDesempenho.atingido_fgts, meuDesempenho.meta_individual_fgts).toFixed(1) }}%</span>
-        </div>
-        <p class="text-xl font-bold mt-1">{{ formatCurrency(meuDesempenho.atingido_fgts) }}</p>
-        <p class="text-xs text-gray-400">Meta: {{ formatCurrency(meuDesempenho.meta_individual_fgts) }}</p>
-        <UProgress :value="calculatePercentage(meuDesempenho.atingido_fgts, meuDesempenho.meta_individual_fgts)" class="mt-2" />
+        <GoalProgress :current-value="meuDesempenho.atingido_fgts" :goal-value="meuDesempenho.meta_individual_fgts" title="FGTS" />
       </UCard>
       <!-- BMG MED -->
       <UCard>
-        <div class="flex justify-between items-start">
-          <h3 class="text-sm font-medium text-gray-500">BMG MED</h3>
-          <span class="font-bold text-sm" :class="getPercentageColor(calculatePercentage(meuDesempenho.atingido_bmg_med, meuDesempenho.meta_individual_bmg_med))">{{ calculatePercentage(meuDesempenho.atingido_bmg_med, meuDesempenho.meta_individual_bmg_med).toFixed(1) }}%</span>
-        </div>
-        <p class="text-xl font-bold mt-1">{{ meuDesempenho.atingido_bmg_med }}</p>
-        <p class="text-xs text-gray-400">Meta: {{ meuDesempenho.meta_individual_bmg_med }}</p>
-        <UProgress :value="calculatePercentage(meuDesempenho.atingido_bmg_med, meuDesempenho.meta_individual_bmg_med)" class="mt-2" />
+        <GoalProgress :current-value="meuDesempenho.atingido_bmg_med" :goal-value="meuDesempenho.meta_individual_bmg_med" format-as="number" title="BMG MED" />
       </UCard>
       <!-- Seg. Familiar -->
       <UCard>
-        <div class="flex justify-between items-start">
-          <h3 class="text-sm font-medium text-gray-500">Seg. Familiar</h3>
-          <span class="font-bold text-sm" :class="getPercentageColor(calculatePercentage(meuDesempenho.atingido_seguro_familiar, meuDesempenho.meta_individual_seguro_familiar))">{{ calculatePercentage(meuDesempenho.atingido_seguro_familiar, meuDesempenho.meta_individual_seguro_familiar).toFixed(1) }}%</span>
-        </div>
-        <p class="text-xl font-bold mt-1">{{ meuDesempenho.atingido_seguro_familiar }}</p>
-        <p class="text-xs text-gray-400">Meta: {{ meuDesempenho.meta_individual_seguro_familiar }}</p>
-        <UProgress :value="calculatePercentage(meuDesempenho.atingido_seguro_familiar, meuDesempenho.meta_individual_seguro_familiar)" class="mt-2" />
+        <GoalProgress :current-value="meuDesempenho.atingido_seguro_familiar" :goal-value="meuDesempenho.meta_individual_seguro_familiar" format-as="number" title="Seg. Familiar" />
       </UCard>
     </div>
     <UDivider class="my-8" />
@@ -83,46 +52,74 @@
     <!-- NOVA SEÇÃO: META DA LOJA -->
     <div v-if="metaLoja" class="mb-8">
       <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">Meta da Loja - {{ metaLoja.loja_nome }}</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <UCard>
-          <h3 class="text-sm font-medium text-gray-500">Meta Multi Volume</h3>
-          <p class="text-xl font-bold mt-1">{{ formatCurrency(metaLoja.meta_multi_volume) }}</p>
-        </UCard>
-        <UCard>
-          <h3 class="text-sm font-medium text-gray-500">Atingido Multi Volume</h3>
-          <p class="text-xl font-bold mt-1">{{ formatCurrency(metaLoja.atingido_multi_volume) }}</p>
-        </UCard>
-        <UCard>
-          <div class="w-full">
-            <p class="text-center font-bold text-lg" :class="getPercentageColor(metaLoja.percentual_multi_volume)">
-              {{ metaLoja.percentual_multi_volume.toFixed(2) }}%
-            </p>
-            <UProgress :value="metaLoja.percentual_multi_volume" class="mt-2" />
-            <p class="text-xs text-gray-500 text-center mt-1">
-              {{ formatCurrency(metaLoja.atingido_multi_volume) }} / {{ formatCurrency(metaLoja.meta_multi_volume) }}
-            </p>
-          </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <UCard class="md:col-span-2">
+          <GoalProgress :current-value="consultantContributionToStoreGoal" :goal-value="metaLoja.meta_multi_volume" title="Minha Contribuição para a Meta da Loja" />
         </UCard>
       </div>
       <UDivider class="my-8" />
     </div>
 
+    <!-- NOVO: Gráfico de Pizza -->
+    <div v-if="hasProductionData" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <UCard class="lg:col-span-2">
+        <template #header>
+          <h3 class="font-semibold">Distribuição da Produção (Valor)</h3>
+        </template>
+        <div class="h-80">
+          <Pie :data="pieChartData" :options="chartOptions" />
+        </div>
+      </UCard>
+    </div>
+  </div>
+  <div v-else class="text-center py-10 text-gray-500">
+    <UIcon name="i-heroicons-trophy" class="text-4xl" />
+    <p class="mt-2">Nenhum dado de desempenho encontrado para o mês atual.</p>
+    <p class="text-sm text-gray-400">Verifique se existem metas definidas para a sua loja.</p>
   </div>
 </template>
 
 <script setup>
+import { Pie } from 'vue-chartjs';
+import { Chart as ChartJS, Title, Tooltip, Legend, ArcElement, CategoryScale } from 'chart.js';
+
+ChartJS.register(Title, Tooltip, Legend, ArcElement, CategoryScale);
+
 const supabase = useSupabaseClient();
 const { profile } = useProfile();
+const { formatCurrency, getPercentageColor } = useGoalCalculations();
+
+// --- NOVO: Estado para o filtro de período ---
+const selectedPeriod = ref(new Date().toISOString().slice(0, 7)); // Formato YYYY-MM
+
+// --- NOVO: Lógica para desabilitar o botão "Próximo Mês" ---
+const isNextMonthDisabled = computed(() => {
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  return selectedPeriod.value >= currentMonth;
+});
+
+/**
+ * Altera o mês selecionado para o anterior ou próximo.
+ * @param {number} direction -1 para mês anterior, 1 para próximo mês.
+ */
+const changeMonth = (direction) => {
+  const [year, month] = selectedPeriod.value.split('-').map(Number);
+  // O construtor do Date lida com o overflow/underflow de meses (e.g., mês 0 vira Dezembro do ano anterior)
+  const newDate = new Date(year, month - 1 + direction, 2); // Usa dia 2 para evitar bugs de fuso horário
+  const newYear = newDate.getFullYear();
+  const newMonth = (newDate.getMonth() + 1).toString().padStart(2, '0');
+  selectedPeriod.value = `${newYear}-${newMonth}`;
+};
 
 const { data: meuDesempenho, pending } = await useAsyncData('meu-desempenho-pessoal', async () => {
   if (profile.value?.perfis?.nome !== 'Consultor' || !profile.value.id) {
     return null;
   }
 
-  // Define o período atual
-  const today = new Date();
-  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-  const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+  // Define o período com base no filtro
+  const periodDate = new Date(selectedPeriod.value + '-02'); // Usa dia 2 para evitar problemas de fuso horário
+  const firstDayOfMonth = new Date(periodDate.getFullYear(), periodDate.getMonth(), 1).toISOString().split('T')[0];
+  const lastDayOfMonth = new Date(periodDate.getFullYear(), periodDate.getMonth() + 1, 0).toISOString().split('T')[0];
 
   // 1. Busca os valores ATINGIDOS pelo consultor no mês, independentemente de ter meta ou não.
   const [atingidoContratosRes, atingidoVendasExternasRes] = await Promise.all([
@@ -173,15 +170,14 @@ const { data: meuDesempenho, pending } = await useAsyncData('meu-desempenho-pess
     meta_individual_bmg_med: metas?.meta_individual_bmg_med || 0,
     meta_individual_seguro_familiar: metas?.meta_individual_seguro_familiar || 0,
   };
-});
+}, { watch: [selectedPeriod, profile] }); // Adiciona o filtro ao watch
 
 const { data: metaLoja } = await useAsyncData('meta-loja-consultor', async () => {
   if (profile.value?.perfis?.nome !== 'Consultor' || !profile.value.loja_id) {
     return null;
   }
 
-  const today = new Date();
-  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+  const firstDayOfMonth = `${selectedPeriod.value}-01`;
 
   const { data } = await supabase
     .from('metas_progresso')
@@ -190,23 +186,44 @@ const { data: metaLoja } = await useAsyncData('meta-loja-consultor', async () =>
     .eq('periodo', firstDayOfMonth)
     .maybeSingle();
   return data;
+}, { watch: [selectedPeriod, profile] }); // Adiciona o filtro ao watch
+
+// --- NOVO: Calcula a contribuição do consultor para a meta da loja ---
+const consultantContributionToStoreGoal = computed(() => {
+  if (!meuDesempenho.value) return 0;
+  // Soma todos os valores atingidos de produtos que contam para o Multi Volume
+  return (meuDesempenho.value.atingido_cnc || 0) + (meuDesempenho.value.atingido_card || 0) + (meuDesempenho.value.atingido_card_beneficio || 0) + (meuDesempenho.value.atingido_consignado || 0) + (meuDesempenho.value.atingido_fgts || 0);
 });
 
-const formatCurrency = (value) => {
-  if (value === null || value === undefined) return 'R$ 0,00';
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-};
+// --- LÓGICA DO GRÁFICO DE PIZZA ---
+const hasProductionData = computed(() => {
+  if (!meuDesempenho.value) return false;
+  const totalProduction = meuDesempenho.value.atingido_cnc + meuDesempenho.value.atingido_card + meuDesempenho.value.atingido_card_beneficio + meuDesempenho.value.atingido_consignado + meuDesempenho.value.atingido_fgts;
+  return totalProduction > 0;
+});
 
-const calculatePercentage = (atingido, meta) => {
-  if (!meta || meta === 0) {
-    return atingido > 0 ? 100 : 0; // Se não há meta, mas produziu algo, considera 100%
-  }
-  return (atingido / meta) * 100;
-};
+const pieChartData = computed(() => {
+  if (!hasProductionData.value) return { labels: [], datasets: [] };
 
-const getPercentageColor = (percentage) => {
-  if (percentage >= 100) return 'text-green-500';
-  if (percentage >= 75) return 'text-yellow-500';
-  return 'text-red-500';
-};
+  const data = {
+    'CNC': meuDesempenho.value.atingido_cnc,
+    'CARD': meuDesempenho.value.atingido_card,
+    'CARD Benefício': meuDesempenho.value.atingido_card_beneficio,
+    'Consignado': meuDesempenho.value.atingido_consignado,
+    'FGTS': meuDesempenho.value.atingido_fgts,
+  };
+
+  const filteredData = Object.entries(data).filter(([, value]) => value > 0);
+
+  return {
+    labels: filteredData.map(([label]) => label),
+    datasets: [{
+      backgroundColor: ['#3b82f6', '#22c55e', '#ef4444', '#eab308', '#8b5cf6'],
+      data: filteredData.map(([, value]) => value)
+    }]
+  };
+});
+
+const chartOptions = { responsive: true, maintainAspectRatio: false };
+
 </script>

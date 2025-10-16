@@ -8,7 +8,6 @@
         <UFormGroup label="Até:" name="endDate" class="flex-grow">
           <UInput type="date" v-model="dateRange.end" />
         </UFormGroup>
-        <!-- CORREÇÃO: Adiciona um filtro de mês específico para as metas -->
         <UFormGroup label="Mês da Meta" name="goalMonth" class="flex-grow">
           <UInput type="month" v-model="selectedPeriod" />
         </UFormGroup>
@@ -31,7 +30,7 @@
           <template #header>
             <div class="flex items-center gap-2">
               <UIcon name="i-heroicons-document-text" class="text-xl text-primary-500" />
-              <h3 class="font-semibold">Resumo de Contratos</h3>
+              <h3 class="font-semibold">Resumo de Contratos da Regional</h3>
             </div>
           </template>
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-center">
@@ -65,44 +64,26 @@
         </UCard>
       </div>
 
-      <!-- Tabela de Desempenho Individual -->
-      <UCard v-if="desempenhoConsultores.length > 0" class="mb-8">
+      <!-- NOVO: Card de Ranking de Consultores -->
+      <UCard v-if="rankedConsultants.length > 0" class="mb-8">
         <template #header>
           <div class="flex items-center gap-2">
-            <UIcon name="i-heroicons-users" class="text-xl text-primary-500" />
-            <h3 class="font-semibold">Desempenho por Consultor</h3>
+            <UIcon name="i-heroicons-star" class="text-xl text-yellow-400" />
+            <h3 class="font-semibold">Ranking de Consultores (Produção)</h3>
           </div>
         </template>
-        <UTable :rows="desempenhoConsultores" :columns="desempenhoColumns">
+        <UTable :rows="rankedConsultants" :columns="rankingColumns">
+          <template #rank-data="{ row }">
+            <UBadge :color="getRankColor(row.rank)" variant="subtle" size="lg" :label="`#${row.rank}`" />
+          </template>
           <template #consultor_nome-data="{ row }">
             <div>
               <p class="font-bold">{{ row.consultor_nome }}</p>
               <p class="text-xs text-gray-500">{{ row.loja_nome }}</p>
             </div>
           </template>
-          <template #desempenho_cnc-data="{ row }">
-            <div class="text-right">
-              <p class="font-bold">{{ formatCurrency(row.atingido_cnc) }}</p>
-              <p class="text-xs text-gray-500">/ {{ formatCurrency(row.meta_individual_cnc) }}</p>
-            </div>
-          </template>
-          <template #desempenho_card-data="{ row }">
-            <div class="text-right">
-              <p class="font-bold">{{ formatCurrency(row.atingido_card) }}</p>
-              <p class="text-xs text-gray-500">/ {{ formatCurrency(row.meta_individual_card) }}</p>
-            </div>
-          </template>
-          <template #desempenho_consignado-data="{ row }">
-            <div class="text-right">
-              <p class="font-bold">{{ formatCurrency(row.atingido_consignado) }}</p>
-              <p class="text-xs text-gray-500">/ {{ formatCurrency(row.meta_individual_consignado) }}</p>
-            </div>
-          </template>
-          <template #desempenho_fgts-data="{ row }">
-            <div class="text-right">
-              <p class="font-bold">{{ formatCurrency(row.atingido_fgts) }}</p>
-              <p class="text-xs text-gray-500">/ {{ formatCurrency(row.meta_individual_fgts) }}</p>
-            </div>
+          <template #total_producao-data="{ row }">
+            <span class="font-semibold text-lg text-primary-500">{{ formatCurrency(row.total_producao) }}</span>
           </template>
         </UTable>
       </UCard>
@@ -115,73 +96,9 @@
           <p v-else class="text-center text-gray-500">Sem dados para exibir.</p>
         </UCard>
         <UCard class="lg:col-span-2">
-          <template #header><h3 class="font-semibold">Top 10 Lojas por Contrato</h3></template>
-          <div v-if="hasData" class="h-80"><Bar :data="chartData.lojas" :options="chartOptions" /></div>
+          <template #header><h3 class="font-semibold">Produção por Loja</h3></template>
+          <div v-if="hasData" class="h-80"><Pie :data="chartData.lojas" :options="chartOptions" /></div>
           <p v-else class="text-center text-gray-500">Sem dados para exibir.</p>
-        </UCard>
-        <UCard class="lg:col-span-3">
-          <template #header><h3 class="font-semibold">Contratos por Produto</h3></template>
-          <div v-if="hasData" class="h-80"><Bar :data="chartData.produtos" :options="chartOptions" /></div>
-          <p v-else class="text-center text-gray-500">Sem dados para exibir.</p>
-        </UCard>
-      </div>
-
-      <!-- NOVA SEÇÃO: ACOMPANHAMENTO DE METAS -->
-      <div v-if="metasPending" class="text-center py-10 text-gray-500">
-        <UIcon name="i-heroicons-arrow-path" class="text-2xl animate-spin" />
-        <p>A carregar metas...</p>
-      </div>
-      <div v-else-if="groupedGoals.length === 0" class="text-center py-10 text-gray-500 mt-8">
-        <UIcon name="i-heroicons-trophy" class="text-4xl" />
-        <p class="mt-2">Nenhuma meta encontrada para o período selecionado.</p>
-      </div>
-      <div v-else class="space-y-8 mt-8">
-        <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200">Acompanhamento de Metas</h2>
-        <UCard v-for="group in groupedGoals" :key="group.regionalName">
-          <template #header>
-            <div class="flex justify-between items-center">
-              <h3 class="text-lg font-semibold text-primary-600">Regional: {{ group.regionalName }}</h3>
-              <div class="flex gap-6 text-right">
-                <div>
-                  <p class="text-sm text-gray-500">Total Meta Multi Volume</p>
-                  <p class="text-xl font-bold text-gray-800 dark:text-gray-200">{{ formatCurrency(group.totalMetaMultiVolume) }}</p>
-                </div>
-                <div>
-                  <p class="text-sm text-gray-500">Total Atingido</p>
-                  <p class="text-xl font-bold text-primary-500">{{ formatCurrency(group.totalAtingido) }}</p>
-                </div>
-              </div>
-            </div>
-          </template>
-            <!-- Gráfico de Comparação -->
-            <div class="mb-8 h-80">
-              <Bar :data="group.chartData" :options="chartOptions" />
-            </div>
-
-          <UTable :rows="group.goals" :columns="metasColumns">
-            <template #loja_nome-data="{ row }">
-              <span class="font-medium">{{ row.loja_nome }}</span>
-            </template>
-
-            <template #percentual_multi_volume-data="{ row }">
-              <div class="w-full">
-                <p class="text-center font-bold" :class="getPercentageColor(row.percentual_multi_volume)">
-                  {{ row.percentual_multi_volume.toFixed(2) }}%
-                </p>
-                <UProgress :value="row.percentual_multi_volume" :color="getProgressBarColor(row.percentual_multi_volume)" />
-                <p class="text-xs text-gray-500 text-center mt-1">
-                  {{ formatCurrency(row.atingido_multi_volume) }} / {{ formatCurrency(row.meta_multi_volume) }}
-                </p>
-              </div>
-            </template>
-
-            <template #meta_bmg_med-data="{ row }">
-              <span :class="row.atingido_bmg_med >= row.meta_bmg_med ? 'text-green-500 font-bold' : ''">{{ row.atingido_bmg_med }} / {{ row.meta_bmg_med }}</span>
-            </template>
-            <template #meta_seguro_familiar-data="{ row }">
-              <span :class="row.atingido_seguro_familiar >= row.meta_seguro_familiar ? 'text-green-500 font-bold' : ''">{{ row.atingido_seguro_familiar }} / {{ row.meta_seguro_familiar }}</span>
-            </template>
-          </UTable>
         </UCard>
       </div>
     </div>
@@ -190,7 +107,7 @@
 
 <script setup>
 import { ref, reactive, computed } from 'vue';
-import { Bar, Doughnut } from 'vue-chartjs';
+import { Bar, Doughnut, Pie } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement } from 'chart.js';
 
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement);
@@ -201,8 +118,7 @@ const toast = useToast();
 
 // --- ESTADO ---
 const dateRange = reactive({ start: '', end: '' });
-// --- CORREÇÃO: Inicializa a variável para o filtro de metas ---
-const selectedPeriod = ref(new Date().toISOString().slice(0, 7)); // Formato YYYY-MM
+const selectedPeriod = ref(new Date().toISOString().slice(0, 7));
 
 // --- LÓGICA DE DATAS ---
 const setDateRange = (period) => {
@@ -221,48 +137,35 @@ setDateRange('current_month');
 
 // --- BUSCA DE DADOS ---
 const { data: dashboardData, pending } = useAsyncData('dashboard-data-supervisor', async () => {
-  if (!profile.value?.user_id || !dateRange.start || !dateRange.end) return { stats: {}, statusChart: {}, lojasChart: {}, produtosChart: {} };
+  if (!profile.value?.user_id || !dateRange.start || !dateRange.end) return { stats: {}, statusChart: {}, lojasChart: {} };
   const { data, error } = await supabase.rpc('get_dashboard_data_supervisor', {
     p_user_id: profile.value.user_id,
     p_start_date: dateRange.start,
-    p_end_date: dateRange.end
+    p_end_date: dateRange.end,
   });
   if (error) {
     toast.add({ title: 'Erro ao carregar dados', description: error.message, color: 'red' });
-    return { stats: {}, statusChart: {}, lojasChart: {}, produtosChart: {} };
+    return { stats: {}, statusChart: {}, lojasChart: {} };
   }
   return data;
 }, { watch: [profile, dateRange] });
 
 const { data: desempenhoConsultores } = await useAsyncData('desempenho-consultores-supervisor', async () => {
-  if (!profile.value?.loja_id) return [];
-  const { data: minhaRegional } = await supabase.from('lojas').select('regional_id').eq('id', profile.value.loja_id).single();
-  if (!minhaRegional) return [];
-
-  const { data } = await supabase.from('desempenho_consultores')
-    .select('consultor_nome, loja_nome, atingido_cnc, meta_individual_cnc, atingido_card, meta_individual_card, atingido_consignado, meta_individual_consignado, atingido_fgts, meta_individual_fgts')
-    .gte('periodo', dateRange.start)
-    .lte('periodo', dateRange.end)
-    .eq('regional_id', minhaRegional.regional_id);
-    
-  return data || [];
-}, { watch: [profile, dateRange] });
-
-// --- NOVA BUSCA DE DADOS PARA METAS ---
-const { data: metasProgresso, pending: metasPending } = useAsyncData('metas-progresso-supervisor', async () => {
-  // CORREÇÃO: Usa o novo filtro de período 'selectedPeriod'
   if (!profile.value?.loja_id || !selectedPeriod.value) return [];
 
-  const firstDayOfMonth = `${selectedPeriod.value}-01`;
-  const { data, error } = await supabase
-    .from('metas_progresso')
-    .select('*')
-    .eq('periodo', firstDayOfMonth)
-    .eq('loja_id', profile.value.loja_id);
+  // Busca a regional do supervisor a partir da sua loja
+  const { data: lojaData } = await supabase.from('lojas').select('regional_id').eq('id', profile.value.loja_id).single();
+  if (!lojaData?.regional_id) return [];
 
-  if (error) toast.add({ title: 'Erro ao buscar metas', description: error.message, color: 'red' });
+  const firstDayOfMonth = `${selectedPeriod.value}-01`;
+
+  const { data } = await supabase.from('desempenho_consultores')
+    .select('consultor_nome, loja_nome, atingido_cnc, atingido_card, atingido_card_beneficio, atingido_consignado, atingido_fgts')
+    .eq('periodo', firstDayOfMonth)
+    .eq('regional_id', lojaData.regional_id);
+
   return data || [];
-}, { watch: [selectedPeriod, profile] }); // CORREÇÃO: Observa a variável correta
+}, { watch: [selectedPeriod, profile] });
 
 // --- CÁLCULOS E FORMATAÇÃO ---
 const hasData = computed(() => dashboardData.value && dashboardData.value.stats?.total > 0);
@@ -273,9 +176,8 @@ const stats = computed(() => {
 
 const chartData = computed(() => {
   const emptyChart = { labels: [], datasets: [] };
-  if (!hasData.value || !dashboardData.value) return { status: emptyChart, produtos: emptyChart, lojas: emptyChart };
-  const { statusChart, lojasChart, produtosChart } = dashboardData.value;
-  const productColors = ['#3b82f6', '#22c55e', '#ef4444', '#eab308', '#8b5cf6', '#f97316', '#14b8a6', '#ec4899', '#64748b', '#d946ef'];
+  if (!hasData.value || !dashboardData.value) return { status: emptyChart, lojas: emptyChart };
+  const { statusChart, lojasChart } = dashboardData.value;
   const statusLabels = Object.keys(statusChart);
   const statusBackgroundColors = statusLabels.map(label => {
     if (['Pago', 'Aprovado'].includes(label)) return '#10b981';
@@ -283,68 +185,41 @@ const chartData = computed(() => {
     if (['Cancelado', 'Reprovado'].includes(label)) return '#ef4444';
     return '#6b7280';
   });
+  const pieColors = ['#3b82f6', '#22c55e', '#ef4444', '#eab308', '#8b5cf6', '#f97316', '#14b8a6', '#ec4899', '#64748b', '#d946ef'];
   return {
     status: { labels: statusLabels, datasets: [{ backgroundColor: statusBackgroundColors, data: Object.values(statusChart) }] },
-    lojas: { labels: Object.keys(lojasChart), datasets: [{ label: 'Contratos', backgroundColor: '#8b5cf6', data: Object.values(lojasChart) }] },
-    produtos: { labels: Object.keys(produtosChart), datasets: [{ label: 'Contratos', backgroundColor: Object.keys(produtosChart).map((_, i) => productColors[i % productColors.length]), data: Object.values(produtosChart) }] }
+    lojas: { labels: Object.keys(lojasChart), datasets: [{ label: 'Produção', backgroundColor: pieColors, data: Object.values(lojasChart) }] },
   };
 });
 
 const chartOptions = { responsive: true, maintainAspectRatio: false };
-const desempenhoColumns = [{ key: 'consultor_nome', label: 'Consultor' }, { key: 'desempenho_cnc', label: 'CNC' }, { key: 'desempenho_card', label: 'CARD' }, { key: 'desempenho_consignado', label: 'Consignado' }, { key: 'desempenho_fgts', label: 'FGTS' }];
 const formatCurrency = (value) => value == null ? 'R$ 0,00' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
-// --- NOVAS COLUNAS E LÓGICA PARA A TABELA DE METAS ---
-const metasColumns = [
-  { key: 'loja_nome', label: 'Loja' },
-  { key: 'percentual_multi_volume', label: '% Multi Volume' },
-  { key: 'meta_bmg_med', label: 'BMG MED' },
-  { key: 'meta_seguro_familiar', label: 'Seguro Familiar' },
+// --- LÓGICA PARA O RANKING DE CONSULTORES ---
+const rankingColumns = [
+  { key: 'rank', label: 'Posição' },
+  { key: 'consultor_nome', label: 'Consultor' },
+  { key: 'total_producao', label: 'Produção Total' },
 ];
 
-const groupedGoals = computed(() => {
-  if (!metasProgresso.value) return [];
-
-  const groups = metasProgresso.value.reduce((acc, goal) => {
-    const regionalName = goal.nome_regional || 'Sem Regional';
-    if (!acc[regionalName]) {
-      acc[regionalName] = { goals: [] };
-    }
-    acc[regionalName].goals.push(goal);
-    return acc;
-  }, {});
-
-  return Object.entries(groups).map(([regionalName, groupData]) => {
-    const goalsInGroup = groupData.goals;
-    const chartLabels = goalsInGroup.map(g => g.loja_nome || 'N/A');
-    const chartDataMeta = goalsInGroup.map(g => g.meta_multi_volume);
-    const chartDataAtingido = goalsInGroup.map(g => g.atingido_multi_volume);
-
-    return {
-      regionalName,
-      goals: goalsInGroup,
-      totalMetaMultiVolume: goalsInGroup.reduce((sum, goal) => sum + goal.meta_multi_volume, 0),
-      totalAtingido: goalsInGroup.reduce((sum, goal) => sum + goal.atingido_multi_volume, 0),
-      chartData: {
-        labels: chartLabels,
-        datasets: [
-          { label: 'Meta Multi Volume', backgroundColor: '#a5b4fc', data: chartDataMeta },
-          { label: 'Valor Atingido', backgroundColor: '#4f46e5', data: chartDataAtingido }
-        ]
-      }
-    };
-  });
+const rankedConsultants = computed(() => {
+  if (!desempenhoConsultores.value || desempenhoConsultores.value.length === 0) return [];
+  return desempenhoConsultores.value
+    .map(consultor => ({
+      ...consultor,
+      total_producao: (consultor.atingido_cnc || 0) + (consultor.atingido_card || 0) + (consultor.atingido_card_beneficio || 0) + (consultor.atingido_consignado || 0) + (consultor.atingido_fgts || 0)
+    }))
+    .sort((a, b) => b.total_producao - a.total_producao)
+    .map((consultor, index) => ({
+      ...consultor,
+      rank: index + 1,
+    }));
 });
 
-const getPercentageColor = (percentage) => {
-  if (percentage >= 100) return 'text-green-500';
-  if (percentage >= 75) return 'text-yellow-500';
-  return 'text-red-500';
-};
-
-const getProgressBarColor = (percentage) => {
-  if (percentage >= 100) return 'green';
-  if (percentage >= 75) return 'yellow';
-  return 'red';
+const getRankColor = (rank) => {
+  if (rank === 1) return 'amber';
+  if (rank === 2) return 'gray';
+  if (rank === 3) return 'orange';
+  return 'gray';
 };
 </script>
