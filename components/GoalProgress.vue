@@ -38,7 +38,7 @@
 
 <script setup lang="ts">
 // import type { computed } from 'vue';
-import type { computed } from 'vue';
+import { computed } from 'vue';
 import { useGoalCalculations } from '~/composables/useGoalCalculations';
 
 const props = defineProps({
