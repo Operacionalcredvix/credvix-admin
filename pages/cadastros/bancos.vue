@@ -48,7 +48,7 @@
 
 <script setup>
 const supabase = useSupabaseClient();
-const toast = useToast(); // <--- Adiciona o sistema de notificações
+const { success, error: showError, warning } = useAppToast();
 
 // --- ESTADO DA PÁGINA ---
 const isModalOpen = ref(false);
@@ -94,19 +94,19 @@ const handleFormSubmit = async () => {
 
             const { error } = await supabase.from('bancos').update(updateData).eq('id', id);
             if (error) throw error;
-            toast.add({ title: 'Sucesso!', description: 'Banco atualizado.' });
+            success({ title: 'Sucesso!', description: 'Banco atualizado.' });
         } else {
             delete dataToSave.id;
             const { error } = await supabase.from('bancos').insert(dataToSave);
             if (error) throw error;
             // --- MENSAGEM DE SUCESSO ---
-            toast.add({ title: 'Sucesso!', description: 'Novo banco criado.' });
+            success({ title: 'Sucesso!', description: 'Novo banco criado.' });
         }
         isModalOpen.value = false;
         await refresh();
     } catch (error) {
         // --- MENSAGEM DE ERRO ---
-        toast.add({ title: 'Erro!', description: error.message, color: 'red' });
+        showError({ title: 'Erro!', description: error.message });
     } finally {
         saving.value = false;
     }
@@ -118,11 +118,11 @@ const handleDelete = async (banco) => {
             const { error } = await supabase.from('bancos').delete().eq('id', banco.id);
             if (error) throw error;
             // --- MENSAGEM DE SUCESSO ---
-            toast.add({ title: 'Sucesso!', description: 'Banco excluído.' });
+            success({ title: 'Sucesso!', description: 'Banco excluído.' });
             await refresh();
         } catch (error) {
             // --- MENSAGEM DE ERRO ---
-            toast.add({ title: 'Erro!', description: 'Não foi possível excluir. Verifique se este banco está a ser usado em alguma tabela.', color: 'red' });
+            showError({ title: 'Erro!', description: 'Não foi possível excluir. Verifique se este banco está a ser usado em alguma tabela.' });
         }
     }
 };

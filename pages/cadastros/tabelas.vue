@@ -130,7 +130,7 @@ definePageMeta({
 });
 
 const supabase = useSupabaseClient();
-const toast = useToast();
+const { success, error: showError, warning } = useAppToast();
 
 // --- ESTADO DA PÁGINA ---
 const isModalOpen = ref(false);
@@ -223,17 +223,17 @@ const handleFormSubmit = async () => {
     if (dataToSave.id) {
       const { error } = await supabase.from('tabelas').update(dataToSave).eq('id', dataToSave.id);
       if (error) throw error;
-      toast.add({ title: 'Sucesso!', description: 'Tabela atualizada.' });
+      success({ title: 'Sucesso!', description: 'Tabela atualizada.' });
     } else {
       delete dataToSave.id;
       const { error } = await supabase.from('tabelas').insert(dataToSave);
       if (error) throw error;
-      toast.add({ title: 'Sucesso!', description: 'Nova tabela criada.' });
+      success({ title: 'Sucesso!', description: 'Nova tabela criada.' });
     }
     isModalOpen.value = false;
     await refresh();
   } catch (error) {
-    toast.add({ title: 'Erro!', description: error.message, color: 'red' });
+    showError({ title: 'Erro!', description: error.message });
   } finally {
     saving.value = false;
   }
@@ -244,10 +244,10 @@ const handleDelete = async (tabela) => {
     try {
       const { error } = await supabase.from('tabelas').delete().eq('id', tabela.id);
       if (error) throw error;
-      toast.add({ title: 'Sucesso!', description: 'Tabela excluída.' });
+      success({ title: 'Sucesso!', description: 'Tabela excluída.' });
       await refresh();
     } catch (error) {
-      toast.add({ title: 'Erro!', description: error.message, color: 'red' });
+      showError({ title: 'Erro!', description: error.message });
     }
   }
 };
@@ -321,7 +321,7 @@ const handleFileSelect = async (event) => {
     importSummary.new = parsedData.value.filter(p => !existingTableKeys.includes(`${p.banco}-${p.produto}-${p.nome_tabela}`)).length;
     importSummary.updated = importSummary.total - importSummary.new;
   } catch (error) {
-    toast.add({ title: 'Erro ao ler arquivo', description: error.message, color: 'red' });
+    showError({ title: 'Erro ao ler arquivo', description: error.message });
     resetImport();
   } finally {
     readingFile.value = false; // DESATIVA a barra de progresso
@@ -334,7 +334,7 @@ const handleFileSelect = async (event) => {
 
 const processImport = async () => {
   if (parsedData.value.length === 0 || importValidationErrors.value.length > 0) {
-    toast.add({ title: 'Atenção', description: 'Nenhum dado válido para importar.', color: 'amber' });
+    warning({ title: 'Atenção', description: 'Nenhum dado válido para importar.' });
     return;
   }
   importing.value = true;
@@ -360,12 +360,12 @@ const processImport = async () => {
 
     if (error) throw error;
 
-    toast.add({ title: 'Sucesso!', description: `${dataToUpsert.length} tabelas foram importadas/atualizadas.` });
+    success({ title: 'Sucesso!', description: `${dataToUpsert.length} tabelas foram importadas/atualizadas.` });
     await refresh();
     isImportModalOpen.value = false;
     resetImport();
   } catch (error) {
-    toast.add({ title: 'Erro na importação', description: error.message, color: 'red' });
+    showError({ title: 'Erro na importação', description: error.message });
   } finally {
     importing.value = false;
   }

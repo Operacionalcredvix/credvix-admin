@@ -59,7 +59,7 @@
 
 <script setup>
 const supabase = useSupabaseClient();
-const toast = useToast();
+const { success, error: showError } = useAppToast();
 
 // --- ESTADO DA PÁGINA ---
 const isModalOpen = ref(false);
@@ -107,16 +107,16 @@ const handleFormSubmit = async () => {
     if (id) { // Modo de Edição
       const { error } = await supabase.from('produtos').update(dataToSave).eq('id', id);
       if (error) throw error;
-      toast.add({ title: 'Sucesso!', description: 'Produto atualizado.' });
+      success({ title: 'Sucesso!', description: 'Produto atualizado.' });
     } else { // Modo de Criação
       const { error } = await supabase.from('produtos').insert(dataToSave);
       if (error) throw error;
-      toast.add({ title: 'Sucesso!', description: 'Novo produto criado.' });
+      success({ title: 'Sucesso!', description: 'Novo produto criado.' });
     }
     isModalOpen.value = false;
     await refresh();
   } catch (error) {
-    toast.add({ title: 'Erro!', description: error.message, color: 'red' });
+    showError({ title: 'Erro!', description: error.message });
   } finally {
     saving.value = false;
   }
@@ -127,10 +127,10 @@ const handleDelete = async (produto) => {
     try {
       const { error } = await supabase.from('produtos').delete().eq('id', produto.id);
       if (error) throw error;
-      toast.add({ title: 'Sucesso!', description: 'Produto excluído.' });
+      success({ title: 'Sucesso!', description: 'Produto excluído.' });
       await refresh();
     } catch (error) {
-      toast.add({ title: 'Erro!', description: 'Não foi possível excluir. Verifique se este produto está a ser usado em algum contrato.', color: 'red' });
+      showError({ title: 'Erro!', description: 'Não foi possível excluir. Verifique se este produto está a ser usado em algum contrato.' });
     }
   }
 };
