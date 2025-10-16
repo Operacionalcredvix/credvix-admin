@@ -360,7 +360,7 @@ const handleSave = async () => {
 };
 
 const handleDelete = async (row) => {
-  if (confirm(`Tem a certeza que quer apagar a meta da loja "${row.loja}" para o período de ${selectedPeriod.value}?`)) {
+  if (confirm(`Tem a certeza que quer apagar a meta da loja "${row.loja_nome}" para o período de ${selectedPeriod.value}?`)) {
     try {
       const { error } = await supabase.from('metas').delete().eq('id', row.id);
       if (error) throw error;
