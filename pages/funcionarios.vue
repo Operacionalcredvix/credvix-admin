@@ -295,41 +295,40 @@ watch(searchTerm, useDebounceFn(async (newVal) => {
   searching.value = false;
 }, 300));
 
-// LÓGICA DE EDIÇÃO (AGORA MAIS RÁPIDA)
+// --- LÓGICA DE EDIÇÃO (REATORADA E CORRIGIDA) ---
+let isEditing = false; // Flag para controlar o modo de edição
+
 const handleEdit = (employee) => {
-  // 1. Limpa o formulário para evitar misturar dados
+  isEditing = true; // Sinaliza que estamos a carregar dados para edição
   resetForm();
 
-  // 2. OTIMIZAÇÃO: Processa o histórico de vínculo que já foi carregado na busca,
-  // em vez de fazer uma nova chamada ao banco de dados.
+  // Processa o histórico de vínculo que já foi carregado na busca.
   let vinculo = null;
   if (employee.historico_vinculos && employee.historico_vinculos.length > 0) {
-    // Ordena os vínculos localmente para encontrar o mais recente (maior data de admissão)
     const vinculosOrdenados = [...employee.historico_vinculos].sort((a, b) => new Date(b.data_admissao) - new Date(a.data_admissao));
     vinculo = vinculosOrdenados[0];
   }
 
-  // 3. Preenche o formData com os dados básicos do funcionário
-  Object.assign(formData, employee);
-  
-  // 4. CORREÇÃO: Preenche os dados organizacionais na ordem correta para garantir que os
-  //    menus de seleção (regionais, lojas, líderes) funcionem corretamente.
-  if (employee.lojas && employee.lojas.regional_id) {
-    formData.regional_id = employee.lojas.regional_id;
-  }
-  // Garante que o loja_id e gerente_id do funcionário sejam usados.
-  formData.loja_id = employee.loja_id;
-  formData.gerente_id = employee.gerente_id;
+  // Preenche o formulário com todos os dados.
+  // A flag 'isEditing' impede que os watchers limpem os campos durante esta atribuição.
+  Object.assign(formData, {
+    ...employee,
+    regional_id: employee.lojas?.regional_id || null,
+    loja_id: employee.loja_id,
+    gerente_id: employee.gerente_id,
+    data_admissao: vinculo?.data_admissao || null,
+    data_saida: vinculo?.data_saida || null,
+    vinculoId: vinculo?.id || null
+  });
 
-  // 5. Se encontrou um vínculo, preenche as datas e o ID do vínculo
-  if (vinculo) {
-    formData.data_admissao = vinculo.data_admissao;
-    formData.data_saida = vinculo.data_saida;
-    formData.vinculoId = vinculo.id; // Importante para o UPDATE
-  }
-
-  // 6. Rola a página para o formulário
+  // Rola a página para o formulário para uma melhor experiência do utilizador.
   document.getElementById('form-title').scrollIntoView({ behavior: 'smooth' });
+
+  // Após o preenchimento, reativa a lógica normal dos watchers.
+  // O nextTick garante que a reativação ocorra após o ciclo de atualização do DOM.
+  nextTick(() => {
+    isEditing = false;
+  });
 };
 
 // --- LÓGICA DINÂMICA DO FORMULÁRIO ---
@@ -388,22 +387,23 @@ const lideres = computed(() => {
 
 // WATCHERS PARA REATIVIDADE DO FORMULÁRIO
 watch(() => formData.perfil_id, (newPerfilId, oldPerfilId) => {
-  if (newPerfilId === oldPerfilId) return;
+  // Só limpa os campos se a mudança for feita pelo utilizador (não durante a edição)
+  if (isEditing || newPerfilId === oldPerfilId) return;
 
-  // Limpa os campos dependentes ao trocar o perfil, respeitando os que podem estar bloqueados
   formData.regional_id = null;
   formData.loja_id = null;
   formData.gerente_id = null;
 });
 
 watch(() => formData.regional_id, (newRegionalId) => {
-  // Limpa a loja se a regional mudar e a loja não pertencer mais à nova regional
+  if (isEditing) return;
   formData.loja_id = null;
   formData.gerente_id = null;
 });
 
-// CORREÇÃO: Observa a seleção da loja para preencher o líder automaticamente quando possível.
 watch(() => formData.loja_id, (newLojaId) => {
+  if (isEditing) return;
+
   formData.gerente_id = null; // Limpa o líder ao trocar de loja
   // Se o perfil for Supervisor, preenche o líder (Coordenador) automaticamente
   if (selectedProfileName.value === 'Supervisor' && newLojaId) {
