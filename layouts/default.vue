@@ -109,7 +109,8 @@ const router = useRouter();
 const route = useRoute();
 import { computed } from 'vue';
 const { profile } = useProfile();
-
+// NOVO: Usa o composable para obter os itens de menu filtrados
+const { menuItems, filteredMenuItems } = useMenu();
 
 // Lógica para o modo escuro (dark mode)
 const colorMode = useColorMode();
@@ -124,72 +125,6 @@ const isDark = computed({
 
 // Estado para controlar se o menu está recolhido
 const isSidebarCollapsed = useCookie('sidebar-collapsed', { default: () => false });
-
-// Estrutura completa dos itens do menu principal
-const menuItems = [
-  {
-    label: 'Cadastros',
-    icon: 'i-heroicons-archive-box',
-    defaultOpen: false, // Para o menu começar fechado
-    slot: 'item',
-    links: [
-      { label: 'Regionais', to: '/cadastros/regionais', icon: 'i-heroicons-map-pin' },
-      { label: 'Funcionários', to: '/funcionarios', icon: 'i-heroicons-users' },
-      { label: 'Lojas', to: '/lojas', icon: 'i-heroicons-building-storefront' }
-    ]
-  },
-  {
-    label: 'RH',
-    icon: 'i-heroicons-briefcase',
-    slot: 'item',
-    links: [
-      { label: 'Vagas', to: '/rh/vagas', icon: 'i-heroicons-megaphone' },
-      { label: 'Currículos', to: '/rh/curriculos', icon: 'i-heroicons-document-text' },
-      { label: 'Histórico de Alocações', to: '/rh/historico-alocacoes', icon: 'i-heroicons-folder-open' }
-      // Futuramente: Relatórios de RH, etc.
-    ]
-  },
-  {
-    label: 'Propostas',
-    icon: 'i-heroicons-bookmark-square',
-    slot: 'item',
-    links: [ 
-      { label: 'Contratos', to: '/backoffice/contratos', icon: 'i-heroicons-document-chart-bar' },
-      { label: 'Clientes', to: '/backoffice/clientes', icon: 'i-heroicons-user-group' }
-    ]
-  },
-  {
-    label: 'Backoffice',
-    icon: 'i-heroicons-banknotes',
-    slot: 'item',
-    links: [
-      { label: 'Bancos', to: '/cadastros/bancos', icon: 'i-heroicons-building-library' },
-      { label: 'Produtos', to: '/cadastros/produtos', icon: 'i-heroicons-shopping-bag' },
-      { label: 'Tabelas de Comissão', to: '/cadastros/tabelas', icon: 'i-heroicons-table-cells' }
-      // Futuramente: Metas, Produtos, Bancos, etc.
-    ]
-  },
-  {
-    label: 'Admin',
-    icon: 'i-heroicons-shield-check',
-    slot: 'item',
-    links: [
-      { label: 'Metas', to: '/admin/metas', icon: 'i-heroicons-trophy' },
-      { label: 'Importações', to: '/admin/importacoes', icon: 'i-heroicons-arrow-up-tray' }
-      // Futuramente: Outras configurações de admin
-    ]
-  },
-  {
-    label: 'Relatórios',
-    icon: 'i-heroicons-chart-bar-square',
-    slot: 'item',
-    links: [
-      { label: 'Desempenho por Equipe', to: '/relatorios/desempenho', icon: 'i-heroicons-chart-bar' },
-      { label: 'Desempenho Individual', to: '/relatorios/desempenho-individual', icon: 'i-heroicons-user-circle' },
-      { label: 'Importações Externas', to: '/admin/relatorio-importacoes', icon: 'i-heroicons-arrow-down-on-square-stack' }
-    ]
-  }
-];
 
 // --- LÓGICA DO TÍTULO DA PÁGINA DINÂMICO ---
 const pageTitle = computed(() => {
@@ -288,33 +223,6 @@ const profileDropdownItems = [
     click: () => handleLogout()
   }]
 ];
-
-// Filtra os itens do menu com base no perfil do utilizador
-const filteredMenuItems = computed(() => {
-  const userProfile = profile.value?.perfis?.nome;
-  if (!userProfile) return [];
-
-  // Mapeamento de permissões por menu
-  const menuPermissions = {
-    'Cadastros': ['Master', 'RH', 'Coordenador'],
-    'RH': ['Master', 'RH'],
-    'Backoffice': ['Master', 'Backoffice'],
-    'Propostas': ['Master', 'Backoffice', 'Coordenador', 'Consultor'],
-    'Admin': ['Master', 'Backoffice'], // Permitindo Backoffice ver o menu Admin
-    'Relatórios': ['Master', 'Coordenador', 'Backoffice']
-  };
-
-  return menuItems.filter(menu => {
-    // Se o perfil do utilizador estiver na lista de permissões do menu, mostra o menu
-    return menuPermissions[menu.label]?.includes(userProfile);
-  }).map(menu => {
-    // Para o Coordenador, mostra apenas o link "Funcionários" dentro de "Cadastros"
-    if (userProfile === 'Coordenador' && menu.label === 'Cadastros') {
-      return { ...menu, links: menu.links.filter(link => link.label === 'Funcionários') };
-    }
-    return menu;
-  });
-});
 
 const handleLogout = async () => {
   const { error } = await supabase.auth.signOut();
