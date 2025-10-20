@@ -46,49 +46,16 @@
             <div class="col-span-2 md:col-span-3 lg:col-span-1 border-t lg:border-t-0 lg:border-l pt-4 lg:pt-0 lg:pl-4 mt-4 lg:mt-0"><p class="text-sm text-gray-500">Valor Total Pago</p><p class="text-2xl font-bold text-green-400">{{ formatCurrency(stats.valorTotal) }}</p></div>
           </div>
         </UCard>
-
-        <UCard>
-           <template #header>
-            <div class="flex items-center gap-2">
-              <UIcon name="i-heroicons-arrow-trending-up" class="text-xl text-primary-500" />
-              <h3 class="font-semibold">Vendas Externas</h3>
-            </div>
-          </template>
-          <div class="grid grid-cols-2 gap-4 text-center">
-            <div class="flex flex-col items-center justify-center">
-              <UIcon name="i-heroicons-heart" class="text-3xl text-rose-500" />
-              <p class="text-sm text-gray-500 mt-2">BMG MED</p>
-              <p class="text-2xl font-bold">{{ stats.bmgMed }}</p>
-            </div>
-            <div class="flex flex-col items-center justify-center">
-              <UIcon name="i-heroicons-shield-check" class="text-3xl text-sky-500" />
-              <p class="text-sm text-gray-500 mt-2">Seguro Familiar</p>
-              <p class="text-2xl font-bold">{{ stats.seguroFamiliar }}</p>
-            </div>
-          </div>
-        </UCard>
       </div>
-
-      <!-- NOVO: Card de Ranking de Lojas -->
-      <UCard v-if="rankedStores.length > 0" class="mb-8">
-        <template #header>
-          <div class="flex items-center gap-2">
-            <UIcon name="i-heroicons-trophy" class="text-xl text-amber-500" />
-            <h3 class="font-semibold">Ranking de Lojas (Multi Volume)</h3>
-          </div>
-        </template>
-        <UTable :rows="rankedStores" :columns="rankingColumns">
-          <template #rank-data="{ row }">
-            <UBadge :color="getRankColor(row.rank)" variant="subtle" size="lg" :label="`#${row.rank}`" />
-          </template>
-          <template #loja_nome-data="{ row }">
-            <span class="font-bold">{{ row.loja_nome }}</span>
-          </template>
-          <template #percentual_multi_volume-data="{ row }">
-            <span class="font-semibold text-lg" :class="getPercentageColor(row.percentual_multi_volume)">{{ row.percentual_multi_volume.toFixed(2) }}%</span>
-          </template>
-        </UTable>
-      </UCard>
+      <!-- NOVO: Card de Ranking de Lojas (componente reutilizável) -->
+      <RankingStores 
+        v-if="rankedStores.length > 0" 
+        :stores="rankedStores" 
+        :columns="rankingColumns" 
+        :currentStoreId="currentStoreId"
+        :allStores="rankedStores"
+        title="Ranking de Lojas (Multi Volume)" 
+      />
 
       <!-- Tabela de Desempenho Individual -->
       <UCard v-if="desempenhoConsultores.length > 0" class="mb-8">
@@ -214,6 +181,7 @@
 </template>
 
 <script setup>
+import RankingStores from '~/components/RankingStores.vue';
 import { ref, reactive, computed } from 'vue';
 import { Bar, Doughnut } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement } from 'chart.js';
@@ -222,6 +190,7 @@ ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale,
 
 const supabase = useSupabaseClient();
 const { profile } = useProfile();
+const currentStoreId = computed(() => profile?.value?.loja_id ?? null);
 const toast = useToast();
 
 // --- ESTADO ---

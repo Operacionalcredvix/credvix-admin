@@ -69,7 +69,10 @@
         </UCard>
       </div>
 
-      <!-- Tabela de Desempenho Individual -->
+  <!-- Ranking de Lojas (global) -->
+  <RankingStores v-if="rankedStores.length > 0" :stores="rankedStores" :columns="metasColumns" title="Ranking de Lojas (Multi Volume)" />
+
+  <!-- Tabela de Desempenho Individual -->
       <UCard v-if="desempenhoConsultores.length > 0" class="mb-8">
         <template #header>
           <div class="flex items-center gap-2">
@@ -177,12 +180,14 @@ import { ref, reactive, computed } from 'vue';
 import { Bar, Doughnut } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement } from 'chart.js';
 import PerformanceCell from '~/components/PerformanceCell.vue';
+import RankingStores from '~/components/RankingStores.vue';
 
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement);
 
 const supabase = useSupabaseClient();
 const { profile } = useProfile();
 const toast = useToast();
+const currentStoreId = computed(() => profile?.value?.loja_id ?? null);
 
 // --- ESTADO ---
 const selectedRegional = ref(null);
@@ -290,6 +295,14 @@ const metasColumns = [
   { key: 'meta_bmg_med', label: 'BMG MED' },
   { key: 'meta_seguro_familiar', label: 'Seguro Familiar' },
 ];
+
+const rankedStores = computed(() => {
+  if (!metasProgresso.value || metasProgresso.value.length === 0) return [];
+  return metasProgresso.value
+    .slice()
+    .sort((a, b) => b.percentual_multi_volume - a.percentual_multi_volume)
+    .map((store, index) => ({ ...store, rank: index + 1 }));
+});
 
 const groupedGoals = computed(() => {
   if (!metasProgresso.value) return [];

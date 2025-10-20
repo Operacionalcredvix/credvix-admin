@@ -58,6 +58,9 @@
         </UCard>
       </div>
       <UDivider class="my-8" />
+
+      <!-- Ranking: posição da loja do consultor (regional e global) -->
+  <RankingStores v-if="metasAllStores && metasAllStores.length > 0" :stores="metasAllStores" :allStores="metasAllStores" :currentStoreId="currentStoreId" title="Posição da Sua Loja" />
     </div>
 
     <!-- NOVO: Gráfico de Pizza -->
@@ -80,10 +83,13 @@
 </template>
 
 <script setup>
+import { ref, computed } from 'vue';
 import { Pie } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, Legend, ArcElement, CategoryScale } from 'chart.js';
 
 ChartJS.register(Title, Tooltip, Legend, ArcElement, CategoryScale);
+
+import RankingStores from '~/components/RankingStores.vue';
 
 const supabase = useSupabaseClient();
 const { profile } = useProfile();
@@ -188,12 +194,23 @@ const { data: metaLoja } = await useAsyncData('meta-loja-consultor', async () =>
   return data;
 }, { watch: [selectedPeriod, profile] }); // Adiciona o filtro ao watch
 
+// Busca metas de todas as lojas para o período (usado para posição global/regional)
+const { data: metasAllStores } = await useAsyncData('metas-progresso-all-stores-for-consultor', async () => {
+  if (!selectedPeriod.value) return [];
+  const firstDayOfMonth = `${selectedPeriod.value}-01`;
+  const { data } = await supabase.from('metas_progresso').select('*').eq('periodo', firstDayOfMonth);
+  return data || [];
+}, { watch: [selectedPeriod] });
+
 // --- NOVO: Calcula a contribuição do consultor para a meta da loja ---
 const consultantContributionToStoreGoal = computed(() => {
   if (!meuDesempenho.value) return 0;
   // Soma todos os valores atingidos de produtos que contam para o Multi Volume
   return (meuDesempenho.value.atingido_cnc || 0) + (meuDesempenho.value.atingido_card || 0) + (meuDesempenho.value.atingido_card_beneficio || 0) + (meuDesempenho.value.atingido_consignado || 0) + (meuDesempenho.value.atingido_fgts || 0);
 });
+
+// Evita acessar profile.value.loja_id direto na template quando profile.value ainda for undefined
+const currentStoreId = computed(() => profile?.value?.loja_id ?? null);
 
 // --- LÓGICA DO GRÁFICO DE PIZZA ---
 const hasProductionData = computed(() => {

@@ -64,29 +64,17 @@
         </UCard>
       </div>
 
-      <!-- NOVO: Card de Ranking de Consultores -->
-      <UCard v-if="rankedConsultants.length > 0" class="mb-8">
-        <template #header>
-          <div class="flex items-center gap-2">
-            <UIcon name="i-heroicons-star" class="text-xl text-yellow-400" />
-            <h3 class="font-semibold">Ranking de Consultores (Produção)</h3>
-          </div>
-        </template>
-        <UTable :rows="rankedConsultants" :columns="rankingColumns">
-          <template #rank-data="{ row }">
-            <UBadge :color="getRankColor(row.rank)" variant="subtle" size="lg" :label="`#${row.rank}`" />
-          </template>
-          <template #consultor_nome-data="{ row }">
-            <div>
-              <p class="font-bold">{{ row.consultor_nome }}</p>
-              <p class="text-xs text-gray-500">{{ row.loja_nome }}</p>
-            </div>
-          </template>
-          <template #total_producao-data="{ row }">
-            <span class="font-semibold text-lg text-primary-500">{{ formatCurrency(row.total_producao) }}</span>
-          </template>
-        </UTable>
-      </UCard>
+      <!-- Rankings -->
+      <div class="space-y-6">
+        <RankingConsultants v-if="rankedConsultants.length > 0" :consultants="rankedConsultants" :columns="rankingColumns" title="Ranking de Consultores (Produção)" :formatCurrency="formatCurrency" />
+        <RankingStores 
+          v-if="metasProgressoRegional && metasProgressoRegional.length > 0" 
+          :stores="rankedStores" 
+          :allStores="metasProgressoRegional" 
+          :currentStoreId="currentStoreId" 
+          title="Ranking de Lojas - Sua Regional" 
+        />
+      </div>
 
       <!-- Gráficos -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -109,11 +97,14 @@
 import { ref, reactive, computed } from 'vue';
 import { Bar, Doughnut, Pie } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement } from 'chart.js';
+import RankingConsultants from '~/components/RankingConsultants.vue';
+import RankingStores from '~/components/RankingStores.vue';
 
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement);
 
 const supabase = useSupabaseClient();
 const { profile } = useProfile();
+const currentStoreId = computed(() => profile?.value?.loja_id ?? null);
 const toast = useToast();
 
 // --- ESTADO ---
@@ -167,6 +158,16 @@ const { data: desempenhoConsultores } = await useAsyncData('desempenho-consultor
   return data || [];
 }, { watch: [selectedPeriod, profile] });
 
+// Busca metas da regional do supervisor para ranking de lojas
+const { data: metasProgressoRegional, pending: metasPending } = await useAsyncData('metas-progresso-supervisor', async () => {
+  if (!profile.value?.loja_id || !selectedPeriod.value) return [];
+  const { data: lojaData } = await supabase.from('lojas').select('regional_id').eq('id', profile.value.loja_id).single();
+  if (!lojaData?.regional_id) return [];
+  const firstDayOfMonth = `${selectedPeriod.value}-01`;
+  const { data } = await supabase.from('metas_progresso').select('*').eq('periodo', firstDayOfMonth).eq('regional_id', lojaData.regional_id);
+  return data || [];
+}, { watch: [selectedPeriod, profile] });
+
 // --- CÁLCULOS E FORMATAÇÃO ---
 const hasData = computed(() => dashboardData.value && dashboardData.value.stats?.total > 0);
 const stats = computed(() => {
@@ -201,6 +202,17 @@ const rankingColumns = [
   { key: 'consultor_nome', label: 'Consultor' },
   { key: 'total_producao', label: 'Produção Total' },
 ];
+
+const rankedStores = computed(() => {
+  if (!metasProgressoRegional.value || metasProgressoRegional.value.length === 0) return [];
+  return metasProgressoRegional.value
+    .slice()
+    .sort((a, b) => (b.percentual_multi_volume || 0) - (a.percentual_multi_volume || 0))
+    .map((store, index) => ({
+      ...store,
+      rank: index + 1
+    }));
+});
 
 const rankedConsultants = computed(() => {
   if (!desempenhoConsultores.value || desempenhoConsultores.value.length === 0) return [];
