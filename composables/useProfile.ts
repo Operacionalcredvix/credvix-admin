@@ -1,3 +1,6 @@
+import { watch } from 'vue';
+import { useState } from 'nuxt/app';
+
 // composables/useProfile.ts
 export const useProfile = () => {
   const user = useSupabaseUser();
@@ -16,14 +19,15 @@ export const useProfile = () => {
     const { data, error } = await client
       .from('funcionarios')
       // CORREÇÃO: Adicionado 'avatar_url' à seleção de campos
-      .select('*, perfis(nome), lider:gerente_id(nome_completo), lojas(nome, regionais(nome_regional)))')
+      .select('*, perfis(nome), lider:gerente_id(nome_completo), lojas(nome, regionais(nome_regional))')
       .eq('user_id', user.value.id)
       .single();
 
     if (error) {
-      console.error('Erro ao buscar perfil:', error);
+      console.error('[useProfile] Erro ao buscar perfil:', error);
       profile.value = null;
     } else {
+      // perfil carregado
       profile.value = data;
     }
   };

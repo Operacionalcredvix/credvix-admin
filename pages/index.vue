@@ -2,9 +2,7 @@
   <div>
     <header class="mb-8">
       <h1 class="text-primary-500 text-3xl font-bold">Dashboard de Produção</h1>
-      <p class="mt-1 text-gray-500">
-        Olá, {{ profile?.nome_completo }}! Aqui está um resumo da atividade.
-      </p>
+      <p class="mt-1 text-gray-500">Olá, {{ profile?.nome_completo }}! Aqui está um resumo da atividade.</p>
     </header>
 
     <!-- Dashboard para Master -->
