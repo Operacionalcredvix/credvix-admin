@@ -67,6 +67,7 @@
       <!-- Rankings -->
       <div class="space-y-6">
         <RankingConsultants v-if="rankedConsultants.length > 0" :consultants="rankedConsultants" :columns="rankingColumns" title="Ranking de Consultores (Produção)" :formatCurrency="formatCurrency" />
+        <RankingUsers v-if="consultores && consultores.length > 0" :consultores="consultores" :currentUserId="profile.value?.id" profileType="supervisor" :lojaId="profile.value?.loja_id" :formatCurrency="formatCurrency" />
         <RankingStores 
           v-if="metasProgressoRegional && metasProgressoRegional.length > 0" 
           :stores="rankedStores" 
@@ -99,6 +100,7 @@ import { Bar, Doughnut, Pie } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement } from 'chart.js';
 import RankingConsultants from '~/components/RankingConsultants.vue';
 import RankingStores from '~/components/RankingStores.vue';
+import RankingUsers from '~/components/RankingUsers.vue';
 
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement);
 
@@ -166,6 +168,19 @@ const { data: metasProgressoRegional, pending: metasPending } = await useAsyncDa
   const firstDayOfMonth = `${selectedPeriod.value}-01`;
   const { data } = await supabase.from('metas_progresso').select('*').eq('periodo', firstDayOfMonth).eq('regional_id', lojaData.regional_id);
   return data || [];
+}, { watch: [selectedPeriod, profile] });
+
+// --- BUSCA DE CONSULTORES (para ranking de usuários) ---
+const { data: consultores } = await useAsyncData('consultores-ranking-supervisor', async () => {
+  if (!profile.value?.loja_id || !selectedPeriod.value) return [];
+  const { data: lojaData } = await supabase.from('lojas').select('regional_id').eq('id', profile.value.loja_id).single();
+  if (!lojaData?.regional_id) return [];
+  const firstDayOfMonth = `${selectedPeriod.value}-01`;
+  const { data } = await supabase.from('desempenho_consultores').select('consultor_id, consultor_nome, loja_id, loja_nome, regional_id, nome_regional, atingido_cnc, atingido_card, atingido_card_beneficio, atingido_consignado, atingido_fgts').eq('periodo', firstDayOfMonth).eq('regional_id', lojaData.regional_id);
+  return (data || []).map(c => ({
+    ...c,
+    total_producao: (c.atingido_cnc || 0) + (c.atingido_card || 0) + (c.atingido_card_beneficio || 0) + (c.atingido_consignado || 0) + (c.atingido_fgts || 0)
+  }));
 }, { watch: [selectedPeriod, profile] });
 
 // --- CÁLCULOS E FORMATAÇÃO ---
