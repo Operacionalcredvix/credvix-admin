@@ -8,6 +8,7 @@
           <h3 class="font-semibold">
             Ranking da Loja
             <span v-if="currentStoreRank" class="text-primary-500">(Sua posição: {{ currentStoreRank }}º)</span>
+            <span v-else class="text-sm text-gray-400 ml-2">Sua posição não disponível</span>
           </h3>
         </div>
       </template>
@@ -43,6 +44,7 @@
           <h3 class="font-semibold">
             Ranking Regional
             <span v-if="currentRegionalRank" class="text-primary-500">(Sua posição: {{ currentRegionalRank }}º)</span>
+            <span v-else class="text-sm text-gray-400 ml-2">Sua posição não disponível</span>
           </h3>
         </div>
       </template>
@@ -78,6 +80,7 @@
           <h3 class="font-semibold">
             Ranking Geral
             <span v-if="currentGlobalRank" class="text-primary-500">(Sua posição: {{ currentGlobalRank }}º)</span>
+            <span v-else class="text-sm text-gray-400 ml-2">Sua posição não disponível</span>
           </h3>
         </div>
       </template>
@@ -116,6 +119,9 @@ const props = defineProps({
   profileType: { type: String, required: true }, // 'master', 'coordenador', 'supervisor', 'consultor'
   lojaId: { type: [Number, String], default: null },
   regionalId: { type: [Number, String], default: null },
+  // Overrides opcionais para exibir os rankings mesmo quando o profileType padrão não permitir
+  showRegionalRanking: { type: Boolean, required: false },
+  showGlobalRanking: { type: Boolean, required: false },
   formatCurrency: { type: Function, required: true }
 });
 
@@ -170,8 +176,14 @@ const currentStoreRank = computed(() => {
 });
 
 // Controle de visibilidade dos rankings baseado no perfil
-const showGlobalRanking = computed(() => ['master', 'coordenador'].includes(props.profileType));
-const showRegionalRanking = computed(() => ['coordenador', 'supervisor', 'consultor'].includes(props.profileType));
+const showGlobalRanking = computed(() => {
+  if (typeof props.showGlobalRanking !== 'undefined') return props.showGlobalRanking;
+  return ['master', 'coordenador'].includes(props.profileType);
+});
+const showRegionalRanking = computed(() => {
+  if (typeof props.showRegionalRanking !== 'undefined') return props.showRegionalRanking;
+  return ['coordenador', 'supervisor', 'consultor'].includes(props.profileType);
+});
 const showStoreRanking = computed(() => ['supervisor', 'consultor'].includes(props.profileType));
 
 const getRankColor = (rank) => {

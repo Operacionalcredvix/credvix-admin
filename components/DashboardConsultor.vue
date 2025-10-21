@@ -17,36 +17,39 @@
 
   <div v-else-if="meuDesempenho?.consultor_id" class="mb-8">
     <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">Meu Desempenho - {{ new Date(selectedPeriod + '-02').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) }}</h2>
-    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-      <!-- CNC -->
+    <!-- Card de Meta Individual -->
+    <UCard class="mb-6">
+      <template #header>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-heroicons-star" class="text-xl text-yellow-400" />
+          <h3 class="font-semibold">Minha Meta Individual</h3>
+        </div>
+      </template>
+      <!-- Cards de Produção -->
+      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
       <UCard>
         <GoalProgress :current-value="meuDesempenho.atingido_cnc" :goal-value="meuDesempenho.meta_individual_cnc" title="CNC" />
       </UCard>
-      <!-- CARD -->
       <UCard>
         <GoalProgress :current-value="meuDesempenho.atingido_card" :goal-value="meuDesempenho.meta_individual_card" title="CARD" />
       </UCard>
-      <!-- CARD Benef. -->
       <UCard>
         <GoalProgress :current-value="meuDesempenho.atingido_card_beneficio" :goal-value="meuDesempenho.meta_individual_card_beneficio" title="CARD Benef." />
       </UCard>
-      <!-- Consignado -->
       <UCard>
         <GoalProgress :current-value="meuDesempenho.atingido_consignado" :goal-value="meuDesempenho.meta_individual_consignado" title="Consignado" />
       </UCard>
-      <!-- FGTS -->
       <UCard>
         <GoalProgress :current-value="meuDesempenho.atingido_fgts" :goal-value="meuDesempenho.meta_individual_fgts" title="FGTS" />
       </UCard>
-      <!-- BMG MED -->
       <UCard>
         <GoalProgress :current-value="meuDesempenho.atingido_bmg_med" :goal-value="meuDesempenho.meta_individual_bmg_med" format-as="number" title="BMG MED" />
       </UCard>
-      <!-- Seg. Familiar -->
       <UCard>
         <GoalProgress :current-value="meuDesempenho.atingido_seguro_familiar" :goal-value="meuDesempenho.meta_individual_seguro_familiar" format-as="number" title="Seg. Familiar" />
       </UCard>
     </div>
+  </UCard>
     <UDivider class="my-8" />
 
     <!-- NOVA SEÇÃO: META DA LOJA -->
@@ -61,8 +64,34 @@
 
     <!-- Ranking: posição da loja do consultor (regional e global) -->
   <RankingStores v-if="metasAllStores && metasAllStores.length > 0" :stores="metasAllStores" :allStores="metasAllStores" :currentStoreId="currentStoreId" title="Posição da Sua Loja" />
-  <RankingUsers v-if="consultores && consultores.length > 0" :consultores="consultores" :currentUserId="profile.value?.id" profileType="consultor" :lojaId="profile.value?.loja_id" :regionalId="profile.value?.regional_id" :formatCurrency="formatCurrency" />
+  <!-- Ranking Regional do Consultor -->
+  <RankingUsers
+    v-if="consultores && consultores.length > 0 && profile.value?.id"
+    :consultores="consultores"
+    :currentUserId="profile.value.id"
+    profileType="consultor"
+    :lojaId="profile.value.loja_id"
+    :regionalId="profile.value.regional_id"
+    :formatCurrency="formatCurrency"
+    :showRegionalRanking="true"
+    :showGlobalRanking="false"
+  />
+
+  <!-- Ranking Geral do Consultor -->
+  <RankingUsers
+    v-if="consultores && consultores.length > 0 && profile.value?.id"
+    :consultores="consultores"
+    :currentUserId="profile.value.id"
+    profileType="consultor"
+    :lojaId="profile.value.loja_id"
+    :regionalId="profile.value.regional_id"
+    :formatCurrency="formatCurrency"
+    :showRegionalRanking="false"
+    :showGlobalRanking="true"
+  />
     </div>
+
+      <!-- Removido: Tabela de Desempenho por Consultor; deixamos apenas os rankings para o consultor -->
 
     <!-- NOVO: Gráfico de Pizza -->
     <div v-if="hasProductionData" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -158,12 +187,12 @@ const { data: meuDesempenho, pending } = await useAsyncData('meu-desempenho-pess
   };
 
   // 2. Tenta buscar as METAS individuais da view.
-  const { data: metas } = await supabase
-    .from('desempenho_consultores')
-    .select('periodo, meta_individual_cnc, meta_individual_card, meta_individual_card_beneficio, meta_individual_consignado, meta_individual_fgts, meta_individual_bmg_med, meta_individual_seguro_familiar')
-    .eq('consultor_id', profile.value.id)
-    .eq('periodo', firstDayOfMonth)
-    .maybeSingle(); // .maybeSingle() não dá erro se não encontrar nada, retorna null.
+    const { data: metas } = await supabase
+      .from('desempenho_consultores')
+      .select('periodo, meta_individual_cnc, meta_individual_card, meta_individual_card_beneficio, meta_individual_consignado, meta_individual_fgts, meta_individual_bmg_med, meta_individual_seguro_familiar')
+      .eq('consultor_id', profile.value.id)
+      .eq('periodo', firstDayOfMonth)
+      .single(); // .single() retorna erro se não encontrar nada, facilita debug
 
   // 3. Combina os resultados. Se não houver metas, os valores de meta serão 0.
   return {
@@ -205,14 +234,41 @@ const { data: metasAllStores } = await useAsyncData('metas-progresso-all-stores-
 }, { watch: [selectedPeriod] });
 
 // --- BUSCA DE CONSULTORES (para ranking de usuários) ---
-const { data: consultores } = await useAsyncData('consultores-ranking-consultor', async () => {
+  const { data: consultores } = await useAsyncData('consultores-ranking-consultor', async () => {
   if (!selectedPeriod.value) return [];
   const firstDayOfMonth = `${selectedPeriod.value}-01`;
-  const { data } = await supabase.from('desempenho_consultores').select('consultor_id, consultor_nome, loja_id, loja_nome, regional_id, nome_regional, atingido_cnc, atingido_card, atingido_card_beneficio, atingido_consignado, atingido_fgts').eq('periodo', firstDayOfMonth);
-  return (data || []).map(c => ({
+  // Alinha a seleção de campos com o DashboardMaster (inclui metas individuais)
+  const { data } = await supabase.from('desempenho_consultores').select('consultor_id, consultor_nome, loja_id, loja_nome, regional_id, nome_regional, atingido_cnc, meta_individual_cnc, atingido_card, meta_individual_card, atingido_card_beneficio, meta_individual_card_beneficio, atingido_consignado, meta_individual_consignado, atingido_fgts, meta_individual_fgts').eq('periodo', firstDayOfMonth);
+  const result = (data || []).map(c => ({
     ...c,
     total_producao: (c.atingido_cnc || 0) + (c.atingido_card || 0) + (c.atingido_card_beneficio || 0) + (c.atingido_consignado || 0) + (c.atingido_fgts || 0)
   }));
+  // Se o consultor logado não estiver presente (sem produção e sem meta), adicionamos um registro sintético
+  const includesLogged = result.some(r => String(r.consultor_id) === String(profile.value?.id));
+  try { console.debug('[consultores-ranking-consultor]', result.length, 'includesLoggedUser=', includesLogged); } catch (e) {}
+  if (!includesLogged && profile.value?.id && meuDesempenho?.value) {
+    const synthetic = {
+      consultor_id: profile.value.id,
+      consultor_nome: profile.value.nome_completo || profile.value.name || 'Você',
+      loja_id: profile.value.loja_id,
+      loja_nome: profile.value.loja_nome || null,
+      regional_id: profile.value.regional_id,
+      nome_regional: profile.value.nome_regional || null,
+      atingido_cnc: meuDesempenho.value.atingido_cnc || 0,
+      atingido_card: meuDesempenho.value.atingido_card || 0,
+      atingido_card_beneficio: meuDesempenho.value.atingido_card_beneficio || 0,
+      atingido_consignado: meuDesempenho.value.atingido_consignado || 0,
+      atingido_fgts: meuDesempenho.value.atingido_fgts || 0,
+      meta_individual_cnc: meuDesempenho.value.meta_individual_cnc || 0,
+      meta_individual_card: meuDesempenho.value.meta_individual_card || 0,
+      meta_individual_card_beneficio: meuDesempenho.value.meta_individual_card_beneficio || 0,
+      meta_individual_consignado: meuDesempenho.value.meta_individual_consignado || 0,
+      meta_individual_fgts: meuDesempenho.value.meta_individual_fgts || 0,
+      total_producao: (meuDesempenho.value.atingido_cnc || 0) + (meuDesempenho.value.atingido_card || 0) + (meuDesempenho.value.atingido_card_beneficio || 0) + (meuDesempenho.value.atingido_consignado || 0) + (meuDesempenho.value.atingido_fgts || 0)
+    };
+    result.push(synthetic);
+  }
+  return result;
 }, { watch: [selectedPeriod] });
 
 // --- NOVO: Calcula a contribuição do consultor para a meta da loja ---
@@ -255,5 +311,6 @@ const pieChartData = computed(() => {
 });
 
 const chartOptions = { responsive: true, maintainAspectRatio: false };
+// (Tabela de desempenho removida; usamos apenas os rankings para consultores)
 
 </script>
