@@ -3,7 +3,13 @@
     <template #header>
       <div class="flex items-center gap-2">
         <UIcon name="i-heroicons-trophy" class="text-xl text-amber-500" />
-        <h3 class="font-semibold">{{ title }}</h3>
+        <h3 class="font-semibold">
+          {{ title }}
+          <span v-if="currentStoreGlobalRank">
+            (Sua loja: {{ currentStoreGlobalRank }}º
+            Geral)
+          </span>
+        </h3>
       </div>
     </template>
 
@@ -13,7 +19,16 @@
 
     <div v-else>
       <UTable :rows="stores" :columns="columns">
-        <template #rank-data="{ row }">
+       <template #rank-data="{ row }">
+          <span v-if="row.rank === 1">
+            <UIcon name="i-heroicons-trophy" class="text-xl text-yellow-500" />
+          </span>
+          <span v-else-if="row.rank === 2">
+            <UIcon name="i-heroicons-trophy" class="text-xl text-gray-500" />
+          </span>
+          <span v-else-if="row.rank === 3">
+            <UIcon name="i-heroicons-trophy" class="text-xl text-orange-500" />
+          </span>
           <UBadge :color="getRankColor(row.rank)" variant="subtle" size="lg" :label="`#${row.rank}`" />
         </template>
 
@@ -54,6 +69,7 @@ const props = defineProps({
   title: { type: String, default: 'Ranking de Lojas' }
 });
 
+
 const globalRanked = computed(() => computeRanked(props.allStores || props.stores));
 const regionalRanked = computed(() => {
   if (!props.currentStoreId) return [];
@@ -81,10 +97,11 @@ const currentStoreRegionalRank = computed(() => {
   return idx === -1 ? null : idx + 1;
 });
 
+
 const getPercentageColor = (percentage) => {
   if (percentage >= 100) return 'text-green-500';
   if (percentage >= 75) return 'text-yellow-500';
-  return 'text-red-500';
+  return 'text-red-500'; // This is for text color, it's ok.
 };
 
 const getProgressBarColor = (percentage) => {
@@ -99,4 +116,5 @@ const getRankColor = (rank) => {
   if (rank === 3) return 'orange';
   return 'gray';
 };
+
 </script>

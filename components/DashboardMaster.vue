@@ -341,12 +341,12 @@ const groupedGoals = computed(() => {
 const getPercentageColor = (percentage) => {
   if (percentage >= 100) return 'text-green-500';
   if (percentage >= 75) return 'text-yellow-500';
-  return 'text-red-500';
+  return 'text-red-500'; // This is for text color, it's ok.
 };
 
 const getProgressBarColor = (percentage) => {
   if (percentage >= 100) return 'green';
   if (percentage >= 75) return 'yellow';
-  return 'red';
+  return 'red'; // This is for UProgress, it's ok.
 };
 </script>
