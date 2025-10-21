@@ -72,6 +72,9 @@
   <!-- Ranking de Lojas (global) -->
   <RankingStores v-if="rankedStores.length > 0" :stores="rankedStores" :columns="metasColumns" title="Ranking de Lojas (Multi Volume)" />
 
+  <!-- Ranking de Usuários (Geral para Master) -->
+  <RankingUsers v-if="consultores && consultores.length > 0" :consultores="consultores" :currentUserId="profile.value?.id" profileType="master" :formatCurrency="formatCurrency" />
+
   <!-- Tabela de Desempenho Individual -->
       <UCard v-if="desempenhoConsultores.length > 0" class="mb-8">
         <template #header>
@@ -181,6 +184,7 @@ import { Bar, Doughnut } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement } from 'chart.js';
 import PerformanceCell from '~/components/PerformanceCell.vue';
 import RankingStores from '~/components/RankingStores.vue';
+import RankingUsers from '~/components/RankingUsers.vue';
 
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement);
 
@@ -239,6 +243,19 @@ const { data: desempenhoConsultores } = await useAsyncData('desempenho-consultor
   const { data } = await query;
   return data || [];
 }, { watch: [dateRange, selectedRegional] });
+
+// --- BUSCA DE CONSULTORES (para ranking de usuários) ---
+const { data: consultores } = await useAsyncData('consultores-ranking-master', async () => {
+  if (!selectedPeriod.value) return [];
+  const firstDayOfMonth = `${selectedPeriod.value}-01`;
+  let query = supabase.from('desempenho_consultores').select('consultor_id, consultor_nome, loja_id, loja_nome, regional_id, nome_regional, atingido_cnc, atingido_card, atingido_card_beneficio, atingido_consignado, atingido_fgts').eq('periodo', firstDayOfMonth);
+  if (selectedRegional.value) query = query.eq('regional_id', selectedRegional.value);
+  const { data } = await query;
+  return (data || []).map(c => ({
+    ...c,
+    total_producao: (c.atingido_cnc || 0) + (c.atingido_card || 0) + (c.atingido_card_beneficio || 0) + (c.atingido_consignado || 0) + (c.atingido_fgts || 0)
+  }));
+}, { watch: [selectedPeriod, selectedRegional] });
 
 // --- NOVA BUSCA DE DADOS PARA METAS ---
 const { data: metasProgresso, pending: metasPending } = useAsyncData('metas-progresso-master', async () => {

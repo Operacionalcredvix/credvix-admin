@@ -59,8 +59,9 @@
       </div>
       <UDivider class="my-8" />
 
-      <!-- Ranking: posição da loja do consultor (regional e global) -->
+    <!-- Ranking: posição da loja do consultor (regional e global) -->
   <RankingStores v-if="metasAllStores && metasAllStores.length > 0" :stores="metasAllStores" :allStores="metasAllStores" :currentStoreId="currentStoreId" title="Posição da Sua Loja" />
+  <RankingUsers v-if="consultores && consultores.length > 0" :consultores="consultores" :currentUserId="profile.value?.id" profileType="consultor" :lojaId="profile.value?.loja_id" :regionalId="profile.value?.regional_id" :formatCurrency="formatCurrency" />
     </div>
 
     <!-- NOVO: Gráfico de Pizza -->
@@ -90,6 +91,7 @@ import { Chart as ChartJS, Title, Tooltip, Legend, ArcElement, CategoryScale } f
 ChartJS.register(Title, Tooltip, Legend, ArcElement, CategoryScale);
 
 import RankingStores from '~/components/RankingStores.vue';
+import RankingUsers from '~/components/RankingUsers.vue';
 
 const supabase = useSupabaseClient();
 const { profile } = useProfile();
@@ -200,6 +202,17 @@ const { data: metasAllStores } = await useAsyncData('metas-progresso-all-stores-
   const firstDayOfMonth = `${selectedPeriod.value}-01`;
   const { data } = await supabase.from('metas_progresso').select('*').eq('periodo', firstDayOfMonth);
   return data || [];
+}, { watch: [selectedPeriod] });
+
+// --- BUSCA DE CONSULTORES (para ranking de usuários) ---
+const { data: consultores } = await useAsyncData('consultores-ranking-consultor', async () => {
+  if (!selectedPeriod.value) return [];
+  const firstDayOfMonth = `${selectedPeriod.value}-01`;
+  const { data } = await supabase.from('desempenho_consultores').select('consultor_id, consultor_nome, loja_id, loja_nome, regional_id, nome_regional, atingido_cnc, atingido_card, atingido_card_beneficio, atingido_consignado, atingido_fgts').eq('periodo', firstDayOfMonth);
+  return (data || []).map(c => ({
+    ...c,
+    total_producao: (c.atingido_cnc || 0) + (c.atingido_card || 0) + (c.atingido_card_beneficio || 0) + (c.atingido_consignado || 0) + (c.atingido_fgts || 0)
+  }));
 }, { watch: [selectedPeriod] });
 
 // --- NOVO: Calcula a contribuição do consultor para a meta da loja ---
