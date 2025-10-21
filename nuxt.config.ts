@@ -16,8 +16,8 @@ export default defineNuxtConfig({
     // Chaves públicas, disponíveis em ambos os lados
     public: {
       supabase: {
-        url: process.env.SUPABASE_DATABASE_URL,
-        key: process.env.PUBLIC_SUPABASE_ANON_KEY,
+        url: process.env.SUPABASE_URL,
+        key: process.env.SUPABASE_ANON_KEY,
         redirect: false,
         clientOptions: {
           auth: {
