@@ -9,7 +9,7 @@
           <UButton icon="i-heroicons-calendar-days-20-solid"
             :label="`${format(dateRange.start, 'dd/MM/yy')} - ${format(dateRange.end, 'dd/MM/yy')}`" />
           <template #panel="{ close }">
-            <DatePicker @close="close" v-model="dateRange" />
+            <DatePicker v-model="dateRange" @apply="() => { close(); refresh(); }" @close="close" />
           </template>
         </UPopover>
       </div>
