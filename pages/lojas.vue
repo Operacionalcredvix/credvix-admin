@@ -124,19 +124,48 @@ const columns = [
 ];
 
 // --- CARREGAMENTO DE DADOS ---
-const { data: lojas, pending, refresh } = await useAsyncData('lojas', async () => {
-  // Seleciona explicitamente todas as colunas para evitar erros de cache de schema (_vts).
-  const { data } = await supabase
-    .from('lojas')
-    .select('id, nome, franquia, regional_id, city, state, phone, whatsapp, address, instagram_url, is_active, regionais(id, nome_regional)')
-    .order('nome');
-  return data;
-});
-
 const { data: regionais } = await useAsyncData('regionais', async () => {
   const { data } = await supabase.from('regionais').select('*').order('nome_regional');
   return data;
 });
+
+// CORREÇÃO DEFINITIVA: Tenta RPC JSONB primeiro, fallback para API endpoint
+const lojas = ref([]);
+const pending = ref(true);
+
+const refresh = async () => {
+  pending.value = true;
+  try {
+    // TENTATIVA 1: Usa função RPC que retorna JSONB (bypass completo de cache)
+    const { data, error } = await supabase.rpc('get_lojas_completas');
+    
+    if (error) {
+      console.warn('Erro RPC get_lojas_completas, tentando API fallback:', error);
+      
+      // TENTATIVA 2: Usa endpoint de API do Nuxt (server-side fetch)
+      const response = await $fetch('/api/lojas');
+      if (response.success && response.data) {
+        lojas.value = response.data;
+        return;
+      } else {
+        throw new Error(response.error || 'Erro ao buscar via API');
+      }
+    }
+    
+    // Dados já vêm formatados do banco via RPC
+    lojas.value = data || [];
+    
+  } catch (error) {
+    console.error('Erro ao carregar lojas (todas tentativas falharam):', error);
+    toast.add({ title: 'Erro', description: error.message || 'Não foi possível carregar as lojas', color: 'red' });
+    lojas.value = [];
+  } finally {
+    pending.value = false;
+  }
+};
+
+// Carrega dados inicialmente
+await refresh();
 
 // --- LÓGICA COMPUTADA E AÇÕES ---
 const filteredRows = computed(() => {
@@ -182,12 +211,10 @@ const handleFormSubmit = async () => {
       // Garante que o id não seja enviado na criação.
       delete dataToSave.id;
 
-      // CORREÇÃO: Adiciona .select('id') para evitar que o Supabase tente retornar
-      // a coluna virtual '_vts' que está causando o erro de cache de schema.
+      // CORREÇÃO: Usa insert sem retorno para evitar erro de cache '_vts'
       const { error } = await supabase
         .from('lojas')
-        .insert(dataToSave)
-        .select('id'); // Especifica o retorno para evitar o erro de cache
+        .insert(dataToSave, { returning: 'minimal' });
       if (error) throw error;
       toast.add({ title: 'Sucesso!', description: 'Loja criada com sucesso.' });
     }
