@@ -10,16 +10,16 @@
       </div>
 
       <nav class="flex-grow">
-        <ul class="space-y-2">
-          <li>
-            <NuxtLink to="/" class="nav-link">
-              <UIcon name="i-heroicons-home" class="flex-shrink-0" /> <span v-if="!isSidebarCollapsed"></span>
-              <span class="transition-all duration-300" :class="{'opacity-0 max-w-0 overflow-hidden': isSidebarCollapsed}">Dashboard</span>
-            </NuxtLink>
-          </li>
+            <ul class="space-y-2">
+              <li>
+                <NuxtLink to="/" class="nav-link">
+                  <UIcon name="i-heroicons-home" class="flex-shrink-0" /> <span v-if="!isSidebarCollapsed"></span>
+                  <span class="transition-all duration-300" :class="{'opacity-0 max-w-0 overflow-hidden': isSidebarCollapsed}">Dashboard</span>
+                </NuxtLink>
+              </li>
 
-          <template v-if="profile?.perfis?.nome !== 'Consultor'">
-            <li v-for="menu in filteredMenuItems" :key="menu.label">
+              <template v-if="profile?.perfis?.nome !== 'Consultor'">
+                <li v-for="menu in displayedMenuItems" :key="menu.label">
               <UAccordion :items="[menu]" variant="ghost" :ui="{ 'item': { 'padding': 'p-0' } }">
                 <template #default="{ item, open }">
                   <UButton color="gray" variant="ghost" class="nav-link w-full" :class="[isSidebarCollapsed ? 'justify-center' : 'justify-between']">
@@ -111,6 +111,25 @@ import { computed } from 'vue';
 const { profile } = useProfile();
 // NOVO: Usa o composable para obter os itens de menu filtrados
 const { menuItems, filteredMenuItems } = useMenu();
+
+// Computed que determina quais itens devem ser exibidos no menu
+// Por padrão usamos o filteredMenuItems. Porém, quando o utilizador está
+// na página principal (Dashboard) e o perfil for 'Backoffice', mostramos
+// apenas os menus 'Propostas' e 'Backoffice' conforme solicitado.
+
+const displayedMenuItems = computed(() => {
+  try {
+    const isDashboardRoot = route.path === '/';
+    const userProfile = profile?.perfis?.nome;
+    if (isDashboardRoot && userProfile === 'Backoffice') {
+      // Filtra apenas Propostas e Backoffice do conjunto já filtrado por perfis
+      return filteredMenuItems.value.filter(item => ['Propostas', 'Backoffice'].includes(item.label));
+    }
+    return filteredMenuItems.value;
+  } catch (e) {
+    return filteredMenuItems.value;
+  }
+});
 
 // Lógica para o modo escuro (dark mode)
 const colorMode = useColorMode();

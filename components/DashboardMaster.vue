@@ -72,8 +72,8 @@
   <!-- Ranking de Lojas (global) -->
   <RankingStores v-if="rankedStores.length > 0" :stores="rankedStores" :columns="metasColumns" title="Ranking de Lojas (Multi Volume)" />
 
-  <!-- Ranking de Usuários (Geral para Master) -->
-  <RankingUsers v-if="consultores && consultores.length > 0" :consultores="consultores" :currentUserId="profile.value?.id" profileType="master" :formatCurrency="formatCurrency" />
+  <!-- Ranking de Usuários (Geral para Master) - CORREÇÃO: Garante que `profile.value` existe antes de aceder a `id` -->
+  <RankingUsers v-if="consultores && consultores.length > 0 && profile?.value?.id" :consultores="consultores" :currentUserId="profile.value.id" profileType="master" :formatCurrency="formatCurrency" />
 
   <!-- Tabela de Desempenho Individual -->
       <UCard v-if="desempenhoConsultores.length > 0" class="mb-8">

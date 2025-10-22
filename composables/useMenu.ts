@@ -32,7 +32,7 @@ const menuItems = [
     label: 'Propostas',
     icon: 'i-heroicons-bookmark-square',
     slot: 'item',
-    profiles: ['Master', 'Backoffice', 'Coordenador', 'Consultor'],
+    profiles: ['Master', 'Backoffice', 'Coordenador', 'Supervisor', 'Consultor'],
     links: [
       { label: 'Contratos', to: '/backoffice/contratos', icon: 'i-heroicons-document-chart-bar' },
       { label: 'Clientes', to: '/backoffice/clientes', icon: 'i-heroicons-user-group' }
