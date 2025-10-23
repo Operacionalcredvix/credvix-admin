@@ -60,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { formatISO, parseISO, startOfMonth, endOfMonth, subDays } from 'date-fns'
 
 // Flatpickr types (loaded dynamically)
@@ -146,6 +146,8 @@ onMounted(async () => {
     }
 
     flatpickrLoaded.value = true
+    await nextTick() // garante que o input do flatpickr exista no DOM
+    if (!fpInput.value) throw new Error('Flatpickr input não encontrado')
     // inicializa instância
     fpInstance = Flatpickr(fpInput.value as HTMLInputElement, {
       mode: 'range',

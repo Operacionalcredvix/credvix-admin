@@ -45,6 +45,71 @@
         color-class="text-primary-500" />
     </div>
 
+    <!-- Card de Diárias (Consignado) -->
+    <UCard v-if="!pending && dashboardData?.diarias" class="border-primary-200/50">
+      <template #header>
+        <div class="flex flex-col gap-2 w-full">
+          <div class="flex items-center gap-2 justify-between">
+            <div class="flex items-center gap-2">
+              <UIcon name="i-heroicons-calendar" class="text-primary-500" />
+              <h3 class="font-semibold">Diárias de Consignado</h3>
+              <UTooltip text="Meta Diária = Soma das metas de consignado do mês ÷ dias úteis (Seg-Sáb). Pago Hoje conta contratos pagos no dia selecionado e também no acumulado do período." placement="right">
+                <UIcon name="i-heroicons-question-mark-circle" class="text-gray-400 dark:text-gray-500" />
+              </UTooltip>
+            </div>
+
+            <!-- Filtros específicos de Diárias -->
+            <div class="flex items-center gap-3">
+              <UCheckbox v-model="diariasUseMonth" label="Usar mês do dia" />
+              <UInput v-model="diariasSelectedStr" type="date" class="w-40" />
+            </div>
+          </div>
+        </div>
+      </template>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+          <div class="text-sm text-gray-500">Meta do Mês</div>
+          <div class="text-2xl font-semibold">{{ formatCurrency(diarias.total_meta_consignado || 0) }}</div>
+        </div>
+        <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+          <div class="text-sm text-gray-500">Dias Úteis</div>
+          <div class="text-2xl font-semibold">{{ diarias.dias_uteis_mes || 0 }}</div>
+        </div>
+        <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+          <div class="text-sm text-gray-500">Meta Diária</div>
+          <div class="text-2xl font-semibold">{{ formatCurrency(diarias.meta_diaria || 0) }}</div>
+        </div>
+
+        <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+          <div class="text-sm text-gray-500">Pago Hoje</div>
+          <div class="text-2xl font-semibold">{{ formatCurrency(diarias.pago_consignado_hoje || 0) }}</div>
+        </div>
+        <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+          <div class="text-sm text-gray-500">Desvio do Dia</div>
+          <div class="text-2xl font-semibold" :class="diarias.desvio_hoje >= 0 ? 'text-green-600' : 'text-red-600'">
+            {{ formatCurrency(diarias.desvio_hoje || 0) }}
+          </div>
+        </div>
+        <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+          <div class="text-sm text-gray-500">Acumulado no Mês</div>
+          <div class="text-2xl font-semibold">{{ formatCurrency(diarias.pago_consignado_acumulado || 0) }}</div>
+        </div>
+
+        <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+          <div class="text-sm text-gray-500">Saldo da Meta</div>
+          <div class="text-2xl font-semibold">{{ formatCurrency(diarias.saldo_meta_mes || 0) }}</div>
+        </div>
+        <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+          <div class="text-sm text-gray-500">Dias Restantes</div>
+          <div class="text-2xl font-semibold">{{ diarias.dias_restantes || 0 }}</div>
+        </div>
+        <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+          <div class="text-sm text-gray-500">Projeção do Mês</div>
+          <div class="text-2xl font-semibold">{{ formatCurrency(diarias.projecao_mes || 0) }}</div>
+        </div>
+      </div>
+    </UCard>
+
     <div v-if="!pending && dashboardData" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
       <!-- NOVO: Gráfico de Linha para Evolução Diária -->
       <UCard class="lg:col-span-2">
@@ -112,6 +177,20 @@ const dateRange = ref({
 
 const selectedBanco = ref<number | null>(null)
 
+// Filtros específicos do card de Diárias
+const diariasSelectedStr = ref(format(new Date(), 'yyyy-MM-dd'))
+const diariasUseMonth = ref(true)
+const diariasWindow = computed(() => {
+  const day = new Date(diariasSelectedStr.value)
+  if (Number.isNaN(day.getTime())) {
+    // fallback para o range geral
+    return { start: dateRange.value.start, end: dateRange.value.end }
+  }
+  return diariasUseMonth.value
+    ? { start: startOfMonth(day), end: endOfMonth(day) }
+    : { start: day, end: day }
+})
+
 // --- BUSCA DE DADOS PARA FILTROS ---
 const { data: bancosList } = useAsyncData('bancos-list-backoffice', async () => {
   const { data, error } = await useSupabaseClient().from('bancos').select('id, nome_instituicao').order('nome_instituicao')
@@ -126,7 +205,10 @@ const { data: dashboardData, pending, refresh } = await useAsyncData(
     const { data, error } = await supabase.rpc('get_dashboard_data_backoffice', {
       p_start_date: format(dateRange.value.start, 'yyyy-MM-dd'),
       p_end_date: format(dateRange.value.end, 'yyyy-MM-dd'),
-      p_banco_id: selectedBanco.value // Passa o banco selecionado
+      p_banco_id: selectedBanco.value, // Passa o banco selecionado
+      p_diarias_start_date: format(diariasWindow.value.start, 'yyyy-MM-dd'),
+      p_diarias_end_date: format(diariasWindow.value.end, 'yyyy-MM-dd'),
+      p_diarias_ref_day: diariasSelectedStr.value
     })
     if (error) {
       console.error('Erro ao buscar dados do dashboard de backoffice:', error)
@@ -136,12 +218,13 @@ const { data: dashboardData, pending, refresh } = await useAsyncData(
         statusChart: {},
         bancosChart: {},
         produtosChart: {},
-        dailyPaidChart: {}
+        dailyPaidChart: {},
+        diarias: {}
       }
     }
     return data
   },
-  { watch: [dateRange, selectedBanco] } // Re-executa a busca quando o banco mudar
+  { watch: [dateRange, selectedBanco, diariasSelectedStr, diariasUseMonth] } // Re-executa a busca quando filtros mudarem
 )
 
 const hasData = (d: any) => d && Object.keys(d).length > 0;
@@ -197,4 +280,8 @@ const pieChartOptions = computed(() => ({
   maintainAspectRatio: false,
   plugins: { legend: { position: 'top' as const, align: 'start' as const } }
 }))
+
+// Acesso seguro ao objeto diárias
+const diarias = computed(() => (dashboardData?.value?.diarias || {}))
+export type __avoid_unused_exports = typeof diariasUseMonth
 </script>
