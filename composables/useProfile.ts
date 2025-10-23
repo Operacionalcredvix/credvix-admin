@@ -18,8 +18,7 @@ export const useProfile = () => {
 
     const { data, error } = await client
       .from('funcionarios')
-      // CORREÇÃO: Adicionado 'avatar_url' à seleção de campos
-      .select('*, perfis(nome), lider:gerente_id(nome_completo), lojas(nome, regionais(nome_regional))')
+      .select('*, perfis(nome), lider:gerente_id(nome_completo), lojas(id, nome, regional_id, regionais(id, nome_regional))')
       .eq('user_id', user.value.id)
       .single();
 
@@ -27,8 +26,16 @@ export const useProfile = () => {
       console.error('[useProfile] Erro ao buscar perfil:', error);
       profile.value = null;
     } else {
-      // perfil carregado
-      profile.value = data;
+      // Extrai campos da loja para facilitar acesso
+      const lojaData = data.lojas;
+      const regionalData = lojaData?.regionais;
+      
+      profile.value = {
+        ...data,
+        loja_nome: lojaData?.nome || null,
+        regional_id: lojaData?.regional_id || null,
+        nome_regional: regionalData?.nome_regional || null
+      };
     }
   };
 
