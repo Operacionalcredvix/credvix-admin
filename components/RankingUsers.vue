@@ -5,15 +5,15 @@
       <template #header>
         <div class="flex items-center gap-2">
           <UIcon name="i-heroicons-building-office" class="text-xl text-primary-500" />
-          <h3 class="font-semibold">
-            Ranking da Loja
-            <span v-if="currentStoreRank" class="text-primary-500">(Sua posição: {{ currentStoreRank }}º)</span>
-            <span v-else class="text-sm text-gray-400 ml-2">Sua posição não disponível</span>
-          </h3>
+          <h3 class="font-semibold">Ranking da Loja</h3>
         </div>
       </template>
 
-      <UTable :rows="storeRanking" :columns="columns">
+      <div v-if="!storeRanking || storeRanking.length === 0" class="text-center py-6 text-gray-500">
+        <p>Nenhum consultor no ranking da loja.</p>
+      </div>
+
+      <UTable v-else :rows="storeRanking" :columns="columns">
         <template #rank-data="{ row }">
           <span v-if="row.rank === 1"><UIcon name="i-heroicons-trophy" class="text-xl text-yellow-500" /></span>
           <span v-else-if="row.rank === 2"><UIcon name="i-heroicons-trophy" class="text-xl text-gray-500" /></span>
@@ -41,15 +41,15 @@
       <template #header>
         <div class="flex items-center gap-2">
           <UIcon name="i-heroicons-map" class="text-xl text-primary-500" />
-          <h3 class="font-semibold">
-            Ranking Regional
-            <span v-if="currentRegionalRank" class="text-primary-500">(Sua posição: {{ currentRegionalRank }}º)</span>
-            <span v-else class="text-sm text-gray-400 ml-2">Sua posição não disponível</span>
-          </h3>
+          <h3 class="font-semibold">Ranking Regional</h3>
         </div>
       </template>
 
-      <UTable :rows="regionalRanking" :columns="columns">
+      <div v-if="!regionalRanking || regionalRanking.length === 0" class="text-center py-6 text-gray-500">
+        <p>Nenhum consultor no ranking regional.</p>
+      </div>
+
+      <UTable v-else :rows="regionalRanking" :columns="columns">
         <template #rank-data="{ row }">
           <span v-if="row.rank === 1"><UIcon name="i-heroicons-trophy" class="text-xl text-yellow-500" /></span>
           <span v-else-if="row.rank === 2"><UIcon name="i-heroicons-trophy" class="text-xl text-gray-500" /></span>
@@ -77,15 +77,15 @@
       <template #header>
         <div class="flex items-center gap-2">
           <UIcon name="i-heroicons-globe-americas" class="text-xl text-primary-500" />
-          <h3 class="font-semibold">
-            Ranking Geral
-            <span v-if="currentGlobalRank" class="text-primary-500">(Sua posição: {{ currentGlobalRank }}º)</span>
-            <span v-else class="text-sm text-gray-400 ml-2">Sua posição não disponível</span>
-          </h3>
+          <h3 class="font-semibold">Ranking Geral</h3>
         </div>
       </template>
 
-      <UTable :rows="globalRanking" :columns="columns">
+      <div v-if="!globalRanking || globalRanking.length === 0" class="text-center py-6 text-gray-500">
+        <p>Nenhum consultor no ranking geral.</p>
+      </div>
+
+      <UTable v-else :rows="globalRanking" :columns="columns">
         <template #rank-data="{ row }">
           <span v-if="row.rank === 1"><UIcon name="i-heroicons-trophy" class="text-xl text-yellow-500" /></span>
           <span v-else-if="row.rank === 2"><UIcon name="i-heroicons-trophy" class="text-xl text-gray-500" /></span>
@@ -120,6 +120,7 @@ const props = defineProps({
   lojaId: { type: [Number, String], default: null },
   regionalId: { type: [Number, String], default: null },
   // Overrides opcionais para exibir os rankings mesmo quando o profileType padrão não permitir
+  showStoreRanking: { type: Boolean, required: false },
   showRegionalRanking: { type: Boolean, required: false },
   showGlobalRanking: { type: Boolean, required: false },
   formatCurrency: { type: Function, required: true }
@@ -184,7 +185,10 @@ const showRegionalRanking = computed(() => {
   if (typeof props.showRegionalRanking !== 'undefined') return props.showRegionalRanking;
   return ['coordenador', 'supervisor', 'consultor'].includes(props.profileType);
 });
-const showStoreRanking = computed(() => ['supervisor', 'consultor'].includes(props.profileType));
+const showStoreRanking = computed(() => {
+  if (typeof props.showStoreRanking !== 'undefined') return props.showStoreRanking;
+  return ['supervisor', 'consultor'].includes(props.profileType);
+});
 
 const getRankColor = (rank) => {
   if (rank === 1) return 'amber';

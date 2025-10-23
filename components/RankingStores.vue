@@ -3,22 +3,22 @@
     <template #header>
       <div class="flex items-center gap-2">
         <UIcon name="i-heroicons-trophy" class="text-xl text-amber-500" />
-        <h3 class="font-semibold">
-          {{ title }}
-          <span v-if="currentStoreGlobalRank">
-            (Sua loja: {{ currentStoreGlobalRank }}º
-            Geral)
-          </span>
-        </h3>
+        <div class="flex flex-col">
+          <h3 class="font-semibold">{{ title }}</h3>
+          <div v-if="currentStoreGlobalRank || currentStoreRegionalRank" class="flex items-center gap-2 text-sm mt-1">
+            <UBadge v-if="currentStoreGlobalRank" :color="getStoreRankColor(currentStoreGlobalRank)" variant="subtle" :label="`Sua loja: #${currentStoreGlobalRank} Global`" />
+            <UBadge v-if="currentStoreRegionalRank" :color="getStoreRankColor(currentStoreRegionalRank)" variant="subtle" :label="`#${currentStoreRegionalRank} Regional`" />
+          </div>
+        </div>
       </div>
     </template>
 
-    <div v-if="!stores || stores.length === 0" class="text-center py-6 text-gray-500">
+    <div v-if="!rankedStores || rankedStores.length === 0" class="text-center py-6 text-gray-500">
       <p>Nenhum item no ranking.</p>
     </div>
 
     <div v-else>
-      <UTable :rows="stores" :columns="columns">
+      <UTable :rows="rankedStores" :columns="columns">
        <template #rank-data="{ row }">
           <span v-if="row.rank === 1">
             <UIcon name="i-heroicons-trophy" class="text-xl text-yellow-500" />
@@ -69,6 +69,8 @@ const props = defineProps({
   title: { type: String, default: 'Ranking de Lojas' }
 });
 
+// Computed para rankear o array de stores que será exibido na tabela
+const rankedStores = computed(() => computeRanked(props.stores));
 
 const globalRanked = computed(() => computeRanked(props.allStores || props.stores));
 const regionalRanked = computed(() => {
@@ -115,6 +117,14 @@ const getRankColor = (rank) => {
   if (rank === 2) return 'gray';
   if (rank === 3) return 'orange';
   return 'gray';
+};
+
+const getStoreRankColor = (rank) => {
+  if (!rank) return 'gray';
+  if (rank === 1) return 'yellow'; // Ouro
+  if (rank === 2) return 'gray'; // Prata
+  if (rank === 3) return 'orange'; // Bronze
+  return 'primary'; // Demais posições
 };
 
 </script>

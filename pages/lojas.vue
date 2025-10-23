@@ -10,7 +10,7 @@
     <UCard>
       <template #header>
         <div class="flex justify-between items-center">
-          <h2 class="font-semibold text-lg">Lojas Registadas</h2>
+          <h2 class="font-semibold text-lg">Lojas Registradas</h2>
           <UInput v-model="searchTerm" placeholder="Filtrar por nome..." icon="i-heroicons-magnifying-glass" />
         </div>
       </template>
