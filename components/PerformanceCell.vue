@@ -28,5 +28,9 @@ const colorClass = computed(() => {
   return 'text-red-500';
 });
 
-const progressColor = computed(() => colorClass.value.replace('text-', ''));
+const progressColor = computed(() => {
+  if (percentage.value >= 100) return 'green';
+  if (percentage.value >= 75) return 'yellow';
+  return 'red';
+});
 </script>

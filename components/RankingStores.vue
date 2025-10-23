@@ -113,17 +113,18 @@ const getProgressBarColor = (percentage) => {
 };
 
 const getRankColor = (rank) => {
-  if (rank === 1) return 'amber';
-  if (rank === 2) return 'gray';
-  if (rank === 3) return 'orange';
+  // Usa tokens suportados por UBadge
+  if (rank === 1) return 'yellow'; // Ouro
+  if (rank === 2) return 'gray';   // Prata
+  if (rank === 3) return 'yellow'; // Bronze (fallback para yellow)
   return 'gray';
 };
 
 const getStoreRankColor = (rank) => {
   if (!rank) return 'gray';
   if (rank === 1) return 'yellow'; // Ouro
-  if (rank === 2) return 'gray'; // Prata
-  if (rank === 3) return 'orange'; // Bronze
+  if (rank === 2) return 'gray';   // Prata
+  if (rank === 3) return 'yellow'; // Bronze (fallback para yellow)
   return 'primary'; // Demais posições
 };
 
