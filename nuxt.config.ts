@@ -25,7 +25,12 @@ export default defineNuxtConfig({
             // A sessão será encerrada quando o navegador/aba for fechado.
             persistSession: true
           }
-        }
+        },
+        redirectOptions: {
+      login: '/login',
+      callback: '/confirm',
+      exclude: ['/'],
+    }
       }
     }
   },
