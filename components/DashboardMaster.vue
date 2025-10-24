@@ -49,21 +49,35 @@
 
         <UCard>
            <template #header>
-            <div class="flex items-center gap-2">
-              <UIcon name="i-heroicons-arrow-trending-up" class="text-xl text-primary-500" />
-              <h3 class="font-semibold">Vendas Externas</h3>
+            <div class="flex items-center justify-between w-full">
+              <div class="flex items-center gap-2">
+                <UIcon name="i-heroicons-shield-check" class="text-xl text-primary-500" />
+                <div>
+                  <h3 class="font-semibold">Seguros</h3>
+                  <p class="text-xs text-gray-500 mt-0.5">Mês atual</p>
+                </div>
+              </div>
+              <UPopover :popper="{ placement: 'bottom-end' }">
+                <UButton icon="i-heroicons-calendar" size="xs" color="gray" variant="ghost" />
+                <template #panel="{ close }">
+                  <div class="p-4 w-64">
+                    <p class="text-sm font-medium mb-2">Filtrar por data</p>
+                    <UInput type="date" v-model="segurosDateFilter" @change="close" />
+                  </div>
+                </template>
+              </UPopover>
             </div>
           </template>
           <div class="grid grid-cols-2 gap-4 text-center">
             <div class="flex flex-col items-center justify-center">
               <UIcon name="i-heroicons-heart" class="text-3xl text-rose-500" />
               <p class="text-sm text-gray-500 mt-2">BMG MED</p>
-              <p class="text-2xl font-bold">{{ stats.bmgMed }}</p>
+              <p class="text-2xl font-bold">{{ segurosStats.bmgMed || 0 }}</p>
             </div>
             <div class="flex flex-col items-center justify-center">
               <UIcon name="i-heroicons-shield-check" class="text-3xl text-sky-500" />
               <p class="text-sm text-gray-500 mt-2">Seguro Familiar</p>
-              <p class="text-2xl font-bold">{{ stats.seguroFamiliar }}</p>
+              <p class="text-2xl font-bold">{{ segurosStats.seguroFamiliar || 0 }}</p>
             </div>
           </div>
         </UCard>
@@ -180,6 +194,7 @@
 
 <script setup>
 import { ref, reactive, computed } from 'vue';
+import { format } from 'date-fns';
 import { Bar, Doughnut } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement } from 'chart.js';
 import PerformanceCell from '~/components/PerformanceCell.vue';
@@ -199,6 +214,9 @@ const dateRange = reactive({ start: '', end: '' });
 
 // --- CORREÇÃO: Inicializa a variável para o filtro de metas ---
 const selectedPeriod = ref(new Date().toISOString().slice(0, 7)); // Formato YYYY-MM
+
+// --- FILTRO ESPECÍFICO PARA SEGUROS (mês atual por padrão) ---
+const segurosDateFilter = ref(new Date().toISOString().split('T')[0]);
 
 // --- LÓGICA DE DATAS ---
 const setDateRange = (period) => {
@@ -274,6 +292,55 @@ const { data: metasProgresso, pending: metasPending } = useAsyncData('metas-prog
   if (error) toast.add({ title: 'Erro ao buscar metas', description: error.message, color: 'red' });
   return data || [];
 }, { watch: [selectedPeriod, selectedRegional] }); // CORREÇÃO: Observa a variável correta
+
+// --- BUSCA SEPARADA DE SEGUROS (VENDAS EXTERNAS) ---
+const { data: segurosData } = await useAsyncData('seguros-master', async () => {
+  if (!segurosDateFilter.value) return null;
+
+  // Calcular início e fim do mês selecionado
+  const selectedDate = new Date(segurosDateFilter.value);
+  const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+  const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0, 23, 59, 59);
+  
+  const startStr = startOfMonth.toISOString().split('T')[0];
+  const endStr = endOfMonth.toISOString().split('T')[0];
+
+  let query = supabase
+    .from('vendas_externas')
+    .select('tipo_produto, quantidade')
+    .gte('data_venda', startStr)
+    .lte('data_venda', endStr);
+
+  if (selectedRegional.value) {
+    query = query.eq('regional_id', selectedRegional.value);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    toast.add({ title: 'Erro ao buscar seguros', description: error.message, color: 'red' });
+    return null;
+  }
+
+  // Agregar por tipo de produto (robusto a variações de texto)
+  const normalizeTipo = (v) => String(v || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_');
+
+  const result = { bmgMed: 0, seguroFamiliar: 0 };
+  (data || []).forEach(item => {
+    const t = normalizeTipo(item.tipo_produto);
+    if (t === 'bmg_med') {
+      result.bmgMed += item.quantidade || 0;
+    } else if (t === 'seguro_familiar') {
+      result.seguroFamiliar += item.quantidade || 0;
+    }
+  });
+
+  return result;
+}, { watch: [segurosDateFilter, selectedRegional] });
+
+const segurosStats = computed(() => segurosData.value || { bmgMed: 0, seguroFamiliar: 0 });
 
 // --- CÁLCULOS E FORMATAÇÃO ---
 const hasData = computed(() => dashboardData.value && dashboardData.value.stats?.total > 0);

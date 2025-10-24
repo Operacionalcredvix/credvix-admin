@@ -1,7 +1,7 @@
 <template>
   <div>
     <header class="mb-8">
-      <h1 class="text-primary-500 text-3xl font-bold">Importação de Vendas Externas</h1>
+      <h1 class="text-primary-500 text-3xl font-bold">Importação de Seguros</h1>
       <p class="text-gray-500 mt-1">Importe dados de BMG MED e Seguro Familiar a partir de ficheiros Excel.</p>
     </header>
 
@@ -56,15 +56,83 @@
           </div>
 
         </div>
-
-        <template #footer>
-          <div class="flex justify-end">
-            <UButton @click="processImport" :disabled="!file || readingFile || validationErrors.length > 0" :loading="importing">
-              Iniciar Importação
-            </UButton>
-          </div>
-        </template>
       </UCard>
+
+      <!-- Modal de Preview -->
+      <UModal v-model="showPreview" :ui="{ width: 'max-w-6xl' }">
+        <UCard>
+          <template #header>
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-semibold">Preview da Importação</h3>
+              <UBadge :label="`${previewData.length} registos`" color="primary" />
+            </div>
+          </template>
+
+          <div class="space-y-4">
+            <UAlert color="primary" variant="soft" icon="i-heroicons-information-circle">
+              <template #title>Confira os dados antes de confirmar</template>
+              <template #description>
+                Verifique se todos os vínculos estão corretos (✓ verde = vinculado com sucesso).
+              </template>
+            </UAlert>
+
+            <div class="max-h-96 overflow-y-auto">
+              <UTable :rows="previewData" :columns="previewColumns">
+                <template #rowNumber-data="{ row }">
+                  <span class="text-xs text-gray-500">Linha {{ row.rowNumber }}</span>
+                </template>
+
+                <template #consultor-data="{ row }">
+                  <div class="flex items-center gap-1">
+                    <UIcon v-if="row.vinculado.consultor" name="i-heroicons-check-circle" class="text-green-500" />
+                    <UIcon v-else name="i-heroicons-x-circle" class="text-red-500" />
+                    <span>{{ row.consultor }}</span>
+                  </div>
+                </template>
+
+                <template #supervisor-data="{ row }">
+                  <div class="flex items-center gap-1">
+                    <UIcon v-if="row.vinculado.supervisor" name="i-heroicons-check-circle" class="text-green-500" />
+                    <UIcon v-else name="i-heroicons-x-circle" class="text-red-500" />
+                    <span>{{ row.supervisor }}</span>
+                  </div>
+                </template>
+
+                <template #coordenador-data="{ row }">
+                  <div class="flex items-center gap-1">
+                    <UIcon v-if="row.vinculado.coordenador" name="i-heroicons-check-circle" class="text-green-500" />
+                    <UIcon v-else name="i-heroicons-x-circle" class="text-red-500" />
+                    <span>{{ row.coordenador }}</span>
+                  </div>
+                </template>
+
+                <template #franquia-data="{ row }">
+                  <div class="flex items-center gap-1">
+                    <UIcon v-if="row.vinculado.loja" name="i-heroicons-check-circle" class="text-green-500" />
+                    <UIcon v-else name="i-heroicons-x-circle" class="text-red-500" />
+                    <span>{{ row.franquia }}</span>
+                  </div>
+                </template>
+
+                <template #dataContrato-data="{ row }">
+                  <span class="text-sm">{{ new Date(row.dataContrato).toLocaleDateString('pt-BR') }}</span>
+                </template>
+              </UTable>
+            </div>
+          </div>
+
+          <template #footer>
+            <div class="flex justify-end gap-2">
+              <UButton color="gray" variant="ghost" @click="cancelImport" :disabled="importing">
+                Cancelar
+              </UButton>
+              <UButton color="primary" @click="confirmImport" :loading="importing">
+                Confirmar Importação
+              </UButton>
+            </div>
+          </template>
+        </UCard>
+      </UModal>
     </div>
   </div>
 </template>
@@ -84,10 +152,12 @@ const readingFile = ref(false);
 const parsedData = ref([]);
 const validationErrors = ref([]);
 const importSummary = reactive({ total: 0 });
+const showPreview = ref(false);
+const previewData = ref([]);
 
 const importOptions = [
-  { label: 'Metas de BMG MED', value: 'bmg_med' },
-  { label: 'Metas de Seguro Familiar', value: 'seguro_familiar' }
+  { label: 'BMG MED', value: 'bmg_med' },
+  { label: 'Seguro Familiar', value: 'seguro_familiar' }
 ];
 
 definePageMeta({
@@ -96,7 +166,7 @@ definePageMeta({
 });
 
 const expectedColumns = computed(() => {
-  const base = 'Franquia, Consultor, Adesão, data Contrato';
+  const base = 'Franquia, Consultor, Supervisor, Coordenador, Adesão, Data Contrato';
   if (importType.value === 'bmg_med') return `${base}, Qtd Seguros Bmg Med`;
   if (importType.value === 'seguro_familiar') return `${base}, Qtd Seguro Familiar`;
   return base;
@@ -143,7 +213,15 @@ const handleFileSelect = async (event) => {
     // Lê o JSON com os cabeçalhos originais.
     const rawJsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
     const header = rawJsonData[0];
-    const headerNormalized = header.map(h => String(h).toLowerCase().trim().replace(/\s+/g, ''));
+    // Normaliza: lowercase, remove espaços e acentos
+    const headerNormalized = header.map(h => 
+      String(h)
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+    );
     
     // Converte para o formato de objeto com chaves normalizadas.
     const jsonData = XLSX.utils.sheet_to_json(worksheet, {
@@ -186,7 +264,16 @@ const handleFileSelect = async (event) => {
           tipo_produto: importType.value,
           data_venda: row.datacontrato,
           quantidade: parseInt(row[qtyColumn]),
-          adesao: row.adesão // CORREÇÃO: Acessa a propriedade com o nome normalizado correto.
+          adesao: row.adesao, // Agora sem acento após normalização
+          // Dados para preview
+          _preview: {
+            consultor: row.consultor,
+            supervisor: row.supervisor,
+            coordenador: row.coordenador,
+            franquia: row.franquia,
+            dataContrato: row.datacontrato,
+            quantidade: parseInt(row[qtyColumn])
+          }
         });
       }
     });
@@ -194,6 +281,21 @@ const handleFileSelect = async (event) => {
     validationErrors.value = errors;
     parsedData.value = dataToImport;
     importSummary.total = dataToImport.length;
+
+    // Se não houver erros, mostra o preview
+    if (errors.length === 0 && dataToImport.length > 0) {
+      previewData.value = dataToImport.map((item, idx) => ({
+        ...item._preview,
+        rowNumber: idx + 2,
+        vinculado: {
+          consultor: !!item.consultor_id,
+          supervisor: !!item.supervisor_id,
+          coordenador: !!item.coordenador_id,
+          loja: !!item.loja_id
+        }
+      }));
+      showPreview.value = true;
+    }
 
   } catch (error) {
     toast.add({ title: 'Erro ao ler arquivo', description: error.message, color: 'red' });
@@ -205,21 +307,24 @@ const handleFileSelect = async (event) => {
   }
 };
 
-const processImport = async () => {
-  if (parsedData.value.length === 0 || validationErrors.value.length > 0) {
-    toast.add({ title: 'Atenção', description: 'Nenhum dado válido para importar.', color: 'amber' });
-    return;
-  }
+const confirmImport = async () => {
   importing.value = true;
 
   try {
-    const { error } = await supabase.from('vendas_externas').upsert(parsedData.value, {
+    // Remove o campo _preview antes de inserir
+    const dataToInsert = parsedData.value.map(({ _preview, ...rest }) => rest);
+    
+    const { error } = await supabase.from('vendas_externas').upsert(dataToInsert, {
       onConflict: 'adesao, tipo_produto' // Chave única para evitar duplicados
     });
 
     if (error) throw error;
 
-    toast.add({ title: 'Sucesso!', description: `${parsedData.value.length} registos foram importados/atualizados.` });
+    toast.add({ 
+      title: 'Sucesso!', 
+      description: `${dataToInsert.length} registos de seguros foram importados/atualizados.`,
+      color: 'green'
+    });
     resetForm();
   } catch (error) {
     console.error('Erro na importação:', error);
@@ -229,10 +334,27 @@ const processImport = async () => {
   }
 };
 
+const cancelImport = () => {
+  showPreview.value = false;
+  resetForm();
+};
+
 const resetForm = () => {
   file.value = null;
   parsedData.value = [];
   validationErrors.value = [];
+  previewData.value = [];
+  showPreview.value = false;
   Object.assign(importSummary, { total: 0 });
 };
+
+const previewColumns = [
+  { key: 'rowNumber', label: '#' },
+  { key: 'franquia', label: 'Franquia' },
+  { key: 'consultor', label: 'Consultor' },
+  { key: 'supervisor', label: 'Supervisor' },
+  { key: 'coordenador', label: 'Coordenador' },
+  { key: 'dataContrato', label: 'Data' },
+  { key: 'quantidade', label: 'Qtd' }
+];
 </script>

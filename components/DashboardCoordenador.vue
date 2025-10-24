@@ -46,6 +46,41 @@
             <div class="col-span-2 md:col-span-3 lg:col-span-1 border-t lg:border-t-0 lg:border-l pt-4 lg:pt-0 lg:pl-4 mt-4 lg:mt-0"><p class="text-sm text-gray-500">Valor Total Pago</p><p class="text-2xl font-bold text-green-400">{{ formatCurrency(stats.valorTotal) }}</p></div>
           </div>
         </UCard>
+
+        <!-- Card Seguros (agregado por regional do coordenador) -->
+        <UCard>
+          <template #header>
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <UIcon name="i-heroicons-shield-check" class="text-xl text-primary-500" />
+                <div>
+                  <h3 class="font-semibold">Seguros</h3>
+                  <p class="text-xs text-gray-500 mt-0.5">Mês atual</p>
+                </div>
+              </div>
+              <UPopover :popper="{ placement: 'bottom-end' }">
+                <UButton icon="i-heroicons-calendar" size="xs" color="gray" variant="ghost" />
+                <template #panel>
+                  <div class="p-4">
+                    <UInput type="date" v-model="segurosDateFilter" label="Filtrar por data" />
+                  </div>
+                </template>
+              </UPopover>
+            </div>
+          </template>
+          <div class="grid grid-cols-2 gap-4 text-center">
+            <div class="flex flex-col items-center justify-center">
+              <UIcon name="i-heroicons-heart" class="text-3xl text-rose-500" />
+              <p class="text-sm text-gray-500 mt-2">BMG MED</p>
+              <p class="text-2xl font-bold">{{ segurosStats.bmgMed || 0 }}</p>
+            </div>
+            <div class="flex flex-col items-center justify-center">
+              <UIcon name="i-heroicons-shield-check" class="text-3xl text-sky-500" />
+              <p class="text-sm text-gray-500 mt-2">Seguro Familiar</p>
+              <p class="text-2xl font-bold">{{ segurosStats.seguroFamiliar || 0 }}</p>
+            </div>
+          </div>
+        </UCard>
       </div>
       <!-- NOVO: Card de Ranking de Lojas (componente reutilizável) -->
       <RankingStores 
@@ -202,6 +237,7 @@ const selectedRegional = ref(null);
 const dateRange = reactive({ start: '', end: '' });
 // --- CORREÇÃO: Inicializa a variável para o filtro de metas ---
 const selectedPeriod = ref(new Date().toISOString().slice(0, 7)); // Formato YYYY-MM
+const segurosDateFilter = ref(new Date().toISOString().split('T')[0]);
 
 
 // --- LÓGICA DE DATAS ---
@@ -303,6 +339,62 @@ const stats = computed(() => {
   const defaultStats = { total: 0, pagos: 0, pendentes: 0, cancelados: 0, valorTotal: 0, bmgMed: 0, seguroFamiliar: 0 };
   return dashboardData.value?.stats ? { ...defaultStats, ...dashboardData.value.stats } : defaultStats;
 });
+
+// --- BUSCA SEPARADA DE SEGUROS (VENDAS EXTERNAS) ---
+const { data: segurosData } = await useAsyncData('seguros-coordenador', async () => {
+  if (!segurosDateFilter.value) return null;
+
+  // Determinar regionais aplicáveis
+  const regionalIds = regionais.value?.map(r => r.id) || [];
+  if (regionalIds.length === 0) return null;
+
+  const alvoRegionais = selectedRegional.value ? [selectedRegional.value] : regionalIds;
+
+  // Buscar lojas dessas regionais
+  const { data: lojas } = await supabase.from('lojas').select('id, regional_id').in('regional_id', alvoRegionais);
+  const lojaIds = (lojas || []).map(l => l.id);
+  if (lojaIds.length === 0) return { bmgMed: 0, seguroFamiliar: 0 };
+
+  // Calcular início e fim do mês selecionado
+  const selectedDate = new Date(segurosDateFilter.value);
+  const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+  const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0, 23, 59, 59);
+
+  const startStr = startOfMonth.toISOString().split('T')[0];
+  const endStr = endOfMonth.toISOString().split('T')[0];
+
+  const { data, error } = await supabase
+    .from('vendas_externas')
+    .select('tipo_produto, quantidade, loja_id')
+    .gte('data_venda', startStr)
+    .lte('data_venda', endStr)
+    .in('loja_id', lojaIds);
+
+  if (error) {
+    toast.add({ title: 'Erro ao buscar seguros', description: error.message, color: 'red' });
+    return null;
+  }
+
+  // Agregar por tipo de produto (robusto a variações de texto)
+  const normalizeTipo = (v) => String(v || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_');
+
+  const result = { bmgMed: 0, seguroFamiliar: 0 };
+  (data || []).forEach(item => {
+    const t = normalizeTipo(item.tipo_produto);
+    if (t === 'bmg_med') {
+      result.bmgMed += item.quantidade || 0;
+    } else if (t === 'seguro_familiar') {
+      result.seguroFamiliar += item.quantidade || 0;
+    }
+  });
+
+  return result;
+}, { watch: [segurosDateFilter, selectedRegional, regionais] });
+
+const segurosStats = computed(() => segurosData.value || { bmgMed: 0, seguroFamiliar: 0 });
 
 const chartData = computed(() => {
   const emptyChart = { labels: [], datasets: [] };
