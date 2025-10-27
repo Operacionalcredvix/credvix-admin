@@ -9,7 +9,7 @@
         <h3 class="text-xl font-bold mt-2 transition-all duration-300" :class="{'opacity-0 w-0 h-0 overflow-hidden': isSidebarCollapsed}">Farol Credvix</h3>
       </div>
 
-      <nav class="flex-grow">
+      <nav class="flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 pr-2">
             <ul class="space-y-2">
               <li>
                 <NuxtLink to="/" class="nav-link">
@@ -271,5 +271,30 @@ const handleLogout = async () => {
 
 .nav-link-sub.router-link-exact-active {
   @apply bg-primary-700 text-white;
+}
+
+/* Scrollbar personalizado para o sidebar */
+nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+nav::-webkit-scrollbar-track {
+  background: #1f2937; /* gray-800 */
+  border-radius: 3px;
+}
+
+nav::-webkit-scrollbar-thumb {
+  background: #4b5563; /* gray-600 */
+  border-radius: 3px;
+}
+
+nav::-webkit-scrollbar-thumb:hover {
+  background: #6b7280; /* gray-500 */
+}
+
+/* Firefox scrollbar */
+nav {
+  scrollbar-width: thin;
+  scrollbar-color: #4b5563 #1f2937;
 }
 </style>
