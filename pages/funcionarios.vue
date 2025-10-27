@@ -11,6 +11,9 @@
 
         <UTable :rows="searchResults" :columns="columns" :loading="searching"
           :empty-state="{ icon: 'i-heroicons-circle-stack', label: 'Nenhum funcionário encontrado.' }">
+          <template #is_active-data="{ row }">
+            <UBadge :label="row.is_active ? 'Ativo' : 'Inativo'" :color="row.is_active ? 'green' : 'red'" variant="subtle" />
+          </template>
 
           <template #actions-data="{ row }">
             <UButton icon="i-heroicons-pencil" size="sm" color="gray" variant="ghost" @click="handleEdit(row)" />
@@ -165,11 +168,48 @@
             <UInput v-model="formData.data_saida" id="exit-date" type="date" />
           </div>
           <div class="flex items-center space-x-2 pt-4">
-            <UToggle v-model="formData.is_active" />
+            <UToggle v-model="formData.is_active" @update:modelValue="onChangeIsActive" />
             <label>Status do Funcionário Ativo</label>
           </div>
         </div>
       </UCard>
+
+      <!-- Histórico de Vínculos -->
+      <UCard v-if="formData.id && vinculosHistorico.length" class="mt-4">
+        <template #header>
+          <h3 class="text-lg font-semibold">Histórico de Vínculos</h3>
+        </template>
+        <UTable :rows="vinculosFormatados" :columns="historicoColumns"
+          :empty-state="{ icon: 'i-heroicons-clock', label: 'Sem registros de vínculo.' }">
+          <template #data_saida-data="{ row }">
+            <span>{{ row.data_saida || '—' }}</span>
+          </template>
+          <template #status-data="{ row }">
+            <UBadge :label="row.status" :color="row.status === 'Encerrado' ? 'red' : 'primary'" variant="subtle" />
+          </template>
+        </UTable>
+      </UCard>
+
+      <!-- Modal de Confirmação de Inativação -->
+      <UModal v-model="showInactivateModal">
+        <UCard>
+          <template #header>
+            <h3 class="text-lg font-semibold">Confirmar Inativação</h3>
+          </template>
+          <div class="space-y-4">
+            <p>Você está inativando este funcionário. Informe a Data de Saída para concluir.</p>
+            <UFormGroup label="Data de Saída" name="confirm_data_saida">
+              <UInput type="date" v-model="tempDataSaida" />
+            </UFormGroup>
+          </div>
+          <template #footer>
+            <div class="flex justify-end gap-2">
+              <UButton color="gray" variant="ghost" @click="cancelInactivation">Cancelar</UButton>
+              <UButton color="red" @click="confirmInactivation">Confirmar</UButton>
+            </div>
+          </template>
+        </UCard>
+      </UModal>
 
       <div class="flex justify-end pt-4">
         <UButton type="submit" :label="formButtonText" size="lg" :loading="saving" />
@@ -218,6 +258,24 @@ const columns = [
   { key: 'nome_completo', label: 'Nome Completo', sortable: true }, { key: 'perfis.nome', label: 'Perfil' },
   { key: 'lojas.nome', label: 'Loja' }, { key: 'is_active', label: 'Status' }, { key: 'actions', label: 'Ações' }
 ];
+
+// Histórico de vínculos (UI)
+const vinculosHistorico = ref([]);
+const historicoColumns = [
+  { key: 'data_admissao', label: 'Admissão' },
+  { key: 'data_saida', label: 'Saída' },
+  { key: 'status', label: 'Status' },
+];
+const formatDate = (d) => d ? new Date(d).toISOString().split('T')[0] : null;
+const vinculosFormatados = computed(() => (vinculosHistorico.value || []).map((v) => ({
+  data_admissao: formatDate(v.data_admissao),
+  data_saida: formatDate(v.data_saida),
+  status: v.data_saida ? 'Encerrado' : 'Ativo no período'
+})));
+
+// Modal de inativação
+const showInactivateModal = ref(false);
+const tempDataSaida = ref(null);
 
 // --- COMPOSABLES ---
 const { isValidCPF } = useCpfValidation();
@@ -307,6 +365,7 @@ const handleEdit = (employee) => {
   if (employee.historico_vinculos && employee.historico_vinculos.length > 0) {
     const vinculosOrdenados = [...employee.historico_vinculos].sort((a, b) => new Date(b.data_admissao) - new Date(a.data_admissao));
     vinculo = vinculosOrdenados[0];
+    vinculosHistorico.value = vinculosOrdenados;
   }
 
   // Preenche o formulário com todos os dados.
@@ -330,6 +389,31 @@ const handleEdit = (employee) => {
     isEditing = false;
   });
 };
+
+// Dispara modal ao mudar o status para inativo
+function onChangeIsActive(newVal) {
+  if (newVal === false) {
+    tempDataSaida.value = new Date().toISOString().split('T')[0];
+    showInactivateModal.value = true;
+  } else {
+    // Ativou novamente; não obriga limpar a data de saída, o submit tratará como recontratação
+  }
+}
+
+function cancelInactivation() {
+  showInactivateModal.value = false;
+  // Reverte toggle
+  formData.is_active = true;
+}
+
+function confirmInactivation() {
+  if (!tempDataSaida.value) {
+    toast.add({ title: 'Data de saída obrigatória', description: 'Informe a data de saída para inativar.', color: 'amber' });
+    return;
+  }
+  formData.data_saida = tempDataSaida.value;
+  showInactivateModal.value = false;
+}
 
 // --- LÓGICA DINÂMICA DO FORMULÁRIO ---
 const formTitle = computed(() => formData.id ? 'Editar Cadastro' : 'Novo Cadastro de Funcionário');
@@ -463,6 +547,20 @@ async function handleFormSubmit() {
       saving.value = false;
       return;
     }
+
+    // Regras de vínculo: se inativar, exigir data de saída e validar datas
+    if (formData.is_active === false) {
+      if (!formData.data_saida) {
+        toast.add({ title: 'Dados incompletos', description: 'Para inativar o funcionário, preencha a Data de Saída.', color: 'amber' });
+        saving.value = false;
+        return;
+      }
+      if (formData.data_admissao && formData.data_saida && new Date(formData.data_saida) < new Date(formData.data_admissao)) {
+        toast.add({ title: 'Datas inválidas', description: 'A Data de Saída não pode ser anterior à Data de Admissão.', color: 'red' });
+        saving.value = false;
+        return;
+      }
+    }
     // --- INÍCIO DA VALIDAÇÃO DE CPF DUPLICADO ---
     if (formData.cpf) {
       const cpfLimpo = formData.cpf.replace(/\D/g, '');
@@ -511,21 +609,56 @@ async function handleFormSubmit() {
         .eq('id', formData.id);
       if (funcError) throw funcError;
 
-      // 3. Atualiza ou cria o registo de vínculo na tabela 'historico_vinculos'.
-      // O upsert garante que, mesmo que o funcionário não tivesse um vínculo antes,
-      // ele será criado agora.
-      const vinculoData = {
-        funcionario_id: formData.id,
-        data_admissao: formData.data_admissao,
-        data_saida: formData.data_saida
-      };
+      // 3. Mantém histórico de vínculos corretamente (sem sobrescrever ciclos anteriores)
+      if (formData.vinculoId) {
+        if (formData.is_active === false) {
+          // Encerramento do vínculo atual: apenas atualiza a data de saída
+          const { error: vincUpdateErr } = await supabase
+            .from('historico_vinculos')
+            .update({ data_saida: formData.data_saida })
+            .eq('id', formData.vinculoId);
+          if (vincUpdateErr) throw vincUpdateErr;
+        } else {
+          // Funcionário ativo
+          if (formData.data_saida) {
+            // Caso de recontratação: mantém o registro antigo encerrado e cria um novo com nova admissão
+            const { error: vincInsertErr } = await supabase
+              .from('historico_vinculos')
+              .insert({ funcionario_id: formData.id, data_admissao: formData.data_admissao, data_saida: null });
+            if (vincInsertErr) throw vincInsertErr;
+          } else {
+            // Vínculo em andamento: garante data_admissao atualizada
+            const { error: vincAdmUpdateErr } = await supabase
+              .from('historico_vinculos')
+              .update({ data_admissao: formData.data_admissao, data_saida: null })
+              .eq('id', formData.vinculoId);
+            if (vincAdmUpdateErr) throw vincAdmUpdateErr;
+          }
+        }
+      } else {
+        // Não havia vínculo anterior: cria um novo registro apropriado ao status atual
+        const { error: vincCreateErr } = await supabase
+          .from('historico_vinculos')
+          .insert({
+            funcionario_id: formData.id,
+            data_admissao: formData.data_admissao,
+            data_saida: formData.is_active ? null : formData.data_saida || null
+          });
+        if (vincCreateErr) throw vincCreateErr;
+      }
 
-      // Usamos o 'funcionario_id' como chave de conflito para o upsert.
-      const { error: vincError } = await supabase
-        .from('historico_vinculos')
-        .upsert(vinculoData, { onConflict: 'funcionario_id' });
-
-      if (vincError) throw vincError;
+      // 4. Opcional: sincroniza status no Supabase Auth (ban/unban)
+      if (formData.user_id) {
+        try {
+          await $fetch('/api/users/set-active', {
+            method: 'POST',
+            body: { user_id: formData.user_id, active: formData.is_active }
+          });
+        } catch (e) {
+          // Não bloqueia o fluxo se falhar, mas registra
+          console.error('Falha ao sincronizar status no Auth:', e);
+        }
+      }
 
       toast.add({ title: 'Sucesso!', description: 'Dados do funcionário atualizados.' });
 
@@ -629,7 +762,7 @@ async function handleResetPassword(employee) {
 }
 </script>
 
-<style>
+<style lang="postcss">
 .form-label {
   @apply block text-sm font-medium text-gray-700 mb-1;
 }
