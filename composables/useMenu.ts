@@ -61,7 +61,7 @@ const menuItems = [
     links: [
       { label: 'Desempenho por Equipe', to: '/relatorios/desempenho', icon: 'i-heroicons-chart-bar' },
       { label: 'Desempenho Individual', to: '/relatorios/desempenho-individual', icon: 'i-heroicons-user-circle' },
-      { label: 'Importações Externas', to: '/admin/relatorio-importacoes', icon: 'i-heroicons-arrow-down-on-square-stack' }
+      { label: 'Relatório de Seguros', to: '/admin/relatorio-importacoes', icon: 'i-heroicons-shield-check' }
     ]
   }
 ];
