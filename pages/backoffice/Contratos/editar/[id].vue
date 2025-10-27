@@ -110,7 +110,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue';
+import { ref, reactive, computed, watch } from 'vue';
 
 definePageMeta({
   middleware: 'auth',
@@ -126,11 +126,12 @@ const contractId = route.params.id;
 
 // --- ESTADO DO FORMULÁRIO ---
 const saving = ref(false);
+const isLoadingInitialData = ref(true); // Flag para controlar carregamento inicial
 const formData = reactive({
   cliente_id: null, produto_id: null, banco_id: null, consultor_id: null,
   loja_id: null, data_contrato: null, status: null, valor_total: null,
   valor_parcela: null, prazo: null, tabela: null, numero_beneficio: null,
-  data_pagamento: null, motivo_status: null, adesao: null
+  especie_beneficio: null, data_pagamento: null, motivo_status: null, adesao: null
 });
 const statusOptions = ['Em Análise', 'Reprovado', 'Pendente', 'Pago', 'Cancelado'];
 
@@ -138,7 +139,11 @@ const statusOptions = ['Em Análise', 'Reprovado', 'Pendente', 'Pago', 'Cancelad
 const { data: contrato, pending } = await useAsyncData(`contrato-${contractId}`, async () => {
   const { data, error } = await supabase
     .from('contratos')
-    .select('*')
+    .select(`
+      *,
+      consultor:funcionarios!consultor_id(id, nome_completo),
+      loja:lojas!loja_id(id, nome)
+    `)
     .eq('id', contractId)
     .single();
 
@@ -146,20 +151,68 @@ const { data: contrato, pending } = await useAsyncData(`contrato-${contractId}`,
     toast.add({ title: 'Erro!', description: 'Não foi possível carregar o contrato.', color: 'red' });
     return null;
   }
+  
+  console.log('📝 [Edição Contrato] Dados carregados:', data);
+  
   return data;
 });
 
 // Popula o formulário com os dados carregados
-onMounted(() => {
-  if (contrato.value) {
+watch(contrato, (novoContrato) => {
+  if (novoContrato) {
+    console.log('📝 [Edição Contrato] Watch detectou dados:', novoContrato);
+    
     // Garante que a edição só é possível nos status permitidos
-    if (contrato.value.status !== 'Em Análise' && contrato.value.status !== 'Pendente') {
+    if (novoContrato.status !== 'Em Análise' && novoContrato.status !== 'Pendente') {
         toast.add({ title: 'Acesso Negado', description: 'Este contrato não pode mais ser editado.', color: 'red' });
         router.push('/backoffice/contratos');
+        return;
     }
-    Object.assign(formData, contrato.value);
+    
+    // Desabilita watchs de limpeza durante carregamento inicial
+    isLoadingInitialData.value = true;
+    
+    // Popula os campos do formulário
+    formData.cliente_id = novoContrato.cliente_id;
+    formData.produto_id = novoContrato.produto_id;
+    formData.banco_id = novoContrato.banco_id;
+    formData.loja_id = novoContrato.loja_id;
+    formData.consultor_id = novoContrato.consultor_id;
+    formData.data_contrato = novoContrato.data_contrato;
+    formData.status = novoContrato.status;
+    formData.valor_total = novoContrato.valor_total;
+    formData.valor_parcela = novoContrato.valor_parcela;
+    formData.tabela = novoContrato.tabela;
+    formData.prazo = novoContrato.prazo; // Já vem como número do banco
+    formData.numero_beneficio = novoContrato.numero_beneficio;
+    formData.especie_beneficio = novoContrato.especie_beneficio;
+    formData.data_pagamento = novoContrato.data_pagamento;
+    formData.motivo_status = novoContrato.motivo_status;
+    formData.adesao = novoContrato.adesao;
+    
+    // Reabilita watchs após 100ms (dá tempo dos dados serem aplicados)
+    setTimeout(() => {
+      isLoadingInitialData.value = false;
+      console.log('📋 [Edição Contrato] FormData populado:', {
+        prazo: formData.prazo,
+        prazo_tipo: typeof formData.prazo,
+        tabela: formData.tabela,
+        banco_id: formData.banco_id,
+        consultor_id: formData.consultor_id,
+        numero_beneficio: formData.numero_beneficio,
+        especie_beneficio: formData.especie_beneficio,
+        loja_id: formData.loja_id
+      });
+      
+      // Debug: verifica prazos disponíveis após carregamento
+      setTimeout(() => {
+        console.log('🎯 [Debug Prazo] Prazos disponíveis:', prazosDisponiveis.value);
+        console.log('🎯 [Debug Prazo] Prazo atual no formData:', formData.prazo);
+        console.log('🎯 [Debug Prazo] Prazo encontrado?', prazosDisponiveis.value.some(p => p.value === formData.prazo));
+      }, 100);
+    }, 100);
   }
-});
+}, { immediate: true });
 
 
 // --- CARREGAMENTO DE DADOS (igual ao novo.vue) ---
@@ -240,7 +293,10 @@ const tabelasFiltradas = computed(() => {
 const prazosDisponiveis = computed(() => {
   if (!formData.tabela || !todasTabelas.value) return [];
   const tabelaSelecionada = todasTabelas.value.find(t => t.nome_tabela === formData.tabela && t.banco_id === formData.banco_id);
-  return tabelaSelecionada ? tabelaSelecionada.prazos : [];
+  
+  // Formata os prazos (números) para exibição (texto "72x")
+  if (!tabelaSelecionada || !tabelaSelecionada.prazos) return [];
+  return tabelaSelecionada.prazos.map(p => ({ label: `${p}x`, value: p }));
 });
 
 const consultoresFiltrados = computed(() => {
@@ -248,12 +304,41 @@ const consultoresFiltrados = computed(() => {
   return todosConsultores.value.filter(c => c.loja_id === formData.loja_id);
 });
 
-// Observa a seleção do cliente e limpa o campo de benefício
-watch(() => formData.cliente_id, () => {formData.numero_beneficio = null;});
-watch(() => formData.loja_id, () => { formData.consultor_id = null; });
-watch(() => formData.banco_id, () => { formData.tabela = null; formData.prazo = null; });
-watch(() => formData.tabela, () => { formData.prazo = null; });
-watch(() => formData.status, (newStatus) => {if (newStatus === 'Pago') {formData.motivo_status = '';}});
+// Observa a seleção do cliente e limpa o campo de benefício (só quando não está carregando)
+watch(() => formData.cliente_id, () => {
+  if (!isLoadingInitialData.value) {
+    formData.numero_beneficio = null;
+    console.log('🧹 Limpou numero_beneficio (cliente mudou)');
+  }
+});
+
+watch(() => formData.loja_id, () => {
+  if (!isLoadingInitialData.value) {
+    formData.consultor_id = null;
+    console.log('🧹 Limpou consultor_id (loja mudou)');
+  }
+});
+
+watch(() => formData.banco_id, () => {
+  if (!isLoadingInitialData.value) {
+    formData.tabela = null;
+    formData.prazo = null;
+    console.log('🧹 Limpou tabela e prazo (banco mudou)');
+  }
+});
+
+watch(() => formData.tabela, () => {
+  if (!isLoadingInitialData.value) {
+    formData.prazo = null;
+    console.log('🧹 Limpou prazo (tabela mudou)');
+  }
+});
+
+watch(() => formData.status, (newStatus) => {
+  if (newStatus === 'Pago') {
+    formData.motivo_status = '';
+  }
+});
 
 // --- LÓGICA DE SUBMISSÃO ATUALIZADA PARA EDIÇÃO ---
 async function handleFormSubmit() {
@@ -261,6 +346,8 @@ async function handleFormSubmit() {
     toast.add({ title: 'Atenção!', description: 'O campo "Adesão" é obrigatório.', color: 'amber' });
     return;
   }
+  
+  console.log('💾 [Edição Contrato] Dados a salvar:', formData);
   
   saving.value = true;
   try {
@@ -281,10 +368,23 @@ async function handleFormSubmit() {
     }
 
     // Prepara os dados para o UPDATE, removendo campos que não devem ser alterados
-    const { id, created_at, numero_contrato, ...dataToUpdate } = formData;
+    const { id, created_at, numero_contrato, consultor, loja, ...dataToUpdate } = formData;
+    
+    // CORREÇÃO: Garante que prazo é número inteiro
     if (dataToUpdate.prazo) {
-      dataToUpdate.prazo = parseInt(String(dataToUpdate.prazo).replace('x', ''), 10);
+      dataToUpdate.prazo = typeof dataToUpdate.prazo === 'number' ? dataToUpdate.prazo : parseInt(String(dataToUpdate.prazo).replace(/\D/g, ''), 10);
     }
+    
+    // CORREÇÃO: Adiciona especie_beneficio buscando do cliente selecionado
+    if (dataToUpdate.numero_beneficio && clienteSelecionado.value) {
+      if (dataToUpdate.numero_beneficio === clienteSelecionado.value.numero_beneficio_1) {
+        dataToUpdate.especie_beneficio = clienteSelecionado.value.especie_beneficio_1;
+      } else if (dataToUpdate.numero_beneficio === clienteSelecionado.value.numero_beneficio_2) {
+        dataToUpdate.especie_beneficio = clienteSelecionado.value.especie_beneficio_2;
+      }
+    }
+    
+    console.log('💾 [Edição Contrato] Dados finais para UPDATE:', dataToUpdate);
     
     const { error } = await supabase
       .from('contratos')
@@ -297,7 +397,7 @@ async function handleFormSubmit() {
     router.push('/backoffice/contratos');
 
   } catch (error) {
-    console.error('Erro ao atualizar contrato:', error);
+    console.error('❌ [Edição Contrato] Erro ao atualizar:', error);
     toast.add({ title: 'Erro!', description: error.message, color: 'red' });
   } finally {
     saving.value = false;

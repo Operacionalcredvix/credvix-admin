@@ -35,6 +35,10 @@
               <p>{{ contrato.prazo }} meses</p>
             </div>
             <div>
+              <label>Meses restantes</label>
+              <p>{{ mesesRestantesTexto }}</p>
+            </div>
+            <div>
               <label>Tabela</label>
               <p>{{ contrato.tabela }}</p>
             </div>
@@ -48,11 +52,11 @@
             </div>
             <div>
               <label>Número beneficio</label>
-              <p>{{ contrato.numero_beneficio }}</p>
+              <p>{{ contrato.numero_beneficio || 'N/A' }}</p>
             </div>
             <div>
               <label>Espécie beneficio</label>
-              <p>{{ contrato.especie_beneficio }}</p>
+              <p>{{ contrato.especie_beneficio || 'N/A' }}</p>
             </div>
           </div>
         </UCard>
@@ -88,7 +92,7 @@
             </div>
             <div>
               <label>Loja</label>
-              <p>{{ contrato.loja?.nome_completo || 'Não informado' }}</p>
+              <p>{{ contrato.consultor?.lojas?.nome || contrato.lojas?.nome || 'Não informado' }}</p>
             </div>
             <div>
               <label>Digitador(a)</label>
@@ -139,8 +143,9 @@ const { data: contrato, pending } = await useAsyncData(`contrato-${contratoId}`,
       clientes (id, nome_completo, cpf),
       produtos (nome),
       bancos (nome_instituicao),
-      consultor:funcionarios!consultor_id (nome_completo),
-      digitador:funcionarios!digitador_id (nome_completo)
+      consultor:funcionarios!consultor_id (nome_completo, lojas(nome)),
+      digitador:funcionarios!digitador_id (nome_completo),
+      lojas (nome)
     `)
     .eq('id', contratoId)
     .single();
@@ -167,6 +172,41 @@ const statusColor = (status) => {
     default: return 'gray';
   }
 };
+
+// --- CÁLCULO: MESES RESTANTES ---
+const diffInMonths = (fromDate, toDate) => {
+  try {
+    if (!(fromDate instanceof Date)) fromDate = new Date(fromDate);
+    if (!(toDate instanceof Date)) toDate = new Date(toDate);
+    if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) return 0;
+
+    let months = (toDate.getFullYear() - fromDate.getFullYear()) * 12;
+    months += toDate.getMonth() - fromDate.getMonth();
+
+    // Ajuste se ainda não completou o mês corrente
+    if (toDate.getDate() < fromDate.getDate()) months -= 1;
+
+    return Math.max(0, months);
+  } catch (e) {
+    return 0;
+  }
+};
+
+const mesesRestantes = computed(() => {
+  const c = contrato?.value || contrato; // compatível com template proxy
+  if (!c || !c.prazo) return null;
+  const dataBase = c.data_contrato || c.data_digitacao; // usa a data disponível
+  if (!dataBase) return null;
+  const passados = diffInMonths(new Date(dataBase), new Date());
+  const restantes = c.prazo - passados;
+  return restantes < 0 ? 0 : restantes;
+});
+
+const mesesRestantesTexto = computed(() => {
+  if (mesesRestantes.value === null || mesesRestantes.value === undefined) return 'N/A';
+  const m = mesesRestantes.value;
+  return `${m} ${m === 1 ? 'mês' : 'meses'}`;
+});
 </script>
 
 <style scoped>

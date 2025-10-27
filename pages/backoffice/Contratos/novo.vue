@@ -128,6 +128,7 @@ const formData = reactive({
   prazo: null,
   tabela: null,
   numero_beneficio: null,
+  especie_beneficio: null,
   data_pagamento: null,
   motivo_status: null,
   adesao: null
@@ -270,6 +271,8 @@ async function handleFormSubmit() {
     return;
   }
 
+  console.log('💾 [Novo Contrato] Dados do formulário antes de salvar:', formData);
+
   saving.value = true;
   try {
     // ---- INÍCIO DA VALIDAÇÃO DE DUPLICIDADE ----
@@ -297,18 +300,40 @@ async function handleFormSubmit() {
     }
     // ---- FIM DA VALIDAÇÃO DE DUPLICIDADE ----
 
-    const numeroContrato = `CONTR-${Date.now()}`;
-    const dataToSubmit = { ...formData, numero_contrato: numeroContrato, digitador_id: profile.value.id };
-    // CORREÇÃO: Não é mais necessário converter o prazo, pois o 'value' do USelectMenu já é um número.
+    const dataToSubmit = { 
+      ...formData, 
+      // numero_contrato agora é gerado no banco via trigger
+      digitador_id: profile.value.id 
+    };
     
-    const { error } = await supabase.from('contratos').insert(dataToSubmit);
+    // CORREÇÃO: Adiciona especie_beneficio buscando do cliente selecionado
+    if (formData.numero_beneficio && clienteSelecionado.value) {
+      if (formData.numero_beneficio === clienteSelecionado.value.numero_beneficio_1) {
+        dataToSubmit.especie_beneficio = clienteSelecionado.value.especie_beneficio_1;
+      } else if (formData.numero_beneficio === clienteSelecionado.value.numero_beneficio_2) {
+        dataToSubmit.especie_beneficio = clienteSelecionado.value.especie_beneficio_2;
+      }
+    }
+    
+    // CORREÇÃO: Garante que prazo é número inteiro (já vem correto do USelectMenu)
+    if (dataToSubmit.prazo && typeof dataToSubmit.prazo !== 'number') {
+      dataToSubmit.prazo = parseInt(String(dataToSubmit.prazo).replace(/\D/g, ''), 10);
+    }
+    
+    console.log('💾 [Novo Contrato] Dados finais para INSERT:', dataToSubmit);
+    
+    const { data: inserted, error } = await supabase
+      .from('contratos')
+      .insert(dataToSubmit)
+      .select('id, numero_contrato')
+      .single();
     if (error) throw error;
     
-    toast.add({ title: 'Sucesso!', description: 'Novo contrato registado com sucesso.' });
+    toast.add({ title: 'Sucesso!', description: `Novo contrato registado: ${inserted?.numero_contrato || ''}` });
     router.push('/backoffice/contratos');
 
   } catch (error) {
-    console.error('Erro ao salvar contrato:', error);
+    console.error('❌ [Novo Contrato] Erro ao salvar:', error);
     toast.add({ title: 'Erro!', description: error.message, color: 'red' });
   } finally {
     saving.value = false;
