@@ -19,9 +19,17 @@
         </template>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <UFormGroup label="Cliente" name="cliente_id" required>
-            <USelectMenu v-model="formData.cliente_id" :options="clientes" value-attribute="id"
-              option-attribute="nome_completo" placeholder="Selecione o cliente" searchable />
+            <USelectMenu
+              v-model="formData.cliente_id"
+              :options="clientesFiltrados"
+              value-attribute="id"
+              option-attribute="label"
+              placeholder="Selecione o cliente (nome ou CPF)"
+              searchable
+              @search="onClienteSearch"
+            />
           </UFormGroup>
+
           <UFormGroup label="CPF do Cliente" name="cpf">
             <UInput :model-value="clienteSelecionado?.cpf" disabled placeholder="Automático" />
           </UFormGroup>
@@ -338,5 +346,25 @@ async function handleFormSubmit() {
   } finally {
     saving.value = false;
   }
+}
+
+// --- FILTRO DE CLIENTES POR NOME OU CPF ---
+const clienteBusca = ref('');
+const clientesFiltrados = computed(() => {
+  if (!clientes.value) return [];
+  const busca = clienteBusca.value.trim().toLowerCase();
+  return clientes.value
+    .map(c => ({
+      ...c,
+      label: `${c.nome_completo} (${c.cpf})`
+    }))
+    .filter(c => {
+      if (!busca) return true;
+      return c.nome_completo.toLowerCase().includes(busca) || c.cpf.replace(/\D/g, '').includes(busca.replace(/\D/g, ''));
+    });
+});
+
+function onClienteSearch(query) {
+  clienteBusca.value = query;
 }
 </script>
