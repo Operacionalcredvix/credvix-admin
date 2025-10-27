@@ -247,32 +247,69 @@ const { data: dashboardData, pending } = useAsyncData('dashboard-data-master', a
     p_regional_id: selectedRegional.value
   });
   if (error) {
-    toast.add({ title: 'Erro ao carregar dados', description: error.message, color: 'red' });
+    console.error('❌ [DashboardMaster] Erro ao carregar dados:', error);
+    if (process.client) {
+      toast.add({ title: 'Erro ao carregar dados', description: error.message, color: 'red' });
+    }
     return { stats: {}, statusChart: {}, lojasChart: {}, produtosChart: {} };
   }
   return data;
 }, { watch: [profile, dateRange, selectedRegional] });
 
 const { data: desempenhoConsultores } = await useAsyncData('desempenho-consultores-master', async () => {
-  let query = supabase.from('desempenho_consultores').select('consultor_nome, loja_nome, atingido_cnc, meta_individual_cnc, atingido_card, meta_individual_card, atingido_consignado, meta_individual_consignado, atingido_fgts, meta_individual_fgts').gte('periodo', dateRange.start).lte('periodo', dateRange.end);
-  if (selectedRegional.value) {
-    query = query.eq('regional_id', selectedRegional.value);
+  if (!selectedPeriod.value) return [];
+  const firstDayOfMonth = `${selectedPeriod.value}-01`;
+  
+  try {
+    // Usa a função RPC otimizada ao invés da view
+    const { data, error } = await supabase.rpc('get_desempenho_consultores_month', {
+      p_periodo: firstDayOfMonth,
+      p_regional_id: selectedRegional.value || null
+    });
+    
+    if (error) {
+      console.error('❌ [DashboardMaster] Erro ao buscar desempenho consultores:', error);
+      if (process.client) {
+        toast.add({ title: 'Erro ao buscar desempenho', description: error.message, color: 'red' });
+      }
+      return [];
+    }
+    
+    return data || [];
+  } catch (err) {
+    console.error('❌ [DashboardMaster] Exceção ao buscar desempenho consultores:', err);
+    return [];
   }
-  const { data } = await query;
-  return data || [];
-}, { watch: [dateRange, selectedRegional] });
+}, { watch: [selectedPeriod, selectedRegional] });
 
 // --- BUSCA DE CONSULTORES (para ranking de usuários) ---
 const { data: consultores } = await useAsyncData('consultores-ranking-master', async () => {
   if (!selectedPeriod.value) return [];
   const firstDayOfMonth = `${selectedPeriod.value}-01`;
-  let query = supabase.from('desempenho_consultores').select('consultor_id, consultor_nome, loja_id, loja_nome, regional_id, nome_regional, atingido_cnc, atingido_card, atingido_card_beneficio, atingido_consignado, atingido_fgts').eq('periodo', firstDayOfMonth);
-  if (selectedRegional.value) query = query.eq('regional_id', selectedRegional.value);
-  const { data } = await query;
-  return (data || []).map(c => ({
-    ...c,
-    total_producao: (c.atingido_cnc || 0) + (c.atingido_card || 0) + (c.atingido_card_beneficio || 0) + (c.atingido_consignado || 0) + (c.atingido_fgts || 0)
-  }));
+  
+  try {
+    // Usa a função RPC otimizada ao invés da view
+    const { data, error } = await supabase.rpc('get_desempenho_consultores_month', {
+      p_periodo: firstDayOfMonth,
+      p_regional_id: selectedRegional.value || null
+    });
+    
+    if (error) {
+      console.error('❌ [DashboardMaster] Erro ao buscar consultores:', error);
+      if (process.client) {
+        toast.add({ title: 'Erro ao buscar consultores', description: error.message, color: 'red' });
+      }
+      return [];
+    }
+    
+    return (data || []).map(c => ({
+      ...c,
+      total_producao: (c.atingido_cnc || 0) + (c.atingido_card || 0) + (c.atingido_card_beneficio || 0) + (c.atingido_consignado || 0) + (c.atingido_fgts || 0)
+    }));
+  } catch (err) {
+    console.error('❌ [DashboardMaster] Exceção ao buscar consultores:', err);
+    return [];
+  }
 }, { watch: [selectedPeriod, selectedRegional] });
 
 // --- NOVA BUSCA DE DADOS PARA METAS ---
@@ -289,7 +326,12 @@ const { data: metasProgresso, pending: metasPending } = useAsyncData('metas-prog
   }
 
   const { data, error } = await query;
-  if (error) toast.add({ title: 'Erro ao buscar metas', description: error.message, color: 'red' });
+  if (error) {
+    console.error('❌ [DashboardMaster] Erro ao buscar metas:', error);
+    if (process.client) {
+      toast.add({ title: 'Erro ao buscar metas', description: error.message, color: 'red' });
+    }
+  }
   return data || [];
 }, { watch: [selectedPeriod, selectedRegional] }); // CORREÇÃO: Observa a variável correta
 
@@ -307,17 +349,20 @@ const { data: segurosData } = await useAsyncData('seguros-master', async () => {
 
   let query = supabase
     .from('vendas_externas')
-    .select('tipo_produto, quantidade')
+    .select('tipo_produto, quantidade, lojas!inner(regional_id)')
     .gte('data_venda', startStr)
     .lte('data_venda', endStr);
 
   if (selectedRegional.value) {
-    query = query.eq('regional_id', selectedRegional.value);
+    query = query.eq('lojas.regional_id', selectedRegional.value);
   }
 
   const { data, error } = await query;
   if (error) {
-    toast.add({ title: 'Erro ao buscar seguros', description: error.message, color: 'red' });
+    console.error('❌ [DashboardMaster] Erro ao buscar seguros:', error);
+    if (process.client) {
+      toast.add({ title: 'Erro ao buscar seguros', description: error.message, color: 'red' });
+    }
     return null;
   }
 
