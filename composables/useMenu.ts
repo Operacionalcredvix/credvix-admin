@@ -61,6 +61,7 @@ const menuItems = [
     links: [
       { label: 'Desempenho por Equipe', to: '/relatorios/desempenho', icon: 'i-heroicons-chart-bar' },
       { label: 'Desempenho Individual', to: '/relatorios/desempenho-individual', icon: 'i-heroicons-user-circle' },
+      { label: 'Diárias de Consignado', to: '/relatorios/diarias-consignado', icon: 'i-heroicons-calendar-days', profiles: ['Master'] },
       { label: 'Relatório de Seguros', to: '/admin/relatorio-importacoes', icon: 'i-heroicons-shield-check' }
     ]
   }
@@ -96,9 +97,20 @@ export const useMenu = () => {
       return (allowed as string[]).includes(menuLabel);
     };
 
+    const canAccessLink = (link: any) => {
+      // Se o link não tem restrição de profiles, está disponível para todos
+      if (!link.profiles || link.profiles.length === 0) return true;
+      // Se tem restrição, verifica se o perfil do usuário está na lista
+      return link.profiles.includes(userProfile);
+    };
+
     return menuItems
       .filter(menu => canAccessMenu(menu.label))
-      .map(menu => ({ ...menu, links: menu.links || [] }));
+      .map(menu => ({ 
+        ...menu, 
+        links: (menu.links || []).filter(link => canAccessLink(link))
+      }))
+      .filter(menu => menu.links.length > 0); // Remove menus sem links visíveis
   });
 
   return {
