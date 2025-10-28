@@ -79,30 +79,95 @@
 
       <!-- Rankings -->
       <div class="space-y-6">
-        <RankingConsultants v-if="rankedConsultants.length > 0" :consultants="rankedConsultants" :columns="rankingColumns" title="Ranking de Consultores (Produção)" :formatCurrency="formatCurrency" />
-        <RankingUsers v-if="consultores && consultores.length > 0" :consultores="consultores" :currentUserId="profile.value?.id" profileType="supervisor" :lojaId="profile.value?.loja_id" :formatCurrency="formatCurrency" />
-        <RankingStores 
-          v-if="metasProgressoRegional && metasProgressoRegional.length > 0" 
-          :stores="rankedStores" 
-          :allStores="metasProgressoRegional" 
-          :currentStoreId="currentStoreId" 
-          title="Ranking de Lojas - Sua Regional" 
-        />
+        <UCard v-if="rankedConsultants.length > 0" class="mb-8">
+          <template #header>
+            <div class="flex items-center justify-between w-full">
+              <h3 class="font-semibold">Ranking de Consultores (Produção)</h3>
+              <UButton 
+                :icon="isRankingConsultantsExpanded ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" 
+                size="xs" 
+                color="gray" 
+                variant="ghost"
+                @click="isRankingConsultantsExpanded = !isRankingConsultantsExpanded"
+              />
+            </div>
+          </template>
+          <div v-show="isRankingConsultantsExpanded">
+            <RankingConsultants :consultants="rankedConsultants" :columns="rankingColumns" title="" :formatCurrency="formatCurrency" />
+          </div>
+        </UCard>
+
+        <UCard v-if="consultores && consultores.length > 0" class="mb-8">
+          <template #header>
+            <div class="flex items-center justify-between w-full">
+              <h3 class="font-semibold">Ranking de Usuários</h3>
+              <UButton 
+                :icon="isRankingUsersExpanded ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" 
+                size="xs" 
+                color="gray" 
+                variant="ghost"
+                @click="isRankingUsersExpanded = !isRankingUsersExpanded"
+              />
+            </div>
+          </template>
+          <div v-show="isRankingUsersExpanded">
+            <RankingUsers :consultores="consultores" :currentUserId="profile.value?.id" profileType="supervisor" :lojaId="profile.value?.loja_id" :formatCurrency="formatCurrency" />
+          </div>
+        </UCard>
+
+        <UCard v-if="metasProgressoRegional && metasProgressoRegional.length > 0" class="mb-8">
+          <template #header>
+            <div class="flex items-center justify-between w-full">
+              <h3 class="font-semibold">Ranking de Lojas - Sua Regional</h3>
+              <UButton 
+                :icon="isRankingStoresExpanded ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" 
+                size="xs" 
+                color="gray" 
+                variant="ghost"
+                @click="isRankingStoresExpanded = !isRankingStoresExpanded"
+              />
+            </div>
+          </template>
+          <div v-show="isRankingStoresExpanded">
+            <RankingStores 
+              :stores="rankedStores" 
+              :allStores="metasProgressoRegional" 
+              :currentStoreId="currentStoreId" 
+              title="" 
+            />
+          </div>
+        </UCard>
       </div>
 
       <!-- Gráficos -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <UCard>
-          <template #header><h3 class="font-semibold">Contratos por Status</h3></template>
-          <div v-if="hasData" class="h-80"><Doughnut :data="chartData.status" :options="chartOptions" /></div>
-          <p v-else class="text-center text-gray-500">Sem dados para exibir.</p>
-        </UCard>
-        <UCard class="lg:col-span-2">
-          <template #header><h3 class="font-semibold">Produção por Loja</h3></template>
-          <div v-if="hasData" class="h-80"><Pie :data="chartData.lojas" :options="chartOptions" /></div>
-          <p v-else class="text-center text-gray-500">Sem dados para exibir.</p>
-        </UCard>
-      </div>
+      <UCard class="mb-8 mt-8">
+        <template #header>
+          <div class="flex items-center justify-between w-full">
+            <h3 class="font-semibold">Gráficos de Análise</h3>
+            <UButton 
+              :icon="isGraficosExpanded ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" 
+              size="xs" 
+              color="gray" 
+              variant="ghost"
+              @click="isGraficosExpanded = !isGraficosExpanded"
+            />
+          </div>
+        </template>
+        <div v-show="isGraficosExpanded">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <UCard>
+              <template #header><h3 class="font-semibold">Contratos por Status</h3></template>
+              <div v-if="hasData" class="h-80"><Doughnut :data="chartData.status" :options="chartOptions" /></div>
+              <p v-else class="text-center text-gray-500">Sem dados para exibir.</p>
+            </UCard>
+            <UCard class="lg:col-span-2">
+              <template #header><h3 class="font-semibold">Produção por Loja</h3></template>
+              <div v-if="hasData" class="h-80"><Pie :data="chartData.lojas" :options="chartOptions" /></div>
+              <p v-else class="text-center text-gray-500">Sem dados para exibir.</p>
+            </UCard>
+          </div>
+        </div>
+      </UCard>
     </div>
   </div>
 </template>
@@ -127,6 +192,12 @@ const toast = useToast();
 const dateRange = reactive({ start: '', end: '' });
 const selectedPeriod = ref(new Date().toISOString().slice(0, 7));
 const segurosDateFilter = ref(new Date().toISOString().split('T')[0]);
+
+// Estados de expansão dos cards
+const isRankingConsultantsExpanded = ref(true);
+const isRankingUsersExpanded = ref(true);
+const isRankingStoresExpanded = ref(true);
+const isGraficosExpanded = ref(true);
 
 // --- LÓGICA DE DATAS ---
 const setDateRange = (period) => {

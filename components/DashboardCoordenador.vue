@@ -83,78 +83,136 @@
         </UCard>
       </div>
       <!-- NOVO: Card de Ranking de Lojas (componente reutilizável) -->
-      <RankingStores 
-        v-if="rankedStores.length > 0" 
-        :stores="rankedStores" 
-        :columns="rankingColumns" 
-        :currentStoreId="currentStoreId"
-        :allStores="rankedStores"
-        title="Ranking de Lojas (Multi Volume)" 
-      />
+      <UCard v-if="rankedStores.length > 0" class="mb-8">
+        <template #header>
+          <div class="flex items-center justify-between w-full">
+            <h3 class="font-semibold">Ranking de Lojas (Multi Volume)</h3>
+            <UButton 
+              :icon="isRankingStoresExpanded ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" 
+              size="xs" 
+              color="gray" 
+              variant="ghost"
+              @click="isRankingStoresExpanded = !isRankingStoresExpanded"
+            />
+          </div>
+        </template>
+        <div v-show="isRankingStoresExpanded">
+          <RankingStores 
+            :stores="rankedStores" 
+            :columns="rankingColumns" 
+            :currentStoreId="currentStoreId"
+            :allStores="rankedStores"
+            title="" 
+          />
+        </div>
+      </UCard>
 
       <!-- Ranking de Usuários (Geral e Regional para Coordenador) -->
-      <RankingUsers v-if="consultores && consultores.length > 0" :consultores="consultores" :currentUserId="profile.value?.id" profileType="coordenador" :regionalId="selectedRegional || regionais[0]?.id" :formatCurrency="formatCurrency" />
+      <UCard v-if="consultores && consultores.length > 0" class="mb-8">
+        <template #header>
+          <div class="flex items-center justify-between w-full">
+            <h3 class="font-semibold">Ranking de Usuários</h3>
+            <UButton 
+              :icon="isRankingUsersExpanded ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" 
+              size="xs" 
+              color="gray" 
+              variant="ghost"
+              @click="isRankingUsersExpanded = !isRankingUsersExpanded"
+            />
+          </div>
+        </template>
+        <div v-show="isRankingUsersExpanded">
+          <RankingUsers :consultores="consultores" :currentUserId="profile.value?.id" profileType="coordenador" :regionalId="selectedRegional || regionais[0]?.id" :formatCurrency="formatCurrency" />
+        </div>
+      </UCard>
 
       <!-- Tabela de Desempenho Individual -->
       <UCard v-if="desempenhoConsultores.length > 0" class="mb-8">
         <template #header>
-          <div class="flex items-center gap-2">
-            <UIcon name="i-heroicons-users" class="text-xl text-primary-500" />
-            <h3 class="font-semibold">Desempenho por Consultor</h3>
+          <div class="flex items-center justify-between w-full">
+            <div class="flex items-center gap-2">
+              <UIcon name="i-heroicons-users" class="text-xl text-primary-500" />
+              <h3 class="font-semibold">Desempenho por Consultor</h3>
+            </div>
+            <UButton 
+              :icon="isDesempenhoConsultoresExpanded ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" 
+              size="xs" 
+              color="gray" 
+              variant="ghost"
+              @click="isDesempenhoConsultoresExpanded = !isDesempenhoConsultoresExpanded"
+            />
           </div>
         </template>
-        <UTable :rows="desempenhoConsultores" :columns="desempenhoColumns">
-          <template #consultor_nome-data="{ row }">
-            <div>
-              <p class="font-bold">{{ row.consultor_nome }}</p>
-              <p class="text-xs text-gray-500">{{ row.loja_nome }}</p>
-            </div>
-          </template>
-          <template #desempenho_cnc-data="{ row }">
-            <div class="text-right">
-              <p class="font-bold">{{ formatCurrency(row.atingido_cnc) }}</p>
-              <p class="text-xs text-gray-500">/ {{ formatCurrency(row.meta_individual_cnc) }}</p>
-            </div>
-          </template>
-          <template #desempenho_card-data="{ row }">
-            <div class="text-right">
-              <p class="font-bold">{{ formatCurrency(row.atingido_card) }}</p>
-              <p class="text-xs text-gray-500">/ {{ formatCurrency(row.meta_individual_card) }}</p>
-            </div>
-          </template>
-          <template #desempenho_consignado-data="{ row }">
-            <div class="text-right">
-              <p class="font-bold">{{ formatCurrency(row.atingido_consignado) }}</p>
-              <p class="text-xs text-gray-500">/ {{ formatCurrency(row.meta_individual_consignado) }}</p>
-            </div>
-          </template>
-          <template #desempenho_fgts-data="{ row }">
-            <div class="text-right">
-              <p class="font-bold">{{ formatCurrency(row.atingido_fgts) }}</p>
-              <p class="text-xs text-gray-500">/ {{ formatCurrency(row.meta_individual_fgts) }}</p>
-            </div>
-          </template>
-        </UTable>
+        <div v-show="isDesempenhoConsultoresExpanded">
+          <UTable :rows="desempenhoConsultores" :columns="desempenhoColumns">
+            <template #consultor_nome-data="{ row }">
+              <div>
+                <p class="font-bold">{{ row.consultor_nome }}</p>
+                <p class="text-xs text-gray-500">{{ row.loja_nome }}</p>
+              </div>
+            </template>
+            <template #desempenho_cnc-data="{ row }">
+              <div class="text-right">
+                <p class="font-bold">{{ formatCurrency(row.atingido_cnc) }}</p>
+                <p class="text-xs text-gray-500">/ {{ formatCurrency(row.meta_individual_cnc) }}</p>
+              </div>
+            </template>
+            <template #desempenho_card-data="{ row }">
+              <div class="text-right">
+                <p class="font-bold">{{ formatCurrency(row.atingido_card) }}</p>
+                <p class="text-xs text-gray-500">/ {{ formatCurrency(row.meta_individual_card) }}</p>
+              </div>
+            </template>
+            <template #desempenho_consignado-data="{ row }">
+              <div class="text-right">
+                <p class="font-bold">{{ formatCurrency(row.atingido_consignado) }}</p>
+                <p class="text-xs text-gray-500">/ {{ formatCurrency(row.meta_individual_consignado) }}</p>
+              </div>
+            </template>
+            <template #desempenho_fgts-data="{ row }">
+              <div class="text-right">
+                <p class="font-bold">{{ formatCurrency(row.atingido_fgts) }}</p>
+                <p class="text-xs text-gray-500">/ {{ formatCurrency(row.meta_individual_fgts) }}</p>
+              </div>
+            </template>
+          </UTable>
+        </div>
       </UCard>
 
       <!-- Gráficos -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <UCard>
-          <template #header><h3 class="font-semibold">Contratos por Status</h3></template>
-          <div v-if="hasData" class="h-80"><Doughnut :data="chartData.status" :options="chartOptions" /></div>
-          <p v-else class="text-center text-gray-500">Sem dados para exibir.</p>
-        </UCard>
-        <UCard class="lg:col-span-2">
-          <template #header><h3 class="font-semibold">Top 10 Lojas por Contrato</h3></template>
-          <div v-if="hasData" class="h-80"><Bar :data="chartData.lojas" :options="chartOptions" /></div>
-          <p v-else class="text-center text-gray-500">Sem dados para exibir.</p>
-        </UCard>
-        <UCard class="lg:col-span-3">
-          <template #header><h3 class="font-semibold">Contratos por Produto</h3></template>
-          <div v-if="hasData" class="h-80"><Bar :data="chartData.produtos" :options="chartOptions" /></div>
-          <p v-else class="text-center text-gray-500">Sem dados para exibir.</p>
-        </UCard>
-      </div>
+      <UCard class="mb-8">
+        <template #header>
+          <div class="flex items-center justify-between w-full">
+            <h3 class="font-semibold">Gráficos de Análise</h3>
+            <UButton 
+              :icon="isGraficosExpanded ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" 
+              size="xs" 
+              color="gray" 
+              variant="ghost"
+              @click="isGraficosExpanded = !isGraficosExpanded"
+            />
+          </div>
+        </template>
+        <div v-show="isGraficosExpanded">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <UCard>
+              <template #header><h3 class="font-semibold">Contratos por Status</h3></template>
+              <div v-if="hasData" class="h-80"><Doughnut :data="chartData.status" :options="chartOptions" /></div>
+              <p v-else class="text-center text-gray-500">Sem dados para exibir.</p>
+            </UCard>
+            <UCard class="lg:col-span-2">
+              <template #header><h3 class="font-semibold">Top 10 Lojas por Contrato</h3></template>
+              <div v-if="hasData" class="h-80"><Bar :data="chartData.lojas" :options="chartOptions" /></div>
+              <p v-else class="text-center text-gray-500">Sem dados para exibir.</p>
+            </UCard>
+            <UCard class="lg:col-span-3">
+              <template #header><h3 class="font-semibold">Contratos por Produto</h3></template>
+              <div v-if="hasData" class="h-80"><Bar :data="chartData.produtos" :options="chartOptions" /></div>
+              <p v-else class="text-center text-gray-500">Sem dados para exibir.</p>
+            </UCard>
+          </div>
+        </div>
+      </UCard>
 
       <!-- NOVA SEÇÃO: ACOMPANHAMENTO DE METAS -->
       <div v-if="metasPending" class="text-center py-10 text-gray-500">
@@ -165,55 +223,68 @@
         <UIcon name="i-heroicons-trophy" class="text-4xl" />
         <p class="mt-2">Nenhuma meta encontrada para o período selecionado.</p>
       </div>
-      <div v-else class="space-y-8 mt-8">
-        <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200">Acompanhamento de Metas</h2>
-        <UCard v-for="group in groupedGoals" :key="group.regionalName">
-          <template #header>
-            <div class="flex justify-between items-center">
-              <h3 class="text-lg font-semibold text-primary-600">Regional: {{ group.regionalName }}</h3>
-              <div class="flex gap-6 text-right">
-                <div>
-                  <p class="text-sm text-gray-500">Total Meta Multi Volume</p>
-                  <p class="text-xl font-bold text-gray-800 dark:text-gray-200">{{ formatCurrency(group.totalMetaMultiVolume) }}</p>
-                </div>
-                <div>
-                  <p class="text-sm text-gray-500">Total Atingido</p>
-                  <p class="text-xl font-bold text-primary-500">{{ formatCurrency(group.totalAtingido) }}</p>
+      <UCard v-else class="mt-8">
+        <template #header>
+          <div class="flex items-center justify-between w-full">
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200">Acompanhamento de Metas</h2>
+            <UButton 
+              :icon="isMetasExpanded ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" 
+              size="xs" 
+              color="gray" 
+              variant="ghost"
+              @click="isMetasExpanded = !isMetasExpanded"
+            />
+          </div>
+        </template>
+        <div v-show="isMetasExpanded" class="space-y-8">
+          <UCard v-for="group in groupedGoals" :key="group.regionalName">
+            <template #header>
+              <div class="flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-primary-600">Regional: {{ group.regionalName }}</h3>
+                <div class="flex gap-6 text-right">
+                  <div>
+                    <p class="text-sm text-gray-500">Total Meta Multi Volume</p>
+                    <p class="text-xl font-bold text-gray-800 dark:text-gray-200">{{ formatCurrency(group.totalMetaMultiVolume) }}</p>
+                  </div>
+                  <div>
+                    <p class="text-sm text-gray-500">Total Atingido</p>
+                    <p class="text-xl font-bold text-primary-500">{{ formatCurrency(group.totalAtingido) }}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          </template>
-            <!-- Gráfico de Comparação -->
-            <div class="mb-8 h-80">
-              <Bar :data="group.chartData" :options="chartOptions" />
-            </div>
-
-          <UTable :rows="group.goals" :columns="metasColumns">
-            <template #loja_nome-data="{ row }">
-              <span class="font-medium">{{ row.loja_nome }}</span>
             </template>
-
-            <template #percentual_multi_volume-data="{ row }">
-              <div class="w-full">
-                <p class="text-center font-bold" :class="getPercentageColor(row.percentual_multi_volume)">
-                  {{ row.percentual_multi_volume.toFixed(2) }}%
-                </p>
-                <UProgress :value="row.percentual_multi_volume" :color="getProgressBarColor(row.percentual_multi_volume)" />
-                <p class="text-xs text-gray-500 text-center mt-1">
-                  {{ formatCurrency(row.atingido_multi_volume) }} / {{ formatCurrency(row.meta_multi_volume) }}
-                </p>
+              <!-- Gráfico de Comparação -->
+              <div class="mb-8 h-80">
+                <Bar :data="group.chartData" :options="chartOptions" />
               </div>
-            </template>
 
-            <template #meta_bmg_med-data="{ row }">
-              <span :class="row.atingido_bmg_med >= row.meta_bmg_med ? 'text-green-500 font-bold' : ''">{{ row.atingido_bmg_med }} / {{ row.meta_bmg_med }}</span>
-            </template>
-            <template #meta_seguro_familiar-data="{ row }">
-              <span :class="row.atingido_seguro_familiar >= row.meta_seguro_familiar ? 'text-green-500 font-bold' : ''">{{ row.atingido_seguro_familiar }} / {{ row.meta_seguro_familiar }}</span>
-            </template>
-          </UTable>
-        </UCard>
-      </div>
+            <UTable :rows="group.goals" :columns="metasColumns">
+              <template #loja_nome-data="{ row }">
+                <span class="font-medium">{{ row.loja_nome }}</span>
+              </template>
+
+              <template #percentual_multi_volume-data="{ row }">
+                <div class="w-full">
+                  <p class="text-center font-bold" :class="getPercentageColor(row.percentual_multi_volume)">
+                    {{ row.percentual_multi_volume.toFixed(2) }}%
+                  </p>
+                  <UProgress :value="row.percentual_multi_volume" :color="getProgressBarColor(row.percentual_multi_volume)" />
+                  <p class="text-xs text-gray-500 text-center mt-1">
+                    {{ formatCurrency(row.atingido_multi_volume) }} / {{ formatCurrency(row.meta_multi_volume) }}
+                  </p>
+                </div>
+              </template>
+
+              <template #meta_bmg_med-data="{ row }">
+                <span :class="row.atingido_bmg_med >= row.meta_bmg_med ? 'text-green-500 font-bold' : ''">{{ row.atingido_bmg_med }} / {{ row.meta_bmg_med }}</span>
+              </template>
+              <template #meta_seguro_familiar-data="{ row }">
+                <span :class="row.atingido_seguro_familiar >= row.meta_seguro_familiar ? 'text-green-500 font-bold' : ''">{{ row.atingido_seguro_familiar }} / {{ row.meta_seguro_familiar }}</span>
+              </template>
+            </UTable>
+          </UCard>
+        </div>
+      </UCard>
     </div>
   </div>
 </template>
@@ -238,6 +309,13 @@ const dateRange = reactive({ start: '', end: '' });
 // --- CORREÇÃO: Inicializa a variável para o filtro de metas ---
 const selectedPeriod = ref(new Date().toISOString().slice(0, 7)); // Formato YYYY-MM
 const segurosDateFilter = ref(new Date().toISOString().split('T')[0]);
+
+// Estados de expansão dos cards
+const isRankingStoresExpanded = ref(true);
+const isRankingUsersExpanded = ref(true);
+const isDesempenhoConsultoresExpanded = ref(true);
+const isGraficosExpanded = ref(true);
+const isMetasExpanded = ref(true);
 
 
 // --- LÓGICA DE DATAS ---

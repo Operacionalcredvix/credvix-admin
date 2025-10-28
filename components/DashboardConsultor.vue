@@ -112,32 +112,64 @@
   </UCard>
 
   <!-- Rankings do Consultor: Loja, Regional e Geral em um único componente -->
-  <RankingUsers
-    v-if="profile.value?.id"
-    :consultores="consultores || []"
-    :currentUserId="profile.value.id"
-    profileType="consultor"
-    :lojaId="profile.value.loja_id"
-    :regionalId="profile.value.regional_id"
-    :formatCurrency="formatCurrency"
-    :showStoreRanking="true"
-    :showRegionalRanking="true"
-    :showGlobalRanking="true"
-  />
+  <UCard class="mb-8">
+    <template #header>
+      <div class="flex items-center justify-between w-full">
+        <h3 class="font-semibold">Rankings</h3>
+        <UButton 
+          :icon="isRankingUsersExpanded ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" 
+          size="xs" 
+          color="gray" 
+          variant="ghost"
+          @click="isRankingUsersExpanded = !isRankingUsersExpanded"
+        />
+      </div>
+    </template>
+    <div v-show="isRankingUsersExpanded">
+      <RankingUsers
+        v-if="profile.value?.id"
+        :consultores="consultores || []"
+        :currentUserId="profile.value.id"
+        profileType="consultor"
+        :lojaId="profile.value.loja_id"
+        :regionalId="profile.value.regional_id"
+        :formatCurrency="formatCurrency"
+        :showStoreRanking="true"
+        :showRegionalRanking="true"
+        :showGlobalRanking="true"
+      />
+    </div>
+  </UCard>
 
   <!-- Removido: Tabela de Desempenho por Consultor; deixamos apenas os rankings para o consultor -->
 
     <!-- NOVO: Gráfico de Pizza -->
-    <div v-if="hasProductionData" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <UCard class="lg:col-span-2">
-        <template #header>
-          <h3 class="font-semibold">Distribuição da Produção (Valor)</h3>
-        </template>
-        <div class="h-80">
-          <Pie :data="pieChartData" :options="chartOptions" />
+    <UCard v-if="hasProductionData" class="mb-8">
+      <template #header>
+        <div class="flex items-center justify-between w-full">
+          <h3 class="font-semibold">Gráficos de Análise</h3>
+          <UButton 
+            :icon="isGraficosExpanded ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" 
+            size="xs" 
+            color="gray" 
+            variant="ghost"
+            @click="isGraficosExpanded = !isGraficosExpanded"
+          />
         </div>
-      </UCard>
-    </div>
+      </template>
+      <div v-show="isGraficosExpanded">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <UCard class="lg:col-span-2">
+            <template #header>
+              <h3 class="font-semibold">Distribuição da Produção (Valor)</h3>
+            </template>
+            <div class="h-80">
+              <Pie :data="pieChartData" :options="chartOptions" />
+            </div>
+          </UCard>
+        </div>
+      </div>
+    </UCard>
   </div>
   <div v-else class="text-center py-10 text-gray-500">
     <UIcon name="i-heroicons-trophy" class="text-4xl" />
@@ -162,6 +194,10 @@ const { formatCurrency, getPercentageColor } = useGoalCalculations();
 
 // --- NOVO: Estado para o filtro de período ---
 const selectedPeriod = ref(new Date().toISOString().slice(0, 7)); // Formato YYYY-MM
+
+// Estados de expansão dos cards
+const isRankingUsersExpanded = ref(true);
+const isGraficosExpanded = ref(true);
 
 // --- NOVO: Lógica para desabilitar o botão "Próximo Mês" ---
 const isNextMonthDisabled = computed(() => {
