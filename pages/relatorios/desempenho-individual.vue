@@ -202,6 +202,244 @@
         </template>
       </UTable>
     </UCard>
+
+    <!-- Modal de Detalhes -->
+    <UModal v-model="detailsModalOpen" :ui="{ width: 'max-w-4xl' }">
+      <UCard v-if="selectedConsultorData">
+        <template #header>
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-xl font-bold text-primary-500">{{ selectedConsultorData.consultor_nome }}</h3>
+              <p class="text-sm text-gray-500 mt-1">{{ selectedConsultorData.loja_nome }} - {{ selectedConsultorData.nome_regional }}</p>
+            </div>
+            <UBadge :color="getRankBadgeColor(selectedConsultorData.rank)" variant="solid" size="lg">
+              {{ selectedConsultorData.rank }}º Lugar
+            </UBadge>
+          </div>
+        </template>
+
+        <!-- Performance Geral -->
+        <div class="mb-6">
+          <h4 class="font-semibold text-lg mb-3 flex items-center gap-2">
+            <UIcon name="i-heroicons-chart-bar" class="text-primary-500" />
+            Performance Geral - Multi-Volume
+          </h4>
+          <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+            <div class="grid grid-cols-2 gap-4 mb-3">
+              <div>
+                <p class="text-sm text-gray-500">Atingido</p>
+                <p class="text-2xl font-bold text-green-600">{{ formatCurrency(selectedConsultorData.atingido_multi_volume) }}</p>
+              </div>
+              <div>
+                <p class="text-sm text-gray-500">Meta</p>
+                <p class="text-2xl font-bold">{{ formatCurrency(selectedConsultorData.meta_multi_volume) }}</p>
+              </div>
+            </div>
+            <UProgress 
+              :value="selectedConsultorData.percentual_multi_volume" 
+              :color="getProgressColor(selectedConsultorData.percentual_multi_volume)" 
+              size="md" 
+            />
+            <p class="text-center mt-2 text-lg font-bold" :class="getColorClass(selectedConsultorData.percentual_multi_volume)">
+              {{ selectedConsultorData.percentual_multi_volume.toFixed(1) }}% da meta
+            </p>
+          </div>
+        </div>
+
+        <!-- Detalhamento por Produto -->
+        <div>
+          <h4 class="font-semibold text-lg mb-3 flex items-center gap-2">
+            <UIcon name="i-heroicons-clipboard-document-list" class="text-primary-500" />
+            Detalhamento por Produto
+          </h4>
+          
+          <div class="space-y-3">
+            <!-- CNC -->
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h5 class="font-semibold">CNC</h5>
+                <span class="text-sm font-semibold" :class="getColorClass(getPercentual(selectedConsultorData.atingido_cnc, selectedConsultorData.meta_individual_cnc))">
+                  {{ getPercentual(selectedConsultorData.atingido_cnc, selectedConsultorData.meta_individual_cnc).toFixed(1) }}%
+                </span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-sm mb-2">
+                <div>
+                  <span class="text-gray-500">Atingido:</span>
+                  <span class="font-semibold ml-2">{{ formatCurrency(selectedConsultorData.atingido_cnc) }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">Meta:</span>
+                  <span class="font-semibold ml-2">{{ formatCurrency(selectedConsultorData.meta_individual_cnc) }}</span>
+                </div>
+              </div>
+              <UProgress 
+                :value="getPercentual(selectedConsultorData.atingido_cnc, selectedConsultorData.meta_individual_cnc)" 
+                :color="getProgressColor(getPercentual(selectedConsultorData.atingido_cnc, selectedConsultorData.meta_individual_cnc))" 
+                size="sm" 
+              />
+            </div>
+
+            <!-- Card -->
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h5 class="font-semibold">Card</h5>
+                <span class="text-sm font-semibold" :class="getColorClass(getPercentual(selectedConsultorData.atingido_card, selectedConsultorData.meta_individual_card))">
+                  {{ getPercentual(selectedConsultorData.atingido_card, selectedConsultorData.meta_individual_card).toFixed(1) }}%
+                </span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-sm mb-2">
+                <div>
+                  <span class="text-gray-500">Atingido:</span>
+                  <span class="font-semibold ml-2">{{ formatCurrency(selectedConsultorData.atingido_card) }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">Meta:</span>
+                  <span class="font-semibold ml-2">{{ formatCurrency(selectedConsultorData.meta_individual_card) }}</span>
+                </div>
+              </div>
+              <UProgress 
+                :value="getPercentual(selectedConsultorData.atingido_card, selectedConsultorData.meta_individual_card)" 
+                :color="getProgressColor(getPercentual(selectedConsultorData.atingido_card, selectedConsultorData.meta_individual_card))" 
+                size="sm" 
+              />
+            </div>
+
+            <!-- Card Benefício -->
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h5 class="font-semibold">Card Benefício</h5>
+                <span class="text-sm font-semibold" :class="getColorClass(getPercentual(selectedConsultorData.atingido_card_beneficio, selectedConsultorData.meta_individual_card_beneficio))">
+                  {{ getPercentual(selectedConsultorData.atingido_card_beneficio, selectedConsultorData.meta_individual_card_beneficio).toFixed(1) }}%
+                </span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-sm mb-2">
+                <div>
+                  <span class="text-gray-500">Atingido:</span>
+                  <span class="font-semibold ml-2">{{ formatCurrency(selectedConsultorData.atingido_card_beneficio) }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">Meta:</span>
+                  <span class="font-semibold ml-2">{{ formatCurrency(selectedConsultorData.meta_individual_card_beneficio) }}</span>
+                </div>
+              </div>
+              <UProgress 
+                :value="getPercentual(selectedConsultorData.atingido_card_beneficio, selectedConsultorData.meta_individual_card_beneficio)" 
+                :color="getProgressColor(getPercentual(selectedConsultorData.atingido_card_beneficio, selectedConsultorData.meta_individual_card_beneficio))" 
+                size="sm" 
+              />
+            </div>
+
+            <!-- Consignado -->
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h5 class="font-semibold">Consignado</h5>
+                <span class="text-sm font-semibold" :class="getColorClass(getPercentual(selectedConsultorData.atingido_consignado, selectedConsultorData.meta_individual_consignado))">
+                  {{ getPercentual(selectedConsultorData.atingido_consignado, selectedConsultorData.meta_individual_consignado).toFixed(1) }}%
+                </span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-sm mb-2">
+                <div>
+                  <span class="text-gray-500">Atingido:</span>
+                  <span class="font-semibold ml-2">{{ formatCurrency(selectedConsultorData.atingido_consignado) }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">Meta:</span>
+                  <span class="font-semibold ml-2">{{ formatCurrency(selectedConsultorData.meta_individual_consignado) }}</span>
+                </div>
+              </div>
+              <UProgress 
+                :value="getPercentual(selectedConsultorData.atingido_consignado, selectedConsultorData.meta_individual_consignado)" 
+                :color="getProgressColor(getPercentual(selectedConsultorData.atingido_consignado, selectedConsultorData.meta_individual_consignado))" 
+                size="sm" 
+              />
+            </div>
+
+            <!-- FGTS -->
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h5 class="font-semibold">FGTS</h5>
+                <span class="text-sm font-semibold" :class="getColorClass(getPercentual(selectedConsultorData.atingido_fgts, selectedConsultorData.meta_individual_fgts))">
+                  {{ getPercentual(selectedConsultorData.atingido_fgts, selectedConsultorData.meta_individual_fgts).toFixed(1) }}%
+                </span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-sm mb-2">
+                <div>
+                  <span class="text-gray-500">Atingido:</span>
+                  <span class="font-semibold ml-2">{{ formatCurrency(selectedConsultorData.atingido_fgts) }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">Meta:</span>
+                  <span class="font-semibold ml-2">{{ formatCurrency(selectedConsultorData.meta_individual_fgts) }}</span>
+                </div>
+              </div>
+              <UProgress 
+                :value="getPercentual(selectedConsultorData.atingido_fgts, selectedConsultorData.meta_individual_fgts)" 
+                :color="getProgressColor(getPercentual(selectedConsultorData.atingido_fgts, selectedConsultorData.meta_individual_fgts))" 
+                size="sm" 
+              />
+            </div>
+
+            <!-- BMG Med -->
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h5 class="font-semibold">BMG Med</h5>
+                <span class="text-sm font-semibold" :class="getColorClass(getPercentual(selectedConsultorData.atingido_bmg_med, selectedConsultorData.meta_individual_bmg_med))">
+                  {{ getPercentual(selectedConsultorData.atingido_bmg_med, selectedConsultorData.meta_individual_bmg_med).toFixed(1) }}%
+                </span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-sm mb-2">
+                <div>
+                  <span class="text-gray-500">Atingido:</span>
+                  <span class="font-semibold ml-2">{{ selectedConsultorData.atingido_bmg_med || 0 }} un</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">Meta:</span>
+                  <span class="font-semibold ml-2">{{ selectedConsultorData.meta_individual_bmg_med || 0 }} un</span>
+                </div>
+              </div>
+              <UProgress 
+                :value="getPercentual(selectedConsultorData.atingido_bmg_med, selectedConsultorData.meta_individual_bmg_med)" 
+                :color="getProgressColor(getPercentual(selectedConsultorData.atingido_bmg_med, selectedConsultorData.meta_individual_bmg_med))" 
+                size="sm" 
+              />
+            </div>
+
+            <!-- Seguro Familiar -->
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h5 class="font-semibold">Seguro Familiar</h5>
+                <span class="text-sm font-semibold" :class="getColorClass(getPercentual(selectedConsultorData.atingido_seguro_familiar, selectedConsultorData.meta_individual_seguro_familiar))">
+                  {{ getPercentual(selectedConsultorData.atingido_seguro_familiar, selectedConsultorData.meta_individual_seguro_familiar).toFixed(1) }}%
+                </span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-sm mb-2">
+                <div>
+                  <span class="text-gray-500">Atingido:</span>
+                  <span class="font-semibold ml-2">{{ selectedConsultorData.atingido_seguro_familiar || 0 }} un</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">Meta:</span>
+                  <span class="font-semibold ml-2">{{ selectedConsultorData.meta_individual_seguro_familiar || 0 }} un</span>
+                </div>
+              </div>
+              <UProgress 
+                :value="getPercentual(selectedConsultorData.atingido_seguro_familiar, selectedConsultorData.meta_individual_seguro_familiar)" 
+                :color="getProgressColor(getPercentual(selectedConsultorData.atingido_seguro_familiar, selectedConsultorData.meta_individual_seguro_familiar))" 
+                size="sm" 
+              />
+            </div>
+          </div>
+        </div>
+
+        <template #footer>
+          <div class="flex justify-end">
+            <UButton @click="detailsModalOpen = false" color="gray">
+              Fechar
+            </UButton>
+          </div>
+        </template>
+      </UCard>
+    </UModal>
   </div>
 </template>
 
@@ -533,6 +771,11 @@ const getRankBadgeColor = (rank) => {
 const openDetails = (row) => {
   selectedConsultorData.value = row
   detailsModalOpen.value = true
+}
+
+const getPercentual = (atingido, meta) => {
+  if (!meta || meta === 0) return 0
+  return (atingido / meta) * 100
 }
 
 const exportToExcel = () => {
