@@ -15,6 +15,14 @@
             <UBadge :label="row.is_active ? 'Ativo' : 'Inativo'" :color="row.is_active ? 'green' : 'red'" variant="subtle" />
           </template>
 
+          <template #ultimo_login-data="{ row }">
+            <div v-if="row.ultimo_login" class="text-sm">
+              <div>{{ formatarDataHora(row.ultimo_login) }}</div>
+              <div v-if="row.ultimo_ip" class="text-xs text-gray-500">{{ row.ultimo_ip }}</div>
+            </div>
+            <span v-else class="text-xs text-gray-400">Nunca acessou</span>
+          </template>
+
           <template #actions-data="{ row }">
             <UButton icon="i-heroicons-pencil" size="sm" color="gray" variant="ghost" @click="handleEdit(row)" />
 
@@ -255,8 +263,12 @@ const searching = ref(false);
 
 const cpfError = ref(''); // Usado para validação de CPF
 const columns = [
-  { key: 'nome_completo', label: 'Nome Completo', sortable: true }, { key: 'perfis.nome', label: 'Perfil' },
-  { key: 'lojas.nome', label: 'Loja' }, { key: 'is_active', label: 'Status' }, { key: 'actions', label: 'Ações' }
+  { key: 'nome_completo', label: 'Nome Completo', sortable: true }, 
+  { key: 'perfis.nome', label: 'Perfil' },
+  { key: 'lojas.nome', label: 'Loja' }, 
+  { key: 'is_active', label: 'Status' }, 
+  { key: 'ultimo_login', label: 'Último Acesso' },
+  { key: 'actions', label: 'Ações' }
 ];
 
 // Histórico de vínculos (UI)
@@ -267,6 +279,17 @@ const historicoColumns = [
   { key: 'status', label: 'Status' },
 ];
 const formatDate = (d) => d ? new Date(d).toISOString().split('T')[0] : null;
+const formatarDataHora = (d) => {
+  if (!d) return null;
+  const date = new Date(d);
+  return date.toLocaleString('pt-BR', { 
+    day: '2-digit', 
+    month: '2-digit', 
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
 const vinculosFormatados = computed(() => (vinculosHistorico.value || []).map((v) => ({
   data_admissao: formatDate(v.data_admissao),
   data_saida: formatDate(v.data_saida),

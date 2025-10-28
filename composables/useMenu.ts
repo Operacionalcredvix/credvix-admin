@@ -51,7 +51,8 @@ const menuItems = [
     slot: 'item',
     links: [
       { label: 'Metas', to: '/admin/metas', icon: 'i-heroicons-trophy' },
-      { label: 'Importações', to: '/admin/importacoes', icon: 'i-heroicons-arrow-up-tray' }
+      { label: 'Importações', to: '/admin/importacoes', icon: 'i-heroicons-arrow-up-tray' },
+      { label: 'Auditoria de Logins', to: '/admin/auditoria-logins', icon: 'i-heroicons-finger-print', profiles: ['Master', 'RH'] }
     ]
   },
   {
