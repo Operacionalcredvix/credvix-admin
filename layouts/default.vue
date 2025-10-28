@@ -49,11 +49,6 @@
               </UAccordion>
             </li>
           </template>
-          <li v-if="profile?.perfis?.nome === 'Master'">
-            <NuxtLink to="/auditoria" class="nav-link" :class="{'justify-center': isSidebarCollapsed}">
-              <UIcon name="i-heroicons-shield-check" class="flex-shrink-0" /> <span class="transition-all duration-300" :class="{'opacity-0 max-w-0 overflow-hidden': isSidebarCollapsed}">Auditoria</span>
-            </NuxtLink>
-          </li>
         </ul>
       </nav>
 
@@ -79,7 +74,7 @@
               @click="isDark = !isDark"
             />
           </ClientOnly>
-          <UDropdown :items="profileDropdownItems" :popper="{ placement: 'bottom-end' }">
+          <UDropdown v-model:open="isDropdownOpen" :items="profileDropdownItems" :popper="{ placement: 'bottom-end' }" :ui="{ width: 'w-80' }">
             <UButton color="gray" variant="ghost" class="flex items-center gap-3 p-2">
               <UAvatar :src="profile.avatar_url" :alt="profile.nome_completo" size="sm" />
               <div class="text-left hidden sm:block">
@@ -88,6 +83,40 @@
               </div>
               <UIcon name="i-heroicons-chevron-down" class="text-gray-400 dark:text-gray-500" />
             </UButton>
+
+            <template #item="{ item }">
+              <div v-if="item.isAccordion" class="w-full" @click.stop>
+                <UAccordion :items="[item.accordion]" variant="ghost" :ui="{ item: { padding: 'p-0' } }">
+                  <template #default="{ item: accordionItem, open }">
+                    <UButton color="gray" variant="ghost" class="w-full justify-between px-3 py-2" @click.stop>
+                      <div class="flex items-center gap-2">
+                        <UIcon :name="accordionItem.icon" class="text-lg" />
+                        <span>{{ accordionItem.label }}</span>
+                      </div>
+                      <UIcon name="i-heroicons-chevron-right" class="transition-transform" :class="[open && 'rotate-90']" />
+                    </UButton>
+                  </template>
+
+                  <template #item="{ item: accordionItem }">
+                    <div class="py-1 pl-4" @click.stop>
+                      <button 
+                        v-for="link in accordionItem.links" 
+                        :key="link.to" 
+                        @click.stop="handleNavigate(link.to)"
+                        class="flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors w-full text-left"
+                      >
+                        <UIcon :name="link.icon" class="text-base" />
+                        <span>{{ link.label }}</span>
+                      </button>
+                    </div>
+                  </template>
+                </UAccordion>
+              </div>
+              <span v-else class="flex items-center gap-2 truncate">
+                <UIcon v-if="item.icon" :name="item.icon" class="flex-shrink-0 w-5 h-5" />
+                {{ item.label }}
+              </span>
+            </template>
           </UDropdown>
         </div>
       </header>
@@ -111,10 +140,13 @@ useSessionHeartbeat();
 const supabase = useSupabaseClient();
 const router = useRouter();
 const route = useRoute();
-import { computed } from 'vue';
+import { computed, ref, nextTick } from 'vue';
 const { profile } = useProfile();
 // NOVO: Usa o composable para obter os itens de menu filtrados
 const { menuItems, filteredMenuItems } = useMenu();
+
+// Ref para controlar o estado do dropdown
+const isDropdownOpen = ref(false);
 
 // Computed que determina quais itens devem ser exibidos no menu
 // Por padrão usamos o filteredMenuItems. Porém, quando o utilizador está
@@ -233,19 +265,52 @@ const breadcrumbItems = computed(() => {
   return items;
 });
 
+// Função para navegar e fechar o dropdown
+const handleNavigate = async (path) => {
+  console.log('Navegando para:', path);
+  isDropdownOpen.value = false;
+  await nextTick();
+  await navigateTo(path);
+};
+
 // NOVO: Itens para o dropdown do perfil
-const profileDropdownItems = [
-  [{
-    label: 'Meu Perfil',
-    icon: 'i-heroicons-user-circle',
-    to: '/perfil'
-  }],
-  [{
+const profileDropdownItems = computed(() => {
+  const items = [
+    [{
+      label: 'Meu Perfil',
+      icon: 'i-heroicons-user-circle',
+      to: '/perfil'
+    }]
+  ];
+
+  // Adiciona o menu de Segurança com accordion apenas para Master
+  if (profile.value?.perfis?.nome === 'Master') {
+    items.push([{
+      isAccordion: true,
+      accordion: {
+        label: 'Segurança',
+        icon: 'i-heroicons-shield-check',
+        slot: 'item',
+        links: [
+          { label: 'Auditoria', icon: 'i-heroicons-clipboard-document-list', to: '/auditoria' },
+          { label: 'Auditoria de Logins', icon: 'i-heroicons-finger-print', to: '/admin/auditoria-logins' },
+          { label: 'Rate Limit', icon: 'i-heroicons-shield-exclamation', to: '/admin/rate-limit' },
+          { label: 'Alertas de Segurança', icon: 'i-heroicons-bell-alert', to: '/admin/alertas-seguranca' },
+          { label: 'Sessões Ativas', icon: 'i-heroicons-user-group', to: '/admin/sessoes-ativas' },
+          { label: 'Auditoria de Falhas', icon: 'i-heroicons-exclamation-triangle', to: '/admin/auditoria-falhas' }
+        ]
+      }
+    }]);
+  }
+
+  items.push([{
     label: 'Sair',
     icon: 'i-heroicons-arrow-left-on-rectangle',
     click: () => handleLogout()
-  }]
-];
+  }]);
+
+  return items;
+});
 
 const handleLogout = async () => {
   try {
