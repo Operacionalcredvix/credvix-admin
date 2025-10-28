@@ -13,7 +13,8 @@ const menuItems = [
     links: [
       { label: 'Regionais', to: '/cadastros/regionais', icon: 'i-heroicons-map-pin' },
       { label: 'Funcionários', to: '/funcionarios', icon: 'i-heroicons-users' },
-      { label: 'Lojas', to: '/lojas', icon: 'i-heroicons-building-storefront' }
+      { label: 'Lojas', to: '/lojas', icon: 'i-heroicons-building-storefront' },
+      { label: 'Sistemas por Funcionário', to: '/cadastros/sistemas-funcionarios', icon: 'i-heroicons-rectangle-stack', profiles: ['Master','RH'] }
     ]
   },
   {
