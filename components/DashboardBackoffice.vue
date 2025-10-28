@@ -53,7 +53,7 @@
             <div class="flex items-center gap-2">
               <UIcon name="i-heroicons-calendar" class="text-primary-500" />
               <h3 class="font-semibold">Diárias de Consignado</h3>
-              <UTooltip text="Meta Diária = Soma das metas de consignado do mês ÷ dias úteis (Seg-Sáb). Pago Hoje conta contratos pagos no dia selecionado e também no acumulado do período." placement="right">
+              <UTooltip text="Meta Diária Base = Meta total do mês ÷ dias úteis (Seg-Sáb). Meta Diária Ajustada redistribui os desvios acumulados pelos dias restantes." placement="right">
                 <UIcon name="i-heroicons-question-mark-circle" class="text-gray-400 dark:text-gray-500" />
               </UTooltip>
             </div>
@@ -76,8 +76,21 @@
           <div class="text-2xl font-semibold">{{ diarias.dias_uteis_mes || 0 }}</div>
         </div>
         <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
-          <div class="text-sm text-gray-500">Meta Diária</div>
-          <div class="text-2xl font-semibold">{{ formatCurrency(diarias.meta_diaria || 0) }}</div>
+          <div class="text-sm text-gray-500">Meta Diária (Base)</div>
+          <div class="text-2xl font-semibold">{{ formatCurrency(diarias.meta_diaria_base || 0) }}</div>
+        </div>
+
+        <!-- NOVO: Meta Diária Ajustada -->
+        <div class="p-4 rounded-lg bg-primary-50 dark:bg-primary-900/20 border-2 border-primary-200 dark:border-primary-800">
+          <div class="flex items-center gap-2 text-sm text-primary-700 dark:text-primary-300">
+            <span>Meta Diária Ajustada</span>
+            <UTooltip text="Meta recalculada com base no desempenho anterior. Se ficou devendo, a meta aumenta. Se passou, a meta diminui." placement="top">
+              <UIcon name="i-heroicons-information-circle" class="text-primary-500" />
+            </UTooltip>
+          </div>
+          <div class="text-2xl font-bold text-primary-600 dark:text-primary-400">
+            {{ formatCurrency(diarias.meta_diaria_ajustada || 0) }}
+          </div>
         </div>
 
         <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
@@ -85,19 +98,35 @@
           <div class="text-2xl font-semibold">{{ formatCurrency(diarias.pago_consignado_hoje || 0) }}</div>
         </div>
         <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+          <div class="text-sm text-gray-500">Acumulado no Mês</div>
+          <div class="text-2xl font-semibold">{{ formatCurrency(diarias.pago_consignado_acumulado || 0) }}</div>
+        </div>
+
+        <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
           <div class="text-sm text-gray-500">Desvio do Dia</div>
           <div class="text-2xl font-semibold" :class="diarias.desvio_hoje >= 0 ? 'text-green-600' : 'text-red-600'">
             {{ formatCurrency(diarias.desvio_hoje || 0) }}
           </div>
         </div>
         <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
-          <div class="text-sm text-gray-500">Acumulado no Mês</div>
-          <div class="text-2xl font-semibold">{{ formatCurrency(diarias.pago_consignado_acumulado || 0) }}</div>
+          <div class="flex items-center gap-2 text-sm text-gray-500">
+            <span>Desvio Acumulado</span>
+            <UTooltip text="Soma de todos os desvios diários até hoje. Mostra se está adiantado ou atrasado em relação ao planejado." placement="top">
+              <UIcon name="i-heroicons-information-circle" class="text-gray-400" />
+            </UTooltip>
+          </div>
+          <div class="text-2xl font-semibold" :class="diarias.desvio_acumulado >= 0 ? 'text-green-600' : 'text-red-600'">
+            {{ formatCurrency(diarias.desvio_acumulado || 0) }}
+          </div>
         </div>
-
         <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
           <div class="text-sm text-gray-500">Saldo da Meta</div>
           <div class="text-2xl font-semibold">{{ formatCurrency(diarias.saldo_meta_mes || 0) }}</div>
+        </div>
+
+        <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+          <div class="text-sm text-gray-500">Dias Transcorridos</div>
+          <div class="text-2xl font-semibold">{{ diarias.dias_transcorridos || 0 }}</div>
         </div>
         <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
           <div class="text-sm text-gray-500">Dias Restantes</div>
@@ -105,7 +134,9 @@
         </div>
         <div class="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
           <div class="text-sm text-gray-500">Projeção do Mês</div>
-          <div class="text-2xl font-semibold">{{ formatCurrency(diarias.projecao_mes || 0) }}</div>
+          <div class="text-2xl font-semibold" :class="(diarias.projecao_mes || 0) >= (diarias.total_meta_consignado || 0) ? 'text-green-600' : 'text-red-600'">
+            {{ formatCurrency(diarias.projecao_mes || 0) }}
+          </div>
         </div>
       </div>
     </UCard>
