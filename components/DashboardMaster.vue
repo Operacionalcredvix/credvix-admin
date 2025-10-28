@@ -20,6 +20,9 @@
           <UButton @click="setDateRange('current_month')" label="Mês Atual" color="gray" variant="ghost" />
           <UButton @click="setDateRange('last_30_days')" label="Últimos 30 dias" color="gray" variant="ghost" />
         </div>
+          <div class="pt-2 flex gap-2">
+            <UButton @click="clearFilters" label="Limpar Filtros" color="red" variant="soft" icon="i-heroicons-x-mark" />
+          </div>
       </div>
     </UCard>
 
@@ -556,5 +559,14 @@ const getProgressBarColor = (percentage) => {
   if (percentage >= 100) return 'green';
   if (percentage >= 75) return 'yellow';
   return 'red'; // This is for UProgress, it's ok.
+};
+
+// Função para limpar todos os filtros do dashboard
+const clearFilters = () => {
+  dateRange.start = '';
+  dateRange.end = '';
+  selectedPeriod.value = new Date().toISOString().slice(0, 7);
+  selectedRegional.value = null;
+  segurosDateFilter.value = new Date().toISOString().split('T')[0];
 };
 </script>
