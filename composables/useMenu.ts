@@ -52,7 +52,11 @@ const menuItems = [
     links: [
       { label: 'Metas', to: '/admin/metas', icon: 'i-heroicons-trophy' },
       { label: 'Importações', to: '/admin/importacoes', icon: 'i-heroicons-arrow-up-tray' },
-      { label: 'Auditoria de Logins', to: '/admin/auditoria-logins', icon: 'i-heroicons-finger-print', profiles: ['Master', 'RH'] }
+      { label: 'Auditoria de Logins', to: '/admin/auditoria-logins', icon: 'i-heroicons-finger-print', profiles: ['Master', 'RH'] },
+      { label: 'Rate Limit', to: '/admin/rate-limit', icon: 'i-heroicons-shield-exclamation', profiles: ['Master'] },
+      { label: 'Alertas de Segurança', to: '/admin/alertas-seguranca', icon: 'i-heroicons-bell-alert', profiles: ['Master'] },
+      { label: 'Sessões Ativas', to: '/admin/sessoes-ativas', icon: 'i-heroicons-user-group', profiles: ['Master'] },
+      { label: 'Auditoria de Falhas', to: '/admin/auditoria-falhas', icon: 'i-heroicons-exclamation-triangle', profiles: ['Master'] }
     ]
   },
   {

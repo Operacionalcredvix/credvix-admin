@@ -100,10 +100,14 @@
     </div>
     <!-- Ecrã de Carregamento Global -->
     <LoadingScreen />
+    <!-- Modal de Aviso de Inatividade -->
+    <InactivityWarningModal />
   </div>
 </template>
 
 <script setup>
+// Heartbeat de sessão para renovar o token automaticamente
+useSessionHeartbeat();
 const supabase = useSupabaseClient();
 const router = useRouter();
 const route = useRoute();
@@ -244,13 +248,26 @@ const profileDropdownItems = [
 ];
 
 const handleLogout = async () => {
-  const { error } = await supabase.auth.signOut();
-  if (error) {
-    console.error('Erro ao fazer logout:', error);
-    return;
+  try {
+    // Tenta registrar o logout na auditoria, se houver um login_id
+    const loginId = typeof window !== 'undefined' ? sessionStorage.getItem('login_id') : null;
+    if (loginId) {
+      try {
+        await supabase.rpc('registrar_logout', { p_login_id: Number(loginId) });
+        sessionStorage.removeItem('login_id');
+        sessionStorage.removeItem('login_tracked');
+      } catch (e) {
+        console.warn('[Auditoria] Falha ao registrar logout manual:', e);
+      }
+    }
+  } finally {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Erro ao fazer logout:', error);
+    }
+    // Força um recarregamento completo para a página de login para limpar todo o estado.
+    window.location.href = '/login';
   }
-  // Força um recarregamento completo para a página de login para limpar todo o estado.
-  window.location.href = '/login';
 };
 </script>
 

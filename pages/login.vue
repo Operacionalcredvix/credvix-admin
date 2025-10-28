@@ -63,16 +63,51 @@ const router = useRouter();
 const handleLogin = async () => {
   loading.value = true;
   errorMessage.value = '';
+  
   try {
+    // 1. Verifica rate limit antes de tentar login
+    const rateLimitCheck = await $fetch('/api/check-rate-limit', {
+      method: 'POST',
+      body: { email: email.value }
+    });
+
+    if (rateLimitCheck.bloqueado) {
+      const minutos = Math.ceil(rateLimitCheck.tempo_bloqueio_segundos / 60);
+      errorMessage.value = `Muitas tentativas de login. Tente novamente em ${minutos} minuto(s).`;
+      loading.value = false;
+      return;
+    }
+
+    // 2. Tenta fazer login
     const { error } = await supabase.auth.signInWithPassword({
       email: email.value,
       password: password.value,
     });
-    if (error) throw error;
+
+    // 3. Registra tentativa (sucesso ou falha)
+    await $fetch('/api/register-login-attempt', {
+      method: 'POST',
+      body: { 
+        email: email.value, 
+        sucesso: !error 
+      }
+    });
+
+    if (error) {
+      // Mostra tentativas restantes se houver
+      if (rateLimitCheck.tentativas_restantes <= 3 && rateLimitCheck.tentativas_restantes > 1) {
+        errorMessage.value = `E-mail ou senha inválidos. ${rateLimitCheck.tentativas_restantes - 1} tentativa(s) restante(s).`;
+      } else if (rateLimitCheck.tentativas_restantes === 1) {
+        errorMessage.value = 'E-mail ou senha inválidos. Esta é sua última tentativa antes do bloqueio.';
+      } else {
+        errorMessage.value = 'E-mail ou senha inválidos. Tente novamente.';
+      }
+      throw error;
+    }
+
     // Se o login for bem-sucedido, redireciona para a página principal
     router.push('/');
   } catch (error) {
-    errorMessage.value = 'E-mail ou senha inválidos. Tente novamente.';
     console.error('Erro de login:', error);
   } finally {
     loading.value = false;
