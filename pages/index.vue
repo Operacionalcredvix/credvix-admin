@@ -22,7 +22,8 @@ const dashboardMap = {
   Backoffice: resolveComponent('DashboardBackoffice'),
   Coordenador: resolveComponent('DashboardCoordenador'),
   Supervisor: resolveComponent('DashboardSupervisor'),
-  Consultor: resolveComponent('DashboardConsultor')
+  Consultor: resolveComponent('DashboardConsultor'),
+  RH: resolveComponent('DashboardRH')
 };
 
 const activeDashboard = computed(() => {

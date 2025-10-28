@@ -88,7 +88,8 @@ export const useMenu = () => {
       Coordenador: ['Propostas', 'Relatórios'],
       Supervisor: ['Propostas', 'Relatórios'],
       Consultor: ['Propostas', 'Relatórios'],
-      Backoffice: ['Propostas', 'Relatórios', 'Backoffice']
+      Backoffice: ['Propostas', 'Relatórios', 'Backoffice'],
+      RH: ['Cadastros', 'RH']
     };
 
     const allowed = permissionMap[userProfile] || ['Propostas']; // fallback simplificado para perfis desconhecidos
