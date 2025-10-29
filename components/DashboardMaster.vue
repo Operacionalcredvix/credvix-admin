@@ -563,8 +563,8 @@ const getProgressBarColor = (percentage) => {
 
 // Função para limpar todos os filtros do dashboard
 const clearFilters = () => {
-  dateRange.start = '';
-  dateRange.end = '';
+  // Reseta para mês atual ao invés de limpar completamente
+  setDateRange('current_month');
   selectedPeriod.value = new Date().toISOString().slice(0, 7);
   selectedRegional.value = null;
   segurosDateFilter.value = new Date().toISOString().split('T')[0];
