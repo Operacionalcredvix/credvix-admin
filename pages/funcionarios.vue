@@ -597,10 +597,11 @@ async function handleFormSubmit() {
         query = query.neq('id', formData.id);
       }
 
-      const { data: existingEmployee, error: checkError } = await query.single();
+      // Usa maybeSingle() em vez de single() para evitar erro 406 quando há múltiplos registros
+      const { data: existingEmployee, error: checkError } = await query.maybeSingle();
 
-      // O erro 'PGRST116' significa "nenhum registo encontrado", o que é bom. Qualquer outro erro é um problema.
-      if (checkError && checkError.code !== 'PGRST116') throw checkError;
+      // Se houver erro na query, lança exceção
+      if (checkError) throw checkError;
 
       // Se encontrou um funcionário, é um duplicado.
       if (existingEmployee) {
@@ -618,7 +619,9 @@ async function handleFormSubmit() {
       // se o perfil ou a loja forem alterados.
       const funcionarioData = {
         nome_completo: formData.nome_completo, data_nascimento: formData.data_nascimento, nome_mae: formData.nome_mae,
-        cpf: formData.cpf.replace(/\D/g, ''), telefone: formData.telefone.replace(/\D/g, ''), cep: formData.cep,
+        cpf: formData.cpf ? formData.cpf.replace(/\D/g, '') : null, 
+        telefone: formData.telefone ? formData.telefone.replace(/\D/g, '') : null, 
+        cep: formData.cep,
         endereco: formData.endereco, numero_endereco: formData.numero_endereco, complemento_endereco: formData.complemento_endereco,
         bairro: formData.bairro, cidade: formData.cidade, estado: formData.estado,
         perfil_id: formData.perfil_id, gerente_id: formData.gerente_id, loja_id: formData.loja_id,
@@ -704,7 +707,10 @@ async function handleFormSubmit() {
       // Prepara os dados que pertencem APENAS à tabela 'funcionarios'
       const funcionarioData = {
         nome_completo: formData.nome_completo, data_nascimento: formData.data_nascimento, nome_mae: formData.nome_mae,
-        cpf: formData.cpf, email: formData.email, telefone: formData.telefone, cep: formData.cep,
+        cpf: formData.cpf ? formData.cpf.replace(/\D/g, '') : null, 
+        email: formData.email, 
+        telefone: formData.telefone ? formData.telefone.replace(/\D/g, '') : null, 
+        cep: formData.cep,
         endereco: formData.endereco, numero_endereco: formData.numero_endereco, complemento_endereco: formData.complemento_endereco,
         bairro: formData.bairro, cidade: formData.cidade, estado: formData.estado,
         perfil_id: formData.perfil_id, gerente_id: formData.gerente_id, loja_id: formData.loja_id,
