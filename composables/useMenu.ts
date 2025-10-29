@@ -24,7 +24,8 @@ const menuItems = [
     links: [
       { label: 'Vagas', to: '/rh/vagas', icon: 'i-heroicons-megaphone' },
       { label: 'Currículos', to: '/rh/curriculos', icon: 'i-heroicons-document-text' },
-      { label: 'Histórico de Alocações', to: '/rh/historico-alocacoes', icon: 'i-heroicons-folder-open' }
+      { label: 'Histórico de Alocações', to: '/rh/historico-alocacoes', icon: 'i-heroicons-folder-open' },
+      { label: 'Funcionários em Experiência', to: '/rh/funcionarios-experiencia', icon: 'i-heroicons-clock', profiles: ['Master', 'RH'] }
     ]
   },
   {
