@@ -100,6 +100,29 @@
           <UFormGroup v-if="mostrarCampoMotivo" label="Motivo do Status" name="motivo_status" required
             class="md:col-span-2">
             <UTextarea v-model="formData.motivo_status" placeholder="Descreva o motivo..." />
+
+            <!-- Sugestões de motivos, baseadas em usos anteriores para o status selecionado -->
+            <UCard v-if="motivosSugeridos.length" class="mt-3" :ui="{ body: { padding: 'p-3' } }">
+              <template #header>
+                <div class="flex items-center gap-2">
+                  <UIcon name="i-heroicons-light-bulb" class="text-primary-500" />
+                  <span class="font-medium">Sugestões de Motivo</span>
+                </div>
+              </template>
+              <div class="flex flex-wrap gap-2">
+                <UButton
+                  v-for="m in motivosSugeridos"
+                  :key="m"
+                  size="xs"
+                  color="gray"
+                  variant="soft"
+                  @click="formData.motivo_status = m"
+                  :title="m"
+                >
+                  {{ m }}
+                </UButton>
+              </div>
+            </UCard>
           </UFormGroup>
         </div>
       </UCard>
@@ -112,7 +135,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 
 definePageMeta({ middleware: 'auth', profiles: ['Master', 'Backoffice', 'Coordenador', 'Consultor'] });
 
@@ -263,7 +286,12 @@ watch(() => formData.cliente_id, () => {formData.numero_beneficio = null;});
 watch(() => formData.loja_id, () => { formData.consultor_id = null; });
 watch(() => formData.banco_id, () => { formData.tabela = null; formData.prazo = null; });
 watch(() => formData.tabela, () => { formData.prazo = null; });
-watch(() => formData.status, (newStatus) => {if (newStatus === 'Aprovado' || newStatus === 'Pago') {formData.motivo_status = '';}});
+watch(() => formData.status, async (newStatus) => {
+  if (newStatus === 'Aprovado' || newStatus === 'Pago') {
+    formData.motivo_status = '';
+  }
+  await carregarMotivosSugeridos();
+});
 
 
 // --- SUBMISSÃO DO FORMULÁRIO (COM VALIDAÇÃO) ---
@@ -367,4 +395,51 @@ const clientesFiltrados = computed(() => {
 function onClienteSearch(query) {
   clienteBusca.value = query;
 }
+
+// --- SUGESTÕES DE MOTIVO POR STATUS ---
+const motivosSugeridos = ref([]);
+
+async function carregarMotivosSugeridos() {
+  // Carrega apenas quando o campo de motivo estiver ativo
+  if (!mostrarCampoMotivo.value || !formData.status) {
+    motivosSugeridos.value = [];
+    return;
+  }
+
+  try {
+    // Tenta via RPC otimizada (ordenada por popularidade)
+    const { data, error } = await supabase.rpc('get_motivos_status_populares', {
+      p_status: formData.status,
+      p_limit: 12
+    });
+    if (error) throw error;
+  motivosSugeridos.value = (data || []).map((r) => r.motivo).filter(Boolean);
+  } catch (e) {
+    // Fallback: busca últimas ocorrências e deduplica no cliente
+    const { data } = await supabase
+      .from('contratos')
+      .select('motivo_status, id')
+      .eq('status', formData.status)
+      .not('motivo_status', 'is', null)
+      .neq('motivo_status', '')
+      .order('id', { ascending: false })
+      .limit(200);
+
+    const seen = new Set();
+    const uniq = [];
+    (data || []).forEach((row) => {
+      const m = String(row.motivo_status || '').trim();
+      if (m && !seen.has(m)) {
+        seen.add(m);
+        uniq.push(m);
+      }
+    });
+    motivosSugeridos.value = uniq.slice(0, 12);
+  }
+}
+
+// Carrega na montagem inicial
+onMounted(() => {
+  carregarMotivosSugeridos();
+});
 </script>
