@@ -635,42 +635,32 @@ async function handleFormSubmit() {
         .eq('id', formData.id);
       if (funcError) throw funcError;
 
-      // 3. Mantém histórico de vínculos corretamente (sem sobrescrever ciclos anteriores)
+      // 3. Atualiza ou cria vínculo (devido à constraint UNIQUE, só pode haver 1 vínculo por funcionário)
       if (formData.vinculoId) {
-        if (formData.is_active === false) {
-          // Encerramento do vínculo atual: apenas atualiza a data de saída
-          const { error: vincUpdateErr } = await supabase
-            .from('historico_vinculos')
-            .update({ data_saida: formData.data_saida })
-            .eq('id', formData.vinculoId);
-          if (vincUpdateErr) throw vincUpdateErr;
-        } else {
-          // Funcionário ativo
-          if (formData.data_saida) {
-            // Caso de recontratação: mantém o registro antigo encerrado e cria um novo com nova admissão
-            const { error: vincInsertErr } = await supabase
-              .from('historico_vinculos')
-              .insert({ funcionario_id: formData.id, data_admissao: formData.data_admissao, data_saida: null });
-            if (vincInsertErr) throw vincInsertErr;
-          } else {
-            // Vínculo em andamento: garante data_admissao atualizada
-            const { error: vincAdmUpdateErr } = await supabase
-              .from('historico_vinculos')
-              .update({ data_admissao: formData.data_admissao, data_saida: null })
-              .eq('id', formData.vinculoId);
-            if (vincAdmUpdateErr) throw vincAdmUpdateErr;
-          }
-        }
-      } else {
-        // Não havia vínculo anterior: cria um novo registro apropriado ao status atual
-        const { error: vincCreateErr } = await supabase
+        // Já existe um vínculo: atualiza os dados
+        const vincData = {
+          data_admissao: formData.data_admissao,
+          data_saida: formData.is_active ? null : (formData.data_saida || null)
+        };
+        
+        const { error: vincUpdateErr } = await supabase
           .from('historico_vinculos')
-          .insert({
+          .update(vincData)
+          .eq('id', formData.vinculoId);
+        if (vincUpdateErr) throw vincUpdateErr;
+      } else {
+        // Não havia vínculo: tenta criar ou atualizar usando upsert
+        const { error: vincUpsertErr } = await supabase
+          .from('historico_vinculos')
+          .upsert({
             funcionario_id: formData.id,
             data_admissao: formData.data_admissao,
-            data_saida: formData.is_active ? null : formData.data_saida || null
+            data_saida: formData.is_active ? null : (formData.data_saida || null)
+          }, {
+            onConflict: 'funcionario_id', // Usa a constraint unique como chave
+            ignoreDuplicates: false // Atualiza se já existir
           });
-        if (vincCreateErr) throw vincCreateErr;
+        if (vincUpsertErr) throw vincUpsertErr;
       }
 
       // 4. Opcional: sincroniza status no Supabase Auth (ban/unban)
