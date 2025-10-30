@@ -96,14 +96,17 @@ export const useMenu = () => {
     // Mapa centralizado de permissões por perfil
     const permissionMap: Record<string, 'ALL' | string[]> = {
       Master: 'ALL',
-      Coordenador: ['Propostas', 'Relatórios'],
-      Supervisor: ['Propostas', 'Relatórios'],
-      Consultor: ['Propostas', 'Relatórios'],
-      Backoffice: ['Propostas', 'Relatórios', 'Backoffice'],
-      RH: ['Cadastros', 'RH']
+      Coordenador: ['Propostas', 'Relatórios', 'Requisições'],
+      Supervisor: ['Propostas', 'Relatórios', 'Requisições'],
+      Consultor: ['Propostas', 'Relatórios', 'Requisições'],
+      Backoffice: ['Propostas', 'Relatórios', 'Backoffice', 'Requisições'],
+      RH: ['Cadastros', 'RH', 'Requisições'],
+      Administrativo: ['Requisições'],
+      Financeiro: ['Requisições'],
+      TI: ['Requisições']
     };
 
-    const allowed = permissionMap[userProfile] || ['Propostas']; // fallback simplificado para perfis desconhecidos
+    const allowed = permissionMap[userProfile] || ['Propostas', 'Requisições']; // fallback com Requisições incluída
 
     const canAccessMenu = (menuLabel: string) => {
       if (allowed === 'ALL') return true;

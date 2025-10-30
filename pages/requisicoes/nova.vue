@@ -19,9 +19,9 @@
     </div>
 
     <!-- Debug (remover depois) -->
-    <UAlert v-if="salvando || carregandoFuncionariosRH" color="orange" variant="soft" class="mb-4">
-      Estado: salvando={{ salvando }}, carregandoRH={{ carregandoFuncionariosRH }}
-      <UButton size="xs" @click="salvando = false; carregandoFuncionariosRH = false">Resetar</UButton>
+    <UAlert v-if="salvando || carregandoFuncionariosSetor" color="orange" variant="soft" class="mb-4">
+      Estado: salvando={{ salvando }}, carregandoSetor={{ carregandoFuncionariosSetor }}
+      <UButton size="xs" @click="salvando = false; carregandoFuncionariosSetor = false">Resetar</UButton>
     </UAlert>
 
     <!-- Formulário -->
@@ -57,21 +57,21 @@
               </USelectMenu>
             </UFormGroup>
 
-            <!-- Destinatário específico (apenas para RH) -->
+            <!-- Destinatário específico (TODOS os setores) -->
             <UFormGroup 
-              v-if="setorSelecionado === 'RH'" 
-              label="Funcionário do RH" 
+              v-if="setorSelecionado" 
+              :label="`Responsável no ${setorSelecionado}`" 
               required
             >
               <USelectMenu
                 v-model="formData.destinatario_id"
-                :options="funcionariosRHOptions"
-                placeholder="Selecione o funcionário"
-                :disabled="salvando || carregandoFuncionariosRH"
-                :loading="carregandoFuncionariosRH"
+                :options="funcionariosSetorOptions"
+                placeholder="Selecione o responsável"
+                :disabled="salvando || carregandoFuncionariosSetor"
+                :loading="carregandoFuncionariosSetor"
               >
                 <template #label="{ selected }">
-                  <span>{{ selected?.label || 'Selecione o funcionário' }}</span>
+                  <span>{{ selected?.label || 'Selecione o responsável' }}</span>
                 </template>
               </USelectMenu>
             </UFormGroup>
@@ -236,8 +236,8 @@ const { profile } = useProfile();
 
 // --- ESTADO ---
 const salvando = ref(false);
-const carregandoFuncionariosRH = ref(false);
-const funcionariosRH = ref([]);
+const carregandoFuncionariosSetor = ref(false);
+const funcionariosSetor = ref([]);
 const arquivosSelecionados = ref([]);
 
 const formData = ref({
@@ -277,8 +277,8 @@ const prioridadesOptions = PRIORIDADES.map(p => ({
   icon: prioridadeToIcon(p)
 }));
 
-const funcionariosRHOptions = computed(() => 
-  funcionariosRH.value.map(f => ({
+const funcionariosSetorOptions = computed(() => 
+  funcionariosSetor.value.map(f => ({
     label: f.nome_completo,
     value: f.id,
     icon: 'i-heroicons-user'
@@ -310,12 +310,12 @@ const formularioValido = computed(() => {
 
   const baseValido = tituloValido && setorValido && categoriaValida && descricaoValida && prioridadeValida;
 
-  // Se setor = RH, destinatario_id é obrigatório
+  // Se setor está selecionado, destinatario_id é SEMPRE obrigatório
   const setorValue = typeof formData.value.setor_destino === 'object' 
     ? formData.value.setor_destino?.value 
     : formData.value.setor_destino;
     
-  if (setorValue === 'RH') {
+  if (setorValue) {
     return baseValido && temValor(formData.value.destinatario_id);
   }
 
@@ -323,52 +323,67 @@ const formularioValido = computed(() => {
 });
 
 // --- FUNÇÕES ---
-async function carregarFuncionariosRH() {
-  carregandoFuncionariosRH.value = true;
+// Mapeia setores de destino para setores de trabalho dos funcionários
+function mapearSetorTrabalho(setorDestino) {
+  const mapeamento = {
+    'Operacional': 'Administrativo',
+    'Marketing': 'Administrativo',
+    'Endomarketing': 'Administrativo',
+    'Backoffice': 'Backoffice',
+    // Demais setores mantêm o mesmo nome
+    'Administrativo': 'Administrativo',
+    'Financeiro': 'Financeiro',
+    'RH': 'RH',
+    'TI': 'TI'
+  };
+  
+  return mapeamento[setorDestino] || setorDestino;
+}
+
+async function carregarFuncionariosSetor(setor) {
+  if (!setor) return;
+  
+  carregandoFuncionariosSetor.value = true;
   try {
-    // Primeiro pega o ID do perfil RH
-    const { data: perfilRH, error: perfilError } = await supabase
-      .from('perfis')
-      .select('id')
-      .eq('nome', 'RH')
-      .single();
-
-    if (perfilError) throw perfilError;
-
-    // Depois busca funcionários com esse perfil
+    // Mapeia o setor de destino para o setor de trabalho dos funcionários
+    const setorTrabalho = mapearSetorTrabalho(setor);
+    
+    // Busca funcionários do setor usando a view
     const { data, error } = await supabase
-      .from('funcionarios')
-      .select('id, nome_completo')
-      .eq('perfil_id', perfilRH.id)
-      .eq('is_active', true)
+      .from('vw_funcionarios_por_setor')
+      .select('id, nome_completo, perfil_nome')
+      .eq('setor', setorTrabalho)
       .order('nome_completo');
 
     if (error) throw error;
 
-    funcionariosRH.value = data || [];
+    funcionariosSetor.value = data || [];
+    
+    console.log(`[Nova Requisição] Setor destino: ${setor} → Setor trabalho: ${setorTrabalho} → Funcionários:`, data);
   } catch (error) {
-    console.error('[Nova Requisição] Erro ao carregar funcionários RH:', error);
+    console.error('[Nova Requisição] Erro ao carregar funcionários do setor:', error);
     toast.add({
-      title: 'Erro ao carregar funcionários do RH',
+      title: `Erro ao carregar funcionários do ${setor}`,
       description: error.message,
       color: 'red'
     });
   } finally {
-    carregandoFuncionariosRH.value = false;
+    carregandoFuncionariosSetor.value = false;
   }
 }
 
 function onSetorChange() {
   // Limpa destinatário ao mudar setor
   formData.value.destinatario_id = null;
+  funcionariosSetor.value = [];
 
-  // Carrega funcionários do RH se necessário
+  // Carrega funcionários do setor selecionado
   const setorValue = typeof formData.value.setor_destino === 'object' 
     ? formData.value.setor_destino?.value 
     : formData.value.setor_destino;
     
-  if (setorValue === 'RH' && funcionariosRH.value.length === 0) {
-    carregarFuncionariosRH();
+  if (setorValue) {
+    carregarFuncionariosSetor(setorValue);
   }
 }
 

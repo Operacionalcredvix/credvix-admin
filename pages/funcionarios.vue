@@ -141,6 +141,12 @@
                 option-attribute="nome" required placeholder="Selecione o Perfil de Acesso" />
             </UFormGroup>
           </div>
+          <div v-if="isSetorTrabalhoVisible">
+            <UFormGroup label="Setor de Trabalho" name="setor_trabalho" :required="isSetorTrabalhoRequired">
+              <USelectMenu v-model="formData.setor_trabalho" :options="setoresOptions" 
+                placeholder="Selecione o setor" />
+            </UFormGroup>
+          </div>
           <div v-if="isLiderVisible">
             <UFormGroup label="Líder Direto" name="gerente_id">
               <USelectMenu v-model="formData.gerente_id" :options="lideres" value-attribute="id"
@@ -248,7 +254,7 @@ const getInitialFormData = () => ({
   id: null,
   nome_completo: '', data_nascimento: null, nome_mae: '', cpf: '', email: '', telefone: '',
   cep: '', endereco: '', numero_endereco: '', complemento_endereco: '', bairro: '', cidade: '', estado: '',
-  perfil_id: null, gerente_id: null, regional_id: null, loja_id: null,
+  perfil_id: null, gerente_id: null, regional_id: null, loja_id: null, setor_trabalho: null,
   data_admissao: new Date().toISOString().split('T')[0], data_saida: null, is_active: true,
   vinculoId: null // Para guardar o ID do vínculo e facilitar o update
 });
@@ -445,7 +451,25 @@ const formButtonText = computed(() => formData.id ? 'Salvar Alterações' : 'Sal
 
 const selectedProfileName = computed(() => perfis.value.find(p => p.id === formData.perfil_id)?.nome || '');
 const meuPerfilNome = computed(() => meuPerfil.value?.perfis?.nome);
+
+// --- OPÇÕES DE SETORES ---
+const setoresOptions = [
+  { label: 'Administrativo', value: 'Administrativo' },
+  { label: 'Financeiro', value: 'Financeiro' },
+  { label: 'RH', value: 'RH' },
+  { label: 'TI', value: 'TI' },
+  { label: 'Backoffice', value: 'Backoffice' }
+];
+
 // --- LÓGICA DE VISIBILIDADE DOS CAMPOS ORGANIZACIONAIS ---
+const isSetorTrabalhoVisible = computed(() => 
+  ['Master', 'RH', 'Financeiro', 'Administrativo', 'Backoffice', 'TI'].includes(selectedProfileName.value)
+);
+
+const isSetorTrabalhoRequired = computed(() => 
+  ['RH', 'Financeiro', 'Administrativo', 'TI'].includes(selectedProfileName.value)
+);
+
 const isRegionalVisible = computed(() => ['Supervisor', 'Consultor'].includes(selectedProfileName.value));
 const isLiderVisible = computed(() => ['Supervisor', 'Consultor'].includes(selectedProfileName.value));
 const isLojaVisible = computed(() => ['Supervisor', 'Consultor'].includes(selectedProfileName.value));
@@ -500,6 +524,24 @@ watch(() => formData.perfil_id, (newPerfilId, oldPerfilId) => {
   formData.regional_id = null;
   formData.loja_id = null;
   formData.gerente_id = null;
+
+  // Preenche automaticamente o setor_trabalho baseado no perfil
+  const perfilSelecionado = perfis.value.find(p => p.id === newPerfilId);
+  if (perfilSelecionado?.nome === 'Master') {
+    formData.setor_trabalho = 'Administrativo'; // Padrão para Master
+  } else if (perfilSelecionado?.nome === 'RH') {
+    formData.setor_trabalho = 'RH';
+  } else if (perfilSelecionado?.nome === 'Financeiro') {
+    formData.setor_trabalho = 'Financeiro';
+  } else if (perfilSelecionado?.nome === 'Administrativo') {
+    formData.setor_trabalho = 'Administrativo';
+  } else if (perfilSelecionado?.nome === 'Backoffice') {
+    formData.setor_trabalho = 'Backoffice'; // Backoffice tem setor próprio agora
+  } else if (perfilSelecionado?.nome === 'TI') {
+    formData.setor_trabalho = 'TI';
+  } else {
+    formData.setor_trabalho = null; // Limpa para perfis sem setor
+  }
 });
 
 watch(() => formData.regional_id, (newRegionalId) => {
@@ -625,6 +667,7 @@ async function handleFormSubmit() {
         endereco: formData.endereco, numero_endereco: formData.numero_endereco, complemento_endereco: formData.complemento_endereco,
         bairro: formData.bairro, cidade: formData.cidade, estado: formData.estado,
         perfil_id: formData.perfil_id, gerente_id: formData.gerente_id, loja_id: formData.loja_id,
+        setor_trabalho: formData.setor_trabalho,
         is_active: formData.is_active,
       };
 
@@ -704,6 +747,7 @@ async function handleFormSubmit() {
         endereco: formData.endereco, numero_endereco: formData.numero_endereco, complemento_endereco: formData.complemento_endereco,
         bairro: formData.bairro, cidade: formData.cidade, estado: formData.estado,
         perfil_id: formData.perfil_id, gerente_id: formData.gerente_id, loja_id: formData.loja_id,
+        setor_trabalho: formData.setor_trabalho,
         is_active: formData.is_active,
       };
 
