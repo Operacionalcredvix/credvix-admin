@@ -25,12 +25,20 @@ export type PrioridadeRequisicao = 'Baixa' | 'Média' | 'Alta' | 'Crítica';
 
 export type StatusRequisicao =
   | 'Nova'
+  | 'Aguardando Coordenador'
+  | 'Aprovada Coordenador'
+  | 'Aguardando Gerente'
+  | 'Aprovada Gerente'
+  | 'Aguardando Diretoria'
+  | 'Aprovada Diretoria'
   | 'Em Análise'
+  | 'Aguardando Aprovação Final'
   | 'Aceita'
   | 'Necessita Informação'
   | 'Devolvida'
   | 'Concluída'
-  | 'Cancelada';
+  | 'Cancelada'
+  | 'Reprovada';
 
 export type AcaoAuditoria =
   | 'visualizou'
@@ -70,6 +78,20 @@ export interface Requisicao {
   responsavel_id?: number | null;
   prioridade_final?: PrioridadeRequisicao | null;
   
+  // Fluxo de Aprovação Hierárquico
+  coordenador_id?: number | null;
+  gerente_id?: number | null;
+  diretor_id?: number | null;
+  data_aprovacao_coordenador?: string | null;
+  data_aprovacao_gerente?: string | null;
+  data_aprovacao_diretoria?: string | null;
+  parecer_coordenador?: string | null;
+  parecer_gerente?: string | null;
+  parecer_diretoria?: string | null;
+  motivo_reprovacao?: string | null;
+  perfil_solicitante?: string | null;
+  requer_aprovacao_gerente?: boolean;
+  
   // Datas
   data_aceite?: string | null;
   prazo_final?: string | null;
@@ -99,6 +121,11 @@ export interface RequisicaoCompleta extends Requisicao {
   
   // Responsável
   responsavel_nome?: string | null;
+  
+  // Aprovadores (Fluxo Hierárquico)
+  coordenador_nome?: string | null;
+  gerente_nome?: string | null;
+  diretor_nome?: string | null;
   
   // SLA
   horas_restantes_sla?: number | null;
@@ -289,23 +316,39 @@ export const PRIORIDADES: PrioridadeRequisicao[] = ['Baixa', 'Média', 'Alta', '
 
 export const STATUS_REQUISICAO: StatusRequisicao[] = [
   'Nova',
+  'Aguardando Coordenador',
+  'Aprovada Coordenador',
+  'Aguardando Gerente',
+  'Aprovada Gerente',
+  'Aguardando Diretoria',
+  'Aprovada Diretoria',
   'Em Análise',
+  'Aguardando Aprovação Final',
   'Aceita',
   'Necessita Informação',
   'Devolvida',
   'Concluída',
-  'Cancelada'
+  'Cancelada',
+  'Reprovada'
 ];
 
 // ===== Helpers: Cores para UI =====
 export const STATUS_COLORS: Record<StatusRequisicao, string> = {
   'Nova': 'blue',
+  'Aguardando Coordenador': 'amber',
+  'Aprovada Coordenador': 'sky',
+  'Aguardando Gerente': 'amber',
+  'Aprovada Gerente': 'sky',
+  'Aguardando Diretoria': 'amber',
+  'Aprovada Diretoria': 'sky',
   'Em Análise': 'yellow',
+  'Aguardando Aprovação Final': 'purple',
   'Aceita': 'green',
   'Necessita Informação': 'orange',
   'Devolvida': 'cyan',
   'Concluída': 'emerald',
-  'Cancelada': 'red'
+  'Cancelada': 'red',
+  'Reprovada': 'red'
 };
 
 export const PRIORIDADE_COLORS: Record<PrioridadeRequisicao, string> = {

@@ -18,8 +18,7 @@
                 </NuxtLink>
               </li>
 
-              <template v-if="profile?.perfis?.nome !== 'Consultor'">
-                <li v-for="menu in displayedMenuItems" :key="menu.label">
+              <li v-for="menu in displayedMenuItems" :key="menu.label">
               <UAccordion :items="[menu]" variant="ghost" :ui="{ 'item': { 'padding': 'p-0' } }">
                 <template #default="{ item, open }">
                   <UButton color="gray" variant="ghost" class="nav-link w-full" :class="[isSidebarCollapsed ? 'justify-center' : 'justify-between']">
@@ -48,7 +47,6 @@
                 </template>
               </UAccordion>
             </li>
-          </template>
         </ul>
       </nav>
 

@@ -96,9 +96,11 @@ export const useMenu = () => {
     // Mapa centralizado de permissões por perfil
     const permissionMap: Record<string, 'ALL' | string[]> = {
       Master: 'ALL',
+      Diretoria: 'ALL',
+      Gerência: 'ALL',
       Coordenador: ['Propostas', 'Relatórios', 'Requisições'],
       Supervisor: ['Propostas', 'Relatórios', 'Requisições'],
-      Consultor: ['Propostas', 'Relatórios', 'Requisições'],
+      Consultor: ['Propostas', 'Requisições'],
       Backoffice: ['Propostas', 'Relatórios', 'Backoffice', 'Requisições'],
       RH: ['Cadastros', 'RH', 'Requisições'],
       Administrativo: ['Requisições'],

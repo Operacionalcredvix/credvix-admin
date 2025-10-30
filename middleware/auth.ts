@@ -1,4 +1,6 @@
+// @ts-ignore - Nuxt auto-imports
 export default defineNuxtRouteMiddleware(async (to) => {
+  // @ts-ignore - Nuxt auto-imports
   const { profile, fetchProfile } = useProfile()
 
   // Garante que o perfil do utilizador está carregado
@@ -9,6 +11,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // Se mesmo após a tentativa, o perfil não carregar, nega o acesso por segurança.
   if (!profile.value) {
     console.error("Middleware de Auth: Perfil do utilizador não encontrado.");
+    // @ts-ignore - Nuxt auto-imports
     return navigateTo('/login'); // Redireciona para login se não houver perfil
   }
 
@@ -25,16 +28,19 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // Se o perfil do usuário não estiver carregado, nega o acesso.
   if (!userProfileName) {
     console.error("Middleware de Auth: Nome do perfil do utilizador não encontrado.");
+    // @ts-ignore - Nuxt auto-imports
     return navigateTo('/acesso-negado');
   }
 
-  // O perfil 'Master' sempre tem acesso.
-  if (userProfileName === 'Master') {
+  // Perfis com acesso total (Master, Diretoria, Gerência)
+  const perfisComAcessoTotal = ['Master', 'Diretoria', 'Gerência'];
+  if (perfisComAcessoTotal.includes(userProfileName)) {
     return;
   }
 
   // Verifica se o perfil do usuário está na lista de perfis permitidos.
   if (!requiredProfiles.includes(userProfileName)) {
+    // @ts-ignore - Nuxt auto-imports
     return navigateTo('/acesso-negado');
   }
 })

@@ -216,6 +216,18 @@
           </div>
         </UCard>
 
+        <!-- Fluxo de Aprovação Hierárquico -->
+        <FluxoAprovacaoCard
+          v-if="requisicao && ['Aguardando Coordenador', 'Aguardando Gerente', 'Em Análise', 'Aguardando Aprovação Final', 'Aceita', 'Concluída'].includes(requisicao.status)"
+          :requisicao="requisicao"
+          :perfil-usuario="profile?.perfis?.nome || ''"
+          :usuario-id="meuFuncionario?.id || 0"
+          @aprovar-coordenador="abrirModalAprovarCoordenador"
+          @aprovar-gerente="abrirModalAprovarGerente"
+          @aprovar-diretoria="abrirModalAprovarDiretoria"
+          @reprovar="abrirModalReprovar"
+        />
+
         <!-- Linha do Tempo -->
         <UCard>
           <template #header>
@@ -398,6 +410,14 @@
       </template>
     </UCard>
   </UModal>
+
+  <!-- Modais de Aprovação Hierárquica -->
+  <ModaisAprovacaoRequisicao
+    ref="modaisAprovacao"
+    :requisicao-id="requisicao?.id || 0"
+    :funcionario-id="meuFuncionario?.id || 0"
+    @aprovacao-sucesso="carregarRequisicao"
+  />
 </template>
 
 <script setup>
@@ -426,6 +446,9 @@ const reatribuicoes = ref([]);
 
 // Estado do usuário atual
 const meuFuncionario = ref(null);
+
+// Ref para o componente de modais de aprovação
+const modaisAprovacao = ref(null);
 
 // Modais de ação
 const modalAceitarAberto = ref(false);
@@ -544,6 +567,9 @@ function formatarTamanho(bytes) {
 function getStatusIcon(status) {
   switch (status) {
     case 'Nova': return 'i-heroicons-sparkles';
+    case 'Aguardando Coordenador': return 'i-heroicons-user';
+    case 'Aguardando Gerente': return 'i-heroicons-user-group';
+    case 'Aguardando Aprovação Final': return 'i-heroicons-shield-check';
     case 'Em Análise': return 'i-heroicons-eye';
     case 'Aceita': return 'i-heroicons-check-circle';
     case 'Necessita Informação': return 'i-heroicons-question-mark-circle';
@@ -572,7 +598,7 @@ async function carregarMeuFuncionario() {
 }
 
 // Ações - condições de exibição (UI; RLS faz a segurança)
-const isMaster = computed(() => profile.value?.perfis?.nome === 'Master');
+const isMaster = computed(() => ['Master', 'Diretoria', 'Gerência'].includes(profile.value?.perfis?.nome));
 const isSectorMember = computed(() => {
   if (!profile.value?.perfis?.nome || !requisicao.value?.setor_destino) return false;
   return profile.value.perfis.nome === requisicao.value.setor_destino || isMaster.value;
@@ -583,7 +609,7 @@ const isSolicitante = computed(() => !!(meuFuncionario.value?.id && requisicao.v
 const podeVerAuditoria = computed(() => isMaster.value || isSolicitante.value);
 
 const mostrarAcoes = computed(() => requisicao.value && !['Concluída', 'Cancelada'].includes(requisicao.value.status));
-const podeAceitar = computed(() => requisicao.value && isSectorMember.value && !['Concluída', 'Cancelada', 'Aceita'].includes(requisicao.value.status));
+const podeAceitar = computed(() => requisicao.value && isSectorMember.value && requisicao.value.status === 'Em Análise');
 const podeSolicitarInfo = computed(() => requisicao.value && isSectorMember.value && !['Concluída', 'Cancelada'].includes(requisicao.value.status));
 const podeConcluir = computed(() => requisicao.value && isSectorMember.value && requisicao.value.status === 'Aceita');
 const podeCancelar = computed(() => {
@@ -617,6 +643,23 @@ function abrirModalCancelar() {
 function abrirModalEnviarInfo() {
   enviarInfoForm.value = { parecer_resposta: '' };
   modalEnviarInfoAberto.value = true;
+}
+
+// Funções para abrir modais de aprovação hierárquica
+function abrirModalAprovarCoordenador() {
+  modaisAprovacao.value?.abrirModalAprovarCoordenador();
+}
+
+function abrirModalAprovarGerente() {
+  modaisAprovacao.value?.abrirModalAprovarGerente();
+}
+
+function abrirModalAprovarDiretoria() {
+  modaisAprovacao.value?.abrirModalAprovarDiretoria();
+}
+
+function abrirModalReprovar() {
+  modaisAprovacao.value?.abrirModalReprovar();
 }
 
 async function carregarResponsaveisDoSetor() {
@@ -706,18 +749,24 @@ async function confirmarAceitar() {
     const prazo_final = await obterSlaSugerido(requisicao.value.categoria, prioridade);
     
     const parecer = aceitarForm.value.parecer_resposta?.trim();
-    
-    console.log('[Requisições] Aceitando com responsavel_id:', meuFuncionario.value.id);
+
+    console.log('[Requisições] Aceitando (setor) com responsavel_id:', meuFuncionario.value.id);
     console.log('[Requisições] Parecer/Resposta:', parecer);
-    
-    await atualizarRequisicao({
-      status: 'Aceita',
-      responsavel_id: meuFuncionario.value.id,
-      prioridade_final: prioridade,
-      prazo_final,
-      parecer_resposta: parecer || null
+
+    const { data, error } = await supabase.rpc('aceitar_requisicao_setor', {
+      p_requisicao_id: Number(route.params.id),
+      p_responsavel_id: Number(meuFuncionario.value.id),
+      p_prazo_final: prazo_final,
+      p_prioridade_final: prioridade,
+      p_parecer_resposta: parecer || null
     });
-    toast.add({ title: 'Requisição aceita', color: 'green' });
+    if (error) throw error;
+    const result = data || { success: true };
+    if (result.success === false) {
+      throw new Error(result.error || 'Falha ao aceitar requisição');
+    }
+
+    toast.add({ title: 'Requisição aceita e enviada para Aprovação Final', color: 'green' });
     modalAceitarAberto.value = false;
     await carregarRequisicao();
   } catch (err) {

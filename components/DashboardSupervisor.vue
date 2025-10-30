@@ -111,7 +111,7 @@
             </div>
           </template>
           <div v-show="isRankingUsersExpanded">
-            <RankingUsers :consultores="consultores" :currentUserId="profile.value?.id" profileType="supervisor" :lojaId="profile.value?.loja_id" :formatCurrency="formatCurrency" />
+            <RankingUsers :consultores="consultores" :currentUserId="profile?.id" profileType="supervisor" :lojaId="profile?.loja_id" :formatCurrency="formatCurrency" />
           </div>
         </UCard>
 

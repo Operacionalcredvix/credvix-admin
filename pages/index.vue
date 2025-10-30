@@ -19,6 +19,8 @@ const { profile } = useProfile();
 // O Nuxt auto-importa os componentes do diretório /components
 const dashboardMap = {
   Master: resolveComponent('DashboardMaster'),
+  Diretoria: resolveComponent('DashboardMaster'),
+  Gerência: resolveComponent('DashboardMaster'),
   Backoffice: resolveComponent('DashboardBackoffice'),
   Coordenador: resolveComponent('DashboardCoordenador'),
   Supervisor: resolveComponent('DashboardSupervisor'),

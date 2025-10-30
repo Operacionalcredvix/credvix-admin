@@ -122,7 +122,7 @@
           </div>
         </template>
         <div v-show="isRankingUsersExpanded">
-          <RankingUsers :consultores="consultores" :currentUserId="profile.value?.id" profileType="coordenador" :regionalId="selectedRegional || regionais[0]?.id" :formatCurrency="formatCurrency" />
+          <RankingUsers :consultores="consultores" :currentUserId="profile?.id" profileType="coordenador" :regionalId="selectedRegional || regionais[0]?.id" :formatCurrency="formatCurrency" />
         </div>
       </UCard>
 

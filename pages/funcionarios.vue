@@ -462,11 +462,9 @@ const setoresOptions = [
 ];
 
 // --- LÓGICA DE VISIBILIDADE DOS CAMPOS ORGANIZACIONAIS ---
-const isSetorTrabalhoVisible = computed(() => 
-  ['Master', 'RH', 'Financeiro', 'Administrativo', 'Backoffice', 'TI'].includes(selectedProfileName.value)
-);
-
-const isSetorTrabalhoRequired = computed(() => 
+const isSetorTrabalhoVisible = computed(() =>
+  ['Master', 'Diretoria', 'Gerência', 'RH', 'Financeiro', 'Administrativo', 'Backoffice', 'TI'].includes(selectedProfileName.value)
+);const isSetorTrabalhoRequired = computed(() => 
   ['RH', 'Financeiro', 'Administrativo', 'TI'].includes(selectedProfileName.value)
 );
 
@@ -476,7 +474,8 @@ const isLojaVisible = computed(() => ['Supervisor', 'Consultor'].includes(select
 
 const perfisPermitidos = computed(() => {
   if (!meuPerfilNome.value) return [];
-  if (['Master', 'RH'].includes(meuPerfilNome.value)) return perfis.value;
+  // Master, Diretoria, Gerência e RH têm acesso a todos os perfis
+  if (['Master', 'Diretoria', 'Gerência', 'RH'].includes(meuPerfilNome.value)) return perfis.value;
   if (meuPerfilNome.value === 'Coordenador') return perfis.value.filter(p => ['Supervisor', 'Consultor', 'Coordenador'].includes(p.nome));
   if (meuPerfilNome.value === 'Supervisor') return perfis.value.filter(p => ['Consultor', 'Supervisor'].includes(p.nome));
   return [];
@@ -529,6 +528,10 @@ watch(() => formData.perfil_id, (newPerfilId, oldPerfilId) => {
   const perfilSelecionado = perfis.value.find(p => p.id === newPerfilId);
   if (perfilSelecionado?.nome === 'Master') {
     formData.setor_trabalho = 'Administrativo'; // Padrão para Master
+  } else if (perfilSelecionado?.nome === 'Diretoria') {
+    formData.setor_trabalho = 'Administrativo'; // Diretoria é administrativo
+  } else if (perfilSelecionado?.nome === 'Gerência') {
+    formData.setor_trabalho = 'Administrativo'; // Gerência é administrativo
   } else if (perfilSelecionado?.nome === 'RH') {
     formData.setor_trabalho = 'RH';
   } else if (perfilSelecionado?.nome === 'Financeiro') {
@@ -565,8 +568,8 @@ const lojasFiltradas = computed(() => {
   if (formData.regional_id) {
     return todasLojas.value.filter(loja => loja.regional_id === formData.regional_id);
   }
-  // Se o usuário logado for Master ou RH, mostra todas as lojas. Senão, a lista começa vazia.
-  return ['Master', 'RH'].includes(meuPerfilNome.value) ? todasLojas.value : [];
+  // Se o usuário logado for Master, Diretoria, Gerência ou RH, mostra todas as lojas. Senão, a lista começa vazia.
+  return ['Master', 'Diretoria', 'Gerência', 'RH'].includes(meuPerfilNome.value) ? todasLojas.value : [];
 });
 
 // --- API EXTERNA ---
