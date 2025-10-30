@@ -18,6 +18,12 @@
       </div>
     </div>
 
+    <!-- Debug (remover depois) -->
+    <UAlert v-if="salvando || carregandoFuncionariosRH" color="orange" variant="soft" class="mb-4">
+      Estado: salvando={{ salvando }}, carregandoRH={{ carregandoFuncionariosRH }}
+      <UButton size="xs" @click="salvando = false; carregandoFuncionariosRH = false">Resetar</UButton>
+    </UAlert>
+
     <!-- Formulário -->
     <form @submit.prevent="salvarRequisicao">
       <UCard>
@@ -53,7 +59,7 @@
 
             <!-- Destinatário específico (apenas para RH) -->
             <UFormGroup 
-              v-if="formData.setor_destino === 'RH'" 
+              v-if="setorSelecionado === 'RH'" 
               label="Funcionário do RH" 
               required
             >
@@ -279,18 +285,38 @@ const funcionariosRHOptions = computed(() =>
   }))
 );
 
+// Computed para obter valor do setor selecionado
+const setorSelecionado = computed(() => {
+  if (!formData.value.setor_destino) return null;
+  return typeof formData.value.setor_destino === 'object' 
+    ? formData.value.setor_destino?.value 
+    : formData.value.setor_destino;
+});
+
 // --- VALIDAÇÃO ---
 const formularioValido = computed(() => {
-  const baseValido = 
-    formData.value.titulo &&
-    formData.value.setor_destino &&
-    formData.value.categoria &&
-    formData.value.descricao &&
-    formData.value.prioridade_sugerida;
+  // Helper para verificar se campo tem valor
+  const temValor = (campo) => {
+    if (!campo) return false;
+    if (typeof campo === 'object') return !!campo.value;
+    return !!campo;
+  };
+
+  const tituloValido = !!(formData.value.titulo?.trim());
+  const setorValido = temValor(formData.value.setor_destino);
+  const categoriaValida = temValor(formData.value.categoria);
+  const descricaoValida = !!(formData.value.descricao?.trim() && formData.value.descricao.trim().length >= 10);
+  const prioridadeValida = temValor(formData.value.prioridade_sugerida);
+
+  const baseValido = tituloValido && setorValido && categoriaValida && descricaoValida && prioridadeValida;
 
   // Se setor = RH, destinatario_id é obrigatório
-  if (formData.value.setor_destino === 'RH') {
-    return baseValido && formData.value.destinatario_id;
+  const setorValue = typeof formData.value.setor_destino === 'object' 
+    ? formData.value.setor_destino?.value 
+    : formData.value.setor_destino;
+    
+  if (setorValue === 'RH') {
+    return baseValido && temValor(formData.value.destinatario_id);
   }
 
   return baseValido;
@@ -300,10 +326,20 @@ const formularioValido = computed(() => {
 async function carregarFuncionariosRH() {
   carregandoFuncionariosRH.value = true;
   try {
+    // Primeiro pega o ID do perfil RH
+    const { data: perfilRH, error: perfilError } = await supabase
+      .from('perfis')
+      .select('id')
+      .eq('nome', 'RH')
+      .single();
+
+    if (perfilError) throw perfilError;
+
+    // Depois busca funcionários com esse perfil
     const { data, error } = await supabase
       .from('funcionarios')
-      .select('id, nome_completo, perfis(nome)')
-      .eq('perfis.nome', 'RH')
+      .select('id, nome_completo')
+      .eq('perfil_id', perfilRH.id)
       .eq('is_active', true)
       .order('nome_completo');
 
@@ -312,6 +348,11 @@ async function carregarFuncionariosRH() {
     funcionariosRH.value = data || [];
   } catch (error) {
     console.error('[Nova Requisição] Erro ao carregar funcionários RH:', error);
+    toast.add({
+      title: 'Erro ao carregar funcionários do RH',
+      description: error.message,
+      color: 'red'
+    });
   } finally {
     carregandoFuncionariosRH.value = false;
   }
@@ -322,7 +363,11 @@ function onSetorChange() {
   formData.value.destinatario_id = null;
 
   // Carrega funcionários do RH se necessário
-  if (formData.value.setor_destino === 'RH' && funcionariosRH.value.length === 0) {
+  const setorValue = typeof formData.value.setor_destino === 'object' 
+    ? formData.value.setor_destino?.value 
+    : formData.value.setor_destino;
+    
+  if (setorValue === 'RH' && funcionariosRH.value.length === 0) {
     carregarFuncionariosRH();
   }
 }
@@ -375,6 +420,23 @@ async function uploadArquivos(requisicaoId) {
 async function salvarRequisicao() {
   salvando.value = true;
   try {
+    // Extrai valores (USelectMenu pode retornar objeto ou string)
+    const getValor = (campo) => {
+      if (!campo) return null;
+      return typeof campo === 'object' ? campo.value : campo;
+    };
+
+    // Verifica se tem loja vinculada
+    if (!profile.value.loja_id) {
+      toast.add({
+        title: 'Atenção',
+        description: 'Seu usuário não está vinculado a uma loja. Entre em contato com o administrador.',
+        color: 'orange',
+        timeout: 5000
+      });
+      return;
+    }
+
     // Insere requisição
     const { data: requisicao, error: reqError } = await supabase
       .from('requisicoes')
@@ -383,11 +445,11 @@ async function salvarRequisicao() {
         solicitante_id: profile.value.id,
         loja_id: profile.value.loja_id,
         regional_id: profile.value.regional_id,
-        setor_destino: formData.value.setor_destino,
-        destinatario_id: formData.value.destinatario_id,
-        categoria: formData.value.categoria,
+        setor_destino: getValor(formData.value.setor_destino),
+        destinatario_id: getValor(formData.value.destinatario_id),
+        categoria: getValor(formData.value.categoria),
         descricao: formData.value.descricao,
-        prioridade_sugerida: formData.value.prioridade_sugerida
+        prioridade_sugerida: getValor(formData.value.prioridade_sugerida)
       })
       .select()
       .single();

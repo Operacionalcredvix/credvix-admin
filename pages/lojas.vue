@@ -136,11 +136,15 @@ const pending = ref(true);
 const refresh = async () => {
   pending.value = true;
   try {
-    // TENTATIVA 1: Usa função RPC que retorna JSONB (bypass completo de cache)
-    const { data, error } = await supabase.rpc('get_lojas_completas');
+    // Busca lojas, EXCLUINDO as internas (is_internal = true)
+    const { data, error } = await supabase
+      .from('lojas')
+      .select('*')
+      .eq('is_internal', false)  // ← Filtra apenas lojas públicas
+      .order('nome');
     
     if (error) {
-      console.warn('Erro RPC get_lojas_completas, tentando API fallback:', error);
+      console.warn('Erro ao buscar lojas, tentando API fallback:', error);
       
       // TENTATIVA 2: Usa endpoint de API do Nuxt (server-side fetch)
       const response = await $fetch('/api/lojas');
@@ -152,7 +156,6 @@ const refresh = async () => {
       }
     }
     
-    // Dados já vêm formatados do banco via RPC
     lojas.value = data || [];
     
   } catch (error) {

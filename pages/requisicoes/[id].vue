@@ -130,14 +130,14 @@
               </div>
             </div>
 
-            <div v-if="requisicao.parecer_resposta">
+            <div v-if="requisicao.parecer_resposta && requisicao.parecer_resposta.trim()">
               <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Parecer/Resposta</label>
               <UAlert color="blue" variant="soft" class="mt-2">
                 {{ requisicao.parecer_resposta }}
               </UAlert>
             </div>
 
-            <div v-if="requisicao.detalhamento_execucao">
+            <div v-if="requisicao.detalhamento_execucao && requisicao.detalhamento_execucao.trim()">
               <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Detalhamento da Execução</label>
               <UAlert color="green" variant="soft" class="mt-2">
                 {{ requisicao.detalhamento_execucao }}
@@ -233,51 +233,6 @@
             </div>
           </template>
           <AuditoriaLog :requisicao-id="requisicao.id" />
-        </UCard>
-
-        <!-- Comentários -->
-        <UCard>
-          <template #header>
-            <h3 class="text-lg font-semibold">Comentários</h3>
-          </template>
-
-          <div class="space-y-4">
-            <div v-if="comentarios.length === 0" class="text-sm text-gray-500">
-              Nenhum comentário ainda.
-            </div>
-
-            <div v-for="c in comentarios" :key="c.id" class="p-3 rounded border border-gray-200 dark:border-gray-700">
-              <div class="flex items-start gap-3">
-                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
-                  <span class="text-xs font-semibold text-primary-600 dark:text-primary-400">
-                    {{ (c.autor_nome || 'U').substring(0, 2).toUpperCase() }}
-                  </span>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center justify-between mb-1">
-                    <div class="flex items-center gap-2 text-sm">
-                      <span class="font-medium">{{ c.autor_nome || 'Usuário' }}</span>
-                      <span v-if="c.autor_perfil" class="text-xs text-gray-500">{{ c.autor_perfil }}</span>
-                      <UIcon v-if="c.is_interno" name="i-heroicons-lock-closed" class="w-3 h-3 text-amber-600" />
-                      <span v-if="c.is_interno" class="text-xs text-amber-600">(Interno)</span>
-                    </div>
-                    <span class="text-xs text-gray-400">{{ formatarData(c.created_at) }}</span>
-                  </div>
-                  <div class="text-sm whitespace-pre-wrap">{{ c.comentario }}</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="space-y-2">
-              <UTextarea v-model="novoComentario" :rows="3" placeholder="Escreva um comentário..." />
-              <div class="flex items-center justify-between">
-                <UCheckbox v-model="comentarioInterno" label="Comentário interno (visível apenas ao setor)" />
-                <UButton :loading="salvandoComentario" icon="i-heroicons-paper-airplane" @click="adicionarComentario">
-                  Enviar
-                </UButton>
-              </div>
-            </div>
-          </div>
         </UCard>
       </div>
     </div>
@@ -467,16 +422,10 @@ const carregando = ref(true);
 const requisicao = ref(null);
 const anexos = ref([]);
 const historico = ref([]);
-const comentarios = ref([]);
 const reatribuicoes = ref([]);
 
 // Estado do usuário atual
 const meuFuncionario = ref(null);
-
-// Estado Comentários
-const novoComentario = ref('');
-const comentarioInterno = ref(false);
-const salvandoComentario = ref(false);
 
 // Modais de ação
 const modalAceitarAberto = ref(false);
@@ -506,6 +455,13 @@ async function carregarRequisicao() {
       .single();
 
     if (error) throw error;
+
+    console.log('[Requisições] Dados carregados:', {
+      id: data.id,
+      status: data.status,
+      parecer_resposta: data.parecer_resposta,
+      detalhamento_execucao: data.detalhamento_execucao
+    });
 
     requisicao.value = data;
 
@@ -547,21 +503,6 @@ async function carregarRequisicao() {
         created_at: r.created_at
       }));
       historico.value = [...historico.value, ...eventosReatr].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-    }
-
-    // Carrega comentários com nome do autor
-    const { data: comm, error: commErr } = await supabase
-      .from('requisicoes_comentarios')
-      .select('*, funcionarios(nome_completo, perfis(nome))')
-      .eq('requisicao_id', route.params.id)
-      .order('created_at', { ascending: true });
-
-    if (!commErr) {
-      comentarios.value = (comm || []).map(c => ({
-        ...c,
-        autor_nome: c.funcionarios?.nome_completo || 'Usuário',
-        autor_perfil: c.funcionarios?.perfis?.nome || null
-      }));
     }
 
   } catch (error) {
@@ -619,11 +560,12 @@ async function carregarMeuFuncionario() {
     if (!user?.value?.id) return;
     const { data, error } = await supabase
       .from('funcionarios')
-      .select('id, nome, perfil')
+      .select('id, nome_completo, perfil_id, perfis(nome)')
       .eq('user_id', user.value.id)
       .maybeSingle();
     if (error) throw error;
     meuFuncionario.value = data;
+    console.log('[Requisições] Meu funcionário carregado:', data);
   } catch (err) {
     console.error('[Requisições] Falha ao carregar funcionário atual:', err);
   }
@@ -740,6 +682,7 @@ async function obterSlaSugerido(categoria, prioridade) {
 }
 
 async function atualizarRequisicao(update) {
+  console.log('[Requisições] Atualizando com:', update);
   const { error } = await supabase
     .from('requisicoes')
     .update(update)
@@ -749,17 +692,30 @@ async function atualizarRequisicao(update) {
 
 async function confirmarAceitar() {
   try {
+    // Garante que temos o funcionário carregado
     if (!meuFuncionario.value?.id) {
       await carregarMeuFuncionario();
     }
+    
+    // Valida se conseguimos o ID do funcionário
+    if (!meuFuncionario.value?.id) {
+      throw new Error('Não foi possível identificar seu funcionário. Verifique se você possui cadastro ativo.');
+    }
+    
     const prioridade = aceitarForm.value.prioridade_final || requisicao.value.prioridade_sugerida;
     const prazo_final = await obterSlaSugerido(requisicao.value.categoria, prioridade);
+    
+    const parecer = aceitarForm.value.parecer_resposta?.trim();
+    
+    console.log('[Requisições] Aceitando com responsavel_id:', meuFuncionario.value.id);
+    console.log('[Requisições] Parecer/Resposta:', parecer);
+    
     await atualizarRequisicao({
       status: 'Aceita',
-      responsavel_id: meuFuncionario.value?.id || null,
+      responsavel_id: meuFuncionario.value.id,
       prioridade_final: prioridade,
       prazo_final,
-      parecer_resposta: aceitarForm.value.parecer_resposta || null
+      parecer_resposta: parecer || null
     });
     toast.add({ title: 'Requisição aceita', color: 'green' });
     modalAceitarAberto.value = false;
@@ -772,9 +728,12 @@ async function confirmarAceitar() {
 
 async function confirmarSolicitarInfo() {
   try {
+    const parecer = solicitarInfoForm.value.parecer_resposta?.trim();
+    console.log('[Requisições] Solicitando info com parecer:', parecer);
+    
     await atualizarRequisicao({
       status: 'Necessita Informação',
-      parecer_resposta: solicitarInfoForm.value.parecer_resposta
+      parecer_resposta: parecer || null
     });
     toast.add({ title: 'Solicitada informação ao solicitante', color: 'amber' });
     modalSolicitarInfoAberto.value = false;
@@ -787,9 +746,16 @@ async function confirmarSolicitarInfo() {
 
 async function confirmarConcluir() {
   try {
+    const detalhamento = concluirForm.value.detalhamento_execucao?.trim();
+    console.log('[Requisições] Concluindo com detalhamento:', detalhamento);
+    
+    if (!detalhamento) {
+      throw new Error('O detalhamento da execução é obrigatório para concluir a requisição');
+    }
+    
     await atualizarRequisicao({
       status: 'Concluída',
-      detalhamento_execucao: concluirForm.value.detalhamento_execucao
+      detalhamento_execucao: detalhamento
     });
     toast.add({ title: 'Requisição concluída', color: 'green' });
     modalConcluirAberto.value = false;
@@ -817,9 +783,12 @@ async function confirmarCancelar() {
 
 async function confirmarEnviarInformacoes() {
   try {
+    const parecer = enviarInfoForm.value.parecer_resposta?.trim();
+    console.log('[Requisições] Enviando informações com parecer:', parecer);
+    
     await atualizarRequisicao({
       status: 'Devolvida',
-      parecer_resposta: enviarInfoForm.value.parecer_resposta
+      parecer_resposta: parecer || null
     });
     toast.add({ title: 'Informações enviadas ao setor', color: 'cyan' });
     modalEnviarInfoAberto.value = false;
@@ -827,31 +796,6 @@ async function confirmarEnviarInformacoes() {
   } catch (err) {
     console.error('[Requisições] Enviar informações erro:', err);
     toast.add({ title: 'Falha ao enviar informações', description: err.message, color: 'red' });
-  }
-}
-
-async function adicionarComentario() {
-  if (!novoComentario.value.trim()) return;
-  try {
-    if (!meuFuncionario.value?.id) await carregarMeuFuncionario();
-    salvandoComentario.value = true;
-    const { error } = await supabase
-      .from('requisicoes_comentarios')
-      .insert({
-        requisicao_id: Number(route.params.id),
-        autor_id: meuFuncionario.value?.id || null,
-        comentario: novoComentario.value.trim(),
-        is_interno: !!comentarioInterno.value
-      });
-    if (error) throw error;
-    novoComentario.value = '';
-    comentarioInterno.value = false;
-    await carregarRequisicao();
-  } catch (err) {
-    console.error('[Requisições] Adicionar comentário erro:', err);
-    toast.add({ title: 'Falha ao adicionar comentário', description: err.message, color: 'red' });
-  } finally {
-    salvandoComentario.value = false;
   }
 }
 
@@ -868,10 +812,6 @@ onMounted(() => {
         if (payload.old?.status !== payload.new.status) {
           toast.add({ title: `Status atualizado para ${payload.new.status}`, color: 'blue' });
         }
-      }
-      if (table === 'requisicoes_comentarios' && payload.new?.requisicao_id == route.params.id) {
-        await carregarRequisicao();
-        toast.add({ title: 'Novo comentário adicionado', color: 'cyan' });
       }
     } catch {}
   });
