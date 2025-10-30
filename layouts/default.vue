@@ -66,6 +66,12 @@
       <!-- NOVO CABEÇALHO -->
       <header v-if="profile" class="flex justify-end items-center -mt-4 -mx-4 mb-8">
         <div class="flex items-center gap-4">
+           <!-- Badge de Notificações -->
+           <ClientOnly>
+             <NotificacoesBadge />
+           </ClientOnly>
+         
+           <!-- Botão de Tema -->
           <ClientOnly>
             <UButton
               :icon="isDark ? 'i-heroicons-moon-20-solid' : 'i-heroicons-sun-20-solid'"
@@ -74,6 +80,8 @@
               @click="isDark = !isDark"
             />
           </ClientOnly>
+         
+           <!-- Dropdown do Usuário -->
           <UDropdown v-model:open="isDropdownOpen" :items="profileDropdownItems" :popper="{ placement: 'bottom-end' }" :ui="{ width: 'w-80' }">
             <UButton color="gray" variant="ghost" class="flex items-center gap-3 p-2">
               <UAvatar :src="profile.avatar_url" :alt="profile.nome_completo" size="sm" />

@@ -48,6 +48,16 @@ const menuItems = [
     ]
   },
   {
+    label: 'Requisições',
+    icon: 'i-heroicons-clipboard-document-list',
+    slot: 'item',
+    links: [
+      { label: 'Minhas Requisições', to: '/requisicoes', icon: 'i-heroicons-document-text' },
+      { label: 'Nova Requisição', to: '/requisicoes/nova', icon: 'i-heroicons-plus-circle' },
+      { label: 'Dashboard', to: '/requisicoes/dashboard', icon: 'i-heroicons-chart-bar' }
+    ]
+  },
+  {
     label: 'Admin',
     icon: 'i-heroicons-shield-check',
     slot: 'item',
