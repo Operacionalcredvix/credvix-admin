@@ -50,6 +50,35 @@
         </ul>
       </nav>
 
+      <!-- Pequena linha com a versão do sistema (sidebar) -->
+      <div v-if="systemVersion && !isSidebarCollapsed" class="text-center text-xs text-gray-400 px-2 mb-2">
+        <span>Versão: <strong>{{ systemVersion.version }}</strong></span>
+        <span v-if="systemVersion.description" class="mx-1">•</span>
+        <span v-if="systemVersion.description" class="text-xs">{{ systemVersion.description }}</span>
+      </div>
+
+      <!-- Quando a sidebar estiver recolhida, mostrar um ícone compacto com popover (clique) -->
+      <div v-if="systemVersion && isSidebarCollapsed" class="mb-3 flex justify-center">
+        <UPopover :popper="{ placement: 'right' }" mode="click">
+          <template #default>
+            <button class="text-gray-400 hover:text-white" aria-label="Versão do sistema">
+              <UIcon name="i-heroicons-information-circle" class="w-5 h-5" />
+            </button>
+          </template>
+
+          <template #panel="{ close }">
+            <div class="text-xs p-3 max-w-xs bg-white dark:bg-gray-800 rounded shadow-md text-gray-800 dark:text-gray-200">
+              <div class="font-medium">Versão: <span class="font-semibold">{{ systemVersion.version }}</span></div>
+              <div v-if="systemVersion.description" class="text-gray-500 dark:text-gray-400 mt-1">{{ systemVersion.description }}</div>
+              <div v-if="systemVersion.created_at" class="text-gray-400 mt-2 text-xs">{{ new Date(systemVersion.created_at).toLocaleString() }}</div>
+              <div class="mt-2 flex justify-end">
+                <UButton size="xs" color="gray" variant="ghost" @click="close">Fechar</UButton>
+              </div>
+            </div>
+          </template>
+        </UPopover>
+      </div>
+
       <!-- Botão para recolher/expandir -->
       <div class="mt-auto border-t border-gray-700 pt-4">
         <UButton color="gray" variant="ghost" class="nav-link w-full" :class="[isSidebarCollapsed ? 'justify-center' : 'justify-between']" @click="isSidebarCollapsed = !isSidebarCollapsed">
@@ -133,6 +162,8 @@
       <slot />
     </main>
     </div>
+    <!-- Rodapé antigo removido: versão agora exibida de forma discreta na sidebar -->
+
     <!-- Ecrã de Carregamento Global -->
     <LoadingScreen />
     <!-- Modal de Aviso de Inatividade -->
@@ -340,6 +371,19 @@ const handleLogout = async () => {
     window.location.href = '/login';
   }
 };
+
+// --- BUSCA DA VERSÃO DO SISTEMA (rodapé e sidebar) ---
+const { data: _sysVersionResp } = useFetch('/api/system-version');
+const systemVersion = computed(() => _sysVersionResp.value?.data || null);
+
+// Tooltip/composition para exibir versão condensada quando a sidebar estiver recolhida
+const versionTooltip = computed(() => {
+  if (!systemVersion.value) return 'Versão: desconhecida';
+  const parts = [systemVersion.value.version];
+  if (systemVersion.value.description) parts.push(systemVersion.value.description);
+  if (systemVersion.value.created_at) parts.push(new Date(systemVersion.value.created_at).toLocaleString());
+  return parts.join(' • ');
+});
 </script>
 
 
