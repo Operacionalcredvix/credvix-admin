@@ -78,7 +78,7 @@
 </template>
 
 <script setup>
-definePageMeta({ middleware: 'auth', profiles: ['Master', 'RH'] });
+definePageMeta({ middleware: 'auth', profiles: ['Master','Diretoria','Gerência', 'RH'] });
 
 
 import { ref, reactive, computed } from 'vue';

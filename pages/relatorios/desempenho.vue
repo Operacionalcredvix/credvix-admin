@@ -173,7 +173,7 @@ ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 definePageMeta({
   middleware: 'auth',
   // Defina os perfis que podem acessar este relatório
-  profiles: ['Master', 'Coordenador']
+  profiles: ['Master','Diretoria','Gerência', 'Coordenador']
 });
 
 const supabase = useSupabaseClient();

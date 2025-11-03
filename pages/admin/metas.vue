@@ -142,7 +142,7 @@ ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 
 definePageMeta({
   middleware: 'auth',
-  profiles: ['Master']
+  profiles: ['Master','Diretoria','Gerência']
 });
 
 const supabase = useSupabaseClient();

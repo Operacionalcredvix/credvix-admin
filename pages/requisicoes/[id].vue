@@ -597,11 +597,13 @@ async function carregarMeuFuncionario() {
   }
 }
 
+import { isMasterPerfil } from '~/composables/usePermissions';
 // Ações - condições de exibição (UI; RLS faz a segurança)
-const isMaster = computed(() => ['Master', 'Diretoria', 'Gerência'].includes(profile.value?.perfis?.nome));
+const isMaster = computed(() => isMasterPerfil(profile.value?.perfis?.nome));
 const isSectorMember = computed(() => {
   if (!profile.value?.perfis?.nome || !requisicao.value?.setor_destino) return false;
-  return profile.value.perfis.nome === requisicao.value.setor_destino || isMaster.value;
+  const perfilNome = profile.value.perfis.nome;
+  return perfilNome === requisicao.value.setor_destino || isMaster.value;
 });
 const isSolicitante = computed(() => !!(meuFuncionario.value?.id && requisicao.value?.solicitante_id && meuFuncionario.value.id === requisicao.value.solicitante_id));
 
@@ -779,12 +781,30 @@ async function confirmarSolicitarInfo() {
   try {
     const parecer = solicitarInfoForm.value.parecer_resposta?.trim();
     console.log('[Requisições] Solicitando info com parecer:', parecer);
-    
-    await atualizarRequisicao({
-      status: 'Necessita Informação',
-      parecer_resposta: parecer || null
+
+    // Garante que temos o funcionário carregado
+    if (!meuFuncionario.value?.id) {
+      await carregarMeuFuncionario();
+    }
+
+    if (!meuFuncionario.value?.id) {
+      throw new Error('Não foi possível identificar seu funcionário. Verifique se você possui cadastro ativo.');
+    }
+
+    // Chama RPC server-side (SECURITY DEFINER) para contornar RLS/permissões do cliente
+    const { data, error } = await supabase.rpc('solicitar_informacao_requisicao', {
+      p_requisicao_id: Number(route.params.id),
+      p_autor_id: Number(meuFuncionario.value.id),
+      p_parecer: parecer || null
     });
-    toast.add({ title: 'Solicitada informação ao solicitante', color: 'amber' });
+
+    if (error) throw error;
+    const result = data || { success: true };
+    if (result.success === false) {
+      throw new Error(result.error || 'Falha ao solicitar informação');
+    }
+
+    toast.add({ title: 'Solicitação enviada ao solicitante', color: 'amber' });
     modalSolicitarInfoAberto.value = false;
     await carregarRequisicao();
   } catch (err) {

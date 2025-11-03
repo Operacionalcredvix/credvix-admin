@@ -66,7 +66,7 @@ import { useDebounceFn } from '@vueuse/core';
 
 definePageMeta({
   middleware: 'auth',
-  profiles: ['Master', 'RH'] // Apenas Master e RH podem acessar
+  profiles: ['Master','Diretoria','Gerência', 'RH'] // Master-like e RH podem acessar
 });
 
 const supabase = useSupabaseClient();

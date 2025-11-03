@@ -225,7 +225,9 @@ const podeAprovarCoordenador = computed(() => {
 });
 
 const podeAprovarGerente = computed(() => {
-  return props.perfilUsuario === 'Gerência' && 
+  // Aceita ambos os nomes de perfil: 'Gerência' ou 'Gerente'
+  const perfisGerencia = ['Gerência', 'Gerente'];
+  return perfisGerencia.includes(props.perfilUsuario) &&
          props.requisicao.status === 'Aguardando Gerente';
 });
 
@@ -236,7 +238,7 @@ const podeAprovarDiretoria = computed(() => {
 
 const podeReprovar = computed(() => {
   const statusPermitidos = ['Aguardando Coordenador', 'Aguardando Gerente', 'Em Análise', 'Aguardando Aprovação Final'];
-  const perfisPermitidos = ['Coordenador', 'Gerência', 'Diretoria', 'Master'];
+  const perfisPermitidos = ['Coordenador', 'Gerência', 'Gerente', 'Diretoria', 'Master'];
   
   return perfisPermitidos.includes(props.perfilUsuario) && 
          statusPermitidos.includes(props.requisicao.status);

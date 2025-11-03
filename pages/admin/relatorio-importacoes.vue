@@ -270,7 +270,7 @@ ChartJS.register(Title, Tooltip, Legend, ArcElement, CategoryScale, LinearScale,
 
 definePageMeta({
   middleware: 'auth',
-  profiles: ['Master']
+  profiles: ['Master','Diretoria','Gerência']
 });
 
 const supabase = useSupabaseClient();

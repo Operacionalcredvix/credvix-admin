@@ -472,10 +472,12 @@ const isRegionalVisible = computed(() => ['Supervisor', 'Consultor'].includes(se
 const isLiderVisible = computed(() => ['Supervisor', 'Consultor'].includes(selectedProfileName.value));
 const isLojaVisible = computed(() => ['Supervisor', 'Consultor'].includes(selectedProfileName.value));
 
+import { isMasterPerfil } from '~/composables/usePermissions';
+
 const perfisPermitidos = computed(() => {
   if (!meuPerfilNome.value) return [];
-  // Master, Diretoria, Gerência e RH têm acesso a todos os perfis
-  if (['Master', 'Diretoria', 'Gerência', 'RH'].includes(meuPerfilNome.value)) return perfis.value;
+  // Master-like (Master, Diretoria, Gerência) e RH têm acesso a todos os perfis
+  if (isMasterPerfil(meuPerfilNome.value) || meuPerfilNome.value === 'RH') return perfis.value;
   if (meuPerfilNome.value === 'Coordenador') return perfis.value.filter(p => ['Supervisor', 'Consultor', 'Coordenador'].includes(p.nome));
   if (meuPerfilNome.value === 'Supervisor') return perfis.value.filter(p => ['Consultor', 'Supervisor'].includes(p.nome));
   return [];
@@ -568,8 +570,8 @@ const lojasFiltradas = computed(() => {
   if (formData.regional_id) {
     return todasLojas.value.filter(loja => loja.regional_id === formData.regional_id);
   }
-  // Se o usuário logado for Master, Diretoria, Gerência ou RH, mostra todas as lojas. Senão, a lista começa vazia.
-  return ['Master', 'Diretoria', 'Gerência', 'RH'].includes(meuPerfilNome.value) ? todasLojas.value : [];
+  // Se o usuário logado for Master-like ou RH, mostra todas as lojas. Senão, a lista começa vazia.
+  return (isMasterPerfil(meuPerfilNome.value) || meuPerfilNome.value === 'RH') ? todasLojas.value : [];
 });
 
 // --- API EXTERNA ---

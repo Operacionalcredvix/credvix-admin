@@ -137,7 +137,7 @@
 <script setup>
 import { ref, reactive, computed, watch, onMounted } from 'vue';
 
-definePageMeta({ middleware: 'auth', profiles: ['Master', 'Backoffice', 'Coordenador', 'Consultor'] });
+definePageMeta({ middleware: 'auth', profiles: ['Master','Diretoria','Gerência', 'Backoffice', 'Coordenador', 'Consultor'] });
 
 const supabase = useSupabaseClient();
 const { profile } = useProfile();

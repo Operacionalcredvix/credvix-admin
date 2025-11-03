@@ -14,7 +14,7 @@ const menuItems = [
       { label: 'Regionais', to: '/cadastros/regionais', icon: 'i-heroicons-map-pin' },
       { label: 'Funcionários', to: '/funcionarios', icon: 'i-heroicons-users' },
       { label: 'Lojas', to: '/lojas', icon: 'i-heroicons-building-storefront' },
-      { label: 'Sistemas por Funcionário', to: '/cadastros/sistemas-funcionarios', icon: 'i-heroicons-rectangle-stack', profiles: ['Master','RH'] }
+  { label: 'Sistemas por Funcionário', to: '/cadastros/sistemas-funcionarios', icon: 'i-heroicons-rectangle-stack', profiles: ['Master','Diretoria','Gerência','RH'] }
     ]
   },
   {
@@ -25,7 +25,7 @@ const menuItems = [
       { label: 'Vagas', to: '/rh/vagas', icon: 'i-heroicons-megaphone' },
       { label: 'Currículos', to: '/rh/curriculos', icon: 'i-heroicons-document-text' },
       { label: 'Histórico de Alocações', to: '/rh/historico-alocacoes', icon: 'i-heroicons-folder-open' },
-      { label: 'Funcionários em Experiência', to: '/rh/funcionarios-experiencia', icon: 'i-heroicons-clock', profiles: ['Master', 'RH'] }
+  { label: 'Funcionários em Experiência', to: '/rh/funcionarios-experiencia', icon: 'i-heroicons-clock', profiles: ['Master','Diretoria','Gerência', 'RH'] }
     ]
   },
   {
@@ -73,7 +73,7 @@ const menuItems = [
     links: [
       { label: 'Desempenho por Equipe', to: '/relatorios/desempenho', icon: 'i-heroicons-chart-bar' },
       { label: 'Desempenho Individual', to: '/relatorios/desempenho-individual', icon: 'i-heroicons-user-circle' },
-      { label: 'Diárias de Consignado', to: '/relatorios/diarias-consignado', icon: 'i-heroicons-calendar-days', profiles: ['Master'] },
+  { label: 'Diárias de Consignado', to: '/relatorios/diarias-consignado', icon: 'i-heroicons-calendar-days', profiles: ['Master','Diretoria','Gerência'] },
       { label: 'Relatório de Seguros', to: '/admin/relatorio-importacoes', icon: 'i-heroicons-shield-check' }
     ]
   }

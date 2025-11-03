@@ -125,7 +125,7 @@ import { format } from 'date-fns';
 
 definePageMeta({
   middleware: 'auth',
-  profiles: ['Master', 'RH']
+  profiles: ['Master','Diretoria','Gerência', 'RH']
 });
 
 const supabase = useSupabaseClient();
