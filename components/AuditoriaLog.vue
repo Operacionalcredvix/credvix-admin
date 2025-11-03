@@ -66,8 +66,27 @@
                   {{ detalhesExpandidos.has(log.id) ? 'Ocultar' : 'Ver' }} Detalhes
                 </UButton>
                 
-                <div v-if="detalhesExpandidos.has(log.id)" class="mt-2 p-3 bg-gray-100 dark:bg-gray-900 rounded text-xs font-mono overflow-auto max-h-64">
-                  <pre class="whitespace-pre-wrap">{{ JSON.stringify(log.detalhes, null, 2) }}</pre>
+                <div v-if="detalhesExpandidos.has(log.id)" class="mt-2 p-3 bg-gray-100 dark:bg-gray-900 rounded text-xs overflow-auto max-h-64">
+                  <!-- Formatação amigável para alterações tipo { de: 'X', para: 'Y', campo: 'status' } -->
+                  <div v-if="isChangeObject(log.detalhes)" class="flex items-center gap-3 text-sm font-medium">
+                    <span class="font-mono text-sm text-gray-600">{{ humanizeFieldName(log.detalhes.campo) }}</span>
+                    <span class="text-sm text-gray-500">{{ log.detalhes.de }}</span>
+                    <UIcon name="i-heroicons-arrow-right" class="w-4 h-4 text-gray-400" />
+                    <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ log.detalhes.para }}</span>
+                  </div>
+
+                  <!-- Lista de pares chave:valor para objetos simples -->
+                  <div v-else-if="isPlainObject(log.detalhes)" class="text-sm space-y-1">
+                    <div v-for="(v, k) in log.detalhes" :key="k" class="flex items-start gap-2">
+                      <span class="font-mono text-xs text-gray-500 w-32">{{ humanizeFieldName(k) }}:</span>
+                      <span class="break-words">{{ formatValue(v) }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Fallback: raw JSON -->
+                  <div v-else class="text-xs font-mono whitespace-pre-wrap">
+                    <pre class="whitespace-pre-wrap">{{ JSON.stringify(log.detalhes, null, 2) }}</pre>
+                  </div>
                 </div>
               </div>
             </div>
@@ -97,6 +116,35 @@ const toast = useToast()
 const carregando = ref(false)
 const logs = ref([])
 const detalhesExpandidos = ref(new Set())
+
+function isPlainObject(v) {
+  return v && typeof v === 'object' && !Array.isArray(v);
+}
+
+function isChangeObject(v) {
+  return isPlainObject(v) && (('de' in v && 'para' in v) || ('from' in v && 'to' in v));
+}
+
+function humanizeFieldName(field) {
+  if (!field) return '';
+  // mapeamentos simples para campos comuns
+  const map = {
+    status: 'Status',
+    responsavel_id: 'Responsável',
+    solicitante_id: 'Solicitante',
+    prazo_final: 'Prazo Final',
+    titulo: 'Título',
+    descricao: 'Descrição',
+    departamento: 'Setor'
+  };
+  return map[field] || String(field).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+function formatValue(v) {
+  if (v === null || v === undefined) return '-';
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
+}
 
 function getAcaoInfo(acao) {
   return ACOES_AUDITORIA[acao] || { label: acao, icon: 'i-heroicons-document', color: 'gray' }
