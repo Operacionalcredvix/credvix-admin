@@ -54,7 +54,9 @@ const menuItems = [
     links: [
       { label: 'Minhas Requisições', to: '/requisicoes', icon: 'i-heroicons-document-text' },
       { label: 'Nova Requisição', to: '/requisicoes/nova', icon: 'i-heroicons-plus-circle' },
-      { label: 'Dashboard', to: '/requisicoes/dashboard', icon: 'i-heroicons-chart-bar' }
+      // O link Dashboard deve ser visível apenas para perfis administrativos/sêniores
+      // (não exibido para Coordenador, Supervisor e Consultor conforme regra de negócio)
+      { label: 'Dashboard', to: '/requisicoes/dashboard', icon: 'i-heroicons-chart-bar', profiles: ['Master','Diretoria','Gerência','Backoffice','RH','Administrativo','Financeiro','TI'] }
     ]
   },
   {
