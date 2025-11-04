@@ -246,8 +246,16 @@ const { data: todasTabelas } = await useAsyncData('tabelas-form', async () => {
 const { data: todosConsultores } = await useAsyncData('consultores-form', async () => {
   const { data: perfilConsultor } = await supabase.from('perfis').select('id').eq('nome', 'Consultor').single();
   if (!perfilConsultor) return [];
-  const { data } = await supabase.from('funcionarios').select('id, nome_completo, loja_id').eq('perfil_id', perfilConsultor.id);
-  return data || [];
+  try {
+    const tokenResp = await supabase.auth.getSession();
+    const token = tokenResp?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await $fetch('/api/funcionarios/search', { method: 'POST', headers, body: { perfil_ids: [perfilConsultor.id], is_active: true, limit: 200 } });
+    return (res?.data) || [];
+  } catch (err) {
+    console.error('Erro ao carregar consultores via endpoint:', err);
+    return [];
+  }
 });
 
 

@@ -355,12 +355,12 @@ async function buscarLogs() {
 
 async function carregarUsuarios() {
   try {
-    const { data, error } = await supabase
-      .from('funcionarios')
-      .select('id, nome_completo')
-      .order('nome_completo')
-
-    if (error) throw error
+    // Usa endpoint server para obter lista de funcionários (contorna RLS)
+    const tokenResp = await supabase.auth.getSession();
+    const token = tokenResp?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await $fetch('/api/funcionarios/search', { method: 'POST', headers, body: { is_active: true, limit: 2000 } });
+    const data = res?.data || [];
 
     usuariosOpcoes.value = [
       { value: null, label: 'Todos os usuários' },

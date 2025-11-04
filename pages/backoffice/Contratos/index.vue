@@ -126,7 +126,20 @@ const clienteSearchTerm = ref(route.query.cliente_id ? todosClientes.value?.find
 
 // --- CARREGAMENTO DE DADOS PARA DROPDOWNS ---
 const { data: todasLojas } = await useAsyncData('todasLojas', () => supabase.from('lojas').select('id, nome, regional_id').order('nome').then(res => res.data));
-const { data: todosConsultores } = await useAsyncData('todosConsultores', () => supabase.from('funcionarios').select('id, nome_completo, loja_id').order('nome_completo').then(res => res.data));
+const { data: todosConsultores } = await useAsyncData('todosConsultores', async () => {
+  const { data: perfilConsultor } = await supabase.from('perfis').select('id').eq('nome', 'Consultor').single();
+  if (!perfilConsultor) return [];
+  try {
+    const tokenResp = await supabase.auth.getSession();
+    const token = tokenResp?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await $fetch('/api/funcionarios/search', { method: 'POST', headers, body: { perfil_ids: [perfilConsultor.id], is_active: true, limit: 1000 } });
+    return (res?.data) || [];
+  } catch (err) {
+    console.error('Erro ao carregar consultores via endpoint:', err);
+    return [];
+  }
+});
 
 // --- ESTADO DA UI DOS FILTROS ---
 const lojasParaFiltro = ref([]);
@@ -186,76 +199,46 @@ watch(selectedLoja, (newLoja, oldLoja) => {
   }
 });
 
-// --- LÓGICA DE BUSCA DE DADOS (AGORA REATIVA E COM PAGINAÇÃO) ---
+// --- LÓGICA DE BUSCA DE DADOS (USANDO ENDPOINT SERVER PARA RESPEITAR RLS E RBAC) ---
 const { data: contratos, pending, refresh } = useAsyncData(
   'contratos',
   async () => {
     // Espera o perfil carregar
     if (!profile.value) return [];
 
-    const from = (page.value - 1) * pageCount.value;
-    const to = from + pageCount.value - 1;
+    try {
+      const tokenResp = await supabase.auth.getSession();
+      const token = tokenResp?.data?.session?.access_token || null;
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-    let query = supabase
-      .from('contratos')
-      .select(`
-        id,
-        data_contrato,
-        valor_total,
-        status,
-        cliente_id, 
-        loja_id,
-        consultor_id,
-        clientes ( nome_completo ),
-        produtos ( nome )
-      `, { count: 'exact' });
+      const body = {
+        page: page.value,
+        pageSize: pageCount.value,
+        status: selectedStatus.value,
+        loja_id: selectedLoja.value,
+        cliente_id: selectedCliente.value,
+        consultor_id: selectedConsultor.value,
+        startDate: startDate.value,
+        endDate: endDate.value
+      };
 
-    let totalQuery = supabase.from('contratos').select('valor_total', { head: false });
+  const res = await $fetch('/api/contratos/search', { method: 'POST', headers, body });
+      if (!res || res.success === false) {
+        console.error('Erro ao buscar contratos (server):', res?.error || 'Resposta inválida');
+        totalRows.value = 0;
+        totalValorContratos.value = 0;
+        return [];
+      }
 
-    // Aplicar filtros de permissão (RBAC)
-    const userProfileName = profile.value.perfis?.nome;
-    switch (userProfileName) {
-      case 'Coordenador':
-        const { data: lojasDaRegional } = await supabase.from('lojas').select('id').eq('regional_id', profile.value.regional_id);
-        const idsLojas = lojasDaRegional?.map(l => l.id) || [];
-        query = query.in('loja_id', idsLojas);
-        totalQuery = totalQuery.in('loja_id', idsLojas);
-        break;
-      case 'Supervisor':
-        query = query.eq('loja_id', profile.value.loja_id);
-        totalQuery = totalQuery.eq('loja_id', profile.value.loja_id);
-        break;
-      case 'Consultor':
-        query = query.eq('consultor_id', profile.value.id);
-        totalQuery = totalQuery.eq('consultor_id', profile.value.id);
-        break;
-    }
-
-    // Aplicar filtros da UI
-    if (selectedStatus.value) { query = query.eq('status', selectedStatus.value); totalQuery = totalQuery.eq('status', selectedStatus.value); }
-    if (selectedLoja.value) { query = query.eq('loja_id', selectedLoja.value); totalQuery = totalQuery.eq('loja_id', selectedLoja.value); }
-    if (selectedCliente.value) { query = query.eq('cliente_id', selectedCliente.value); totalQuery = totalQuery.eq('cliente_id', selectedCliente.value); }
-    if (selectedConsultor.value) { query = query.eq('consultor_id', selectedConsultor.value); totalQuery = totalQuery.eq('consultor_id', selectedConsultor.value); }
-    if (startDate.value) { query = query.gte('data_contrato', startDate.value); totalQuery = totalQuery.gte('data_contrato', startDate.value); }
-    if (endDate.value) { query = query.lte('data_contrato', endDate.value); totalQuery = totalQuery.lte('data_contrato', endDate.value); }
-
-    // Executa a query principal com paginação
-    const { data, error, count } = await query.order('data_contrato', { ascending: false }).range(from, to);
-
-    if (error) {
-      console.error("Erro ao buscar contratos:", error);
+      totalRows.value = res.count || 0;
+      totalValorContratos.value = res.totalValor || 0;
+      return res.data || [];
+    } catch (err) {
+      console.error('Exceção ao buscar contratos (server):', err);
+      totalRows.value = 0;
+      totalValorContratos.value = 0;
       return [];
     }
-
-    totalRows.value = count;
-
-    // Executa a query para o valor total
-    const { data: totalData, error: totalError } = await totalQuery;
-    if (!totalError) {
-      totalValorContratos.value = totalData.reduce((acc, item) => acc + (item.valor_total || 0), 0);
-    }
-
-    return data;
   }, {
   watch: [page, selectedStatus, selectedLoja, selectedConsultor, selectedCliente, startDate, endDate, profile]
 }

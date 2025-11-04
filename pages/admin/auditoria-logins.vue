@@ -300,13 +300,22 @@ const columns = [
 
 // --- CARREGA LISTAS PARA FILTROS ---
 onMounted(async () => {
-  // Carrega funcionários
-  const { data: funcs } = await supabase
-    .from('funcionarios')
-    .select('id, nome_completo')
-    .eq('is_active', true)
-    .order('nome_completo')
-  funcionariosList.value = funcs || []
+  // Carrega funcionários via endpoint servidor (respeita RLS)
+  try {
+    const tokenResp = await supabase.auth.getSession()
+    const token = tokenResp?.data?.session?.access_token || null
+    const headers: any = token ? { Authorization: `Bearer ${token}` } : {}
+
+    const res: any = await $fetch('/api/funcionarios/search', {
+      method: 'POST',
+      headers,
+      body: { is_active: true, limit: 1000 }
+    })
+    funcionariosList.value = res?.data || []
+  } catch (err) {
+    console.error('Erro ao carregar funcionários via server search:', err)
+    funcionariosList.value = []
+  }
 
   // Carrega perfis
   const { data: perfis } = await supabase

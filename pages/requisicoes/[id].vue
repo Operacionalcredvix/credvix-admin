@@ -584,14 +584,17 @@ function getStatusIcon(status) {
 async function carregarMeuFuncionario() {
   try {
     if (!user?.value?.id) return;
-    const { data, error } = await supabase
-      .from('funcionarios')
-      .select('id, nome_completo, perfil_id, perfis(nome)')
-      .eq('user_id', user.value.id)
-      .maybeSingle();
-    if (error) throw error;
-    meuFuncionario.value = data;
-    console.log('[Requisições] Meu funcionário carregado:', data);
+    // Usa endpoint server para contornar RLS e obter o funcionario do user atual
+    try {
+      const tokenResp = await supabase.auth.getSession();
+      const token = tokenResp?.data?.session?.access_token || null;
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await $fetch('/api/profile', { method: 'GET', headers }).catch(() => ({ data: null }));
+      meuFuncionario.value = res?.data || null;
+      console.log('[Requisições] Meu funcionário carregado via /api/profile:', meuFuncionario.value);
+    } catch (e) {
+      console.error('[Requisições] Falha ao carregar funcionário via endpoint:', e);
+    }
   } catch (err) {
     console.error('[Requisições] Falha ao carregar funcionário atual:', err);
   }
@@ -679,14 +682,20 @@ async function carregarResponsaveisDoSetor() {
       opcoesResponsaveis.value = [];
       return;
     }
-    const { data: funcs } = await supabase
-      .from('funcionarios')
-      .select('id, nome_completo')
-      .eq('perfil_id', perfilId)
-      .order('nome_completo');
-    opcoesResponsaveis.value = (funcs || [])
-      .filter(f => f.id !== requisicao.value.responsavel_id)
-      .map(f => ({ value: f.id, label: f.nome_completo }));
+    // Usa endpoint server para buscar funcionários com o perfil desejado
+    try {
+      const tokenResp = await supabase.auth.getSession();
+      const token = tokenResp?.data?.session?.access_token || null;
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const resp = await $fetch('/api/funcionarios/search', { method: 'POST', headers, body: { perfil_ids: [perfilId], is_active: true, limit: 1000 } });
+      const funcs = resp?.data || [];
+      opcoesResponsaveis.value = (funcs || [])
+        .filter(f => f.id !== requisicao.value.responsavel_id)
+        .map(f => ({ value: f.id, label: f.nome_completo }));
+    } catch (e) {
+      console.error('[Requisições] Erro ao carregar responsáveis via endpoint:', e);
+      opcoesResponsaveis.value = [];
+    }
   } finally {
     carregandoResponsaveis.value = false;
   }

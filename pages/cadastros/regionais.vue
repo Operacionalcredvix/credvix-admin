@@ -118,8 +118,16 @@ const { data: todasLojas } = await useAsyncData('todasLojas', async () => {
 const { data: coordenadores } = await useAsyncData('coordenadores', async () => {
   const { data: perfilCoordenador } = await supabase.from('perfis').select('id').eq('nome', 'Coordenador').single();
   if (!perfilCoordenador) return [];
-  const { data } = await supabase.from('funcionarios').select('id, nome_completo').eq('perfil_id', perfilCoordenador.id);
-  return data || [];
+  try {
+    const tokenResp = await supabase.auth.getSession();
+    const token = tokenResp?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await $fetch('/api/funcionarios/search', { method: 'POST', headers, body: { perfil_ids: [perfilCoordenador.id], is_active: true, limit: 500 } });
+    return (res?.data) || [];
+  } catch (err) {
+    console.error('Erro ao carregar coordenadores via endpoint:', err);
+    return [];
+  }
 });
 
 // --- LÓGICA DO FORMULÁRIO---

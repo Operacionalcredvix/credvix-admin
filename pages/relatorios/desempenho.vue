@@ -212,13 +212,17 @@ const { data: regionaisOptions } = await useAsyncData('regionais-filtro', async 
 });
 
 const { data: consultoresOptions } = await useAsyncData('consultores-filtro', async () => {
-  const { data } = await supabase
-    .from('funcionarios')
-    .select('id, nome_completo, perfis!inner(nome)')
-    .eq('perfis.nome', 'Consultor')
-    .eq('is_active', true)
-    .order('nome_completo');
-  return data || [];
+  // Carrega consultores via endpoint server (contorna RLS)
+  try {
+    const tokenResp = await supabase.auth.getSession();
+    const token = tokenResp?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await $fetch('/api/funcionarios/search', { method: 'POST', headers, body: { perfil_names: ['Consultor'], is_active: true, limit: 1000 } });
+    return (res?.data) || [];
+  } catch (err) {
+    console.error('Erro ao carregar consultores via endpoint:', err);
+    return [];
+  }
 });
 
 // --- Estado dos Dados ---

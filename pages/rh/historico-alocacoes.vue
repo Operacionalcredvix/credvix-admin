@@ -100,16 +100,16 @@ watch(searchTerm, useDebounceFn(async (newVal) => {
     return;
   }
   searching.value = true;
-  const { data, error } = await supabase
-    .from('funcionarios')
-    .select('id, nome_completo, cpf')
-    .or(`nome_completo.ilike.%${newVal}%,cpf.ilike.%${newVal}%`)
-    .limit(10);
-
-  if (error) {
-    toast.add({ title: 'Erro na busca', description: error.message, color: 'red' });
-  } else {
-    searchResults.value = data || [];
+  try {
+    const tokenResp = await supabase.auth.getSession();
+    const token = tokenResp?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await $fetch('/api/funcionarios/search', { method: 'POST', headers, body: { q: newVal, limit: 10 } });
+    searchResults.value = res?.data || [];
+  } catch (err) {
+    console.error('[Historico Alocacoes] Erro na busca via endpoint:', err);
+    toast.add({ title: 'Erro na busca', description: err.message || String(err), color: 'red' });
+    searchResults.value = [];
   }
   searching.value = false;
 }, 300));

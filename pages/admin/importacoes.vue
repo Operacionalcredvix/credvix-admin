@@ -174,20 +174,39 @@ const expectedColumns = computed(() => {
 
 // --- CARREGAMENTO DE DADOS PARA VALIDAÇÃO ---
 const { data: validationData } = await useAsyncData('validation-data', async () => {
-  // CORREÇÃO: Carrega todos os tipos de funcionários e a coluna 'franquia' da loja.
-  const [funcionariosRes, lojasRes] = await Promise.all([
-    supabase.from('funcionarios').select('id, nome_completo, perfil_id, perfis(nome)').eq('is_active', true),
+  // CORREÇÃO: Carrega todos os funcionários via endpoint server (contorna RLS) e lojas via cliente público.
+  const [perfisRes, lojasRes] = await Promise.all([
+    supabase.from('perfis').select('id, nome'),
     supabase.from('lojas').select('id, nome, franquia').eq('is_active', true)
   ]);
-  return {
-    // Separa os funcionários por perfil para facilitar a busca
-    consultores: funcionariosRes.data?.filter(f => f.perfis.nome === 'Consultor') || [],
-    supervisores: funcionariosRes.data?.filter(f => f.perfis.nome === 'Supervisor') || [],
-    coordenadores: funcionariosRes.data?.filter(f => f.perfis.nome === 'Coordenador') || [],
-    lojas: lojasRes.data || [],
-    // Adiciona os perfis para referência
-    perfis: (await supabase.from('perfis').select('id, nome')).data || []
-  };
+
+  // Busca funcionários ativos via endpoint server
+  try {
+    const tokenResp = await supabase.auth.getSession();
+    const token = tokenResp?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const resp = await $fetch('/api/funcionarios/search', { method: 'POST', headers, body: { is_active: true, limit: 5000 } });
+    const funcionarios = resp?.data || [];
+
+    const perfilMap = new Map((perfisRes.data || []).map(p => [p.id, p.nome]));
+
+    return {
+      consultores: (funcionarios || []).filter(f => perfilMap.get(f.perfil_id) === 'Consultor') || [],
+      supervisores: (funcionarios || []).filter(f => perfilMap.get(f.perfil_id) === 'Supervisor') || [],
+      coordenadores: (funcionarios || []).filter(f => perfilMap.get(f.perfil_id) === 'Coordenador') || [],
+      lojas: lojasRes.data || [],
+      perfis: perfisRes.data || []
+    };
+  } catch (err) {
+    console.error('Erro ao carregar validationData via endpoint:', err);
+    return {
+      consultores: [],
+      supervisores: [],
+      coordenadores: [],
+      lojas: lojasRes.data || [],
+      perfis: perfisRes.data || []
+    };
+  }
 }, { server: false });
 
 const handleFileSelect = async (event) => {

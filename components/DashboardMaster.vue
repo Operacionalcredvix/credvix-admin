@@ -323,43 +323,57 @@ const { data: regionais } = await useAsyncData('regionais-filtro-master', async 
 
 const { data: dashboardData, pending } = useAsyncData('dashboard-data-master', async () => {
   if (!profile.value?.user_id || !dateRange.start || !dateRange.end) return { stats: {}, statusChart: {}, lojasChart: {}, produtosChart: {} };
-  const { data, error } = await supabase.rpc('get_dashboard_data_master', {
-    p_start_date: dateRange.start,
-    p_end_date: dateRange.end,
-    p_regional_id: selectedRegional.value
-  });
-  if (error) {
-    console.error('❌ [DashboardMaster] Erro ao carregar dados:', error);
-    if (process.client) {
-      toast.add({ title: 'Erro ao carregar dados', description: error.message, color: 'red' });
+
+  try {
+    // obtém token de sessão do cliente supabase para repassar ao servidor
+    const sessionResp = await supabase.auth.getSession();
+    const token = sessionResp?.data?.session?.access_token || null;
+
+    const params = new URLSearchParams();
+    params.set('start', dateRange.start);
+    params.set('end', dateRange.end);
+    if (selectedRegional.value) params.set('regional', String(selectedRegional.value));
+
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const res = await $fetch(`/api/dashboard/master?${params.toString()}`, { headers, method: 'GET' });
+    if (!res || res.success === false) {
+      const msg = res?.error || 'Erro ao carregar dados do servidor';
+      console.error('❌ [DashboardMaster] Erro ao carregar dados (server):', msg);
+      if (process.client) toast.add({ title: 'Erro ao carregar dados', description: msg, color: 'red' });
+      return { stats: {}, statusChart: {}, lojasChart: {}, produtosChart: {} };
     }
+
+    return res.data || { stats: {}, statusChart: {}, lojasChart: {}, produtosChart: {} };
+  } catch (err) {
+    console.error('❌ [DashboardMaster] Exceção ao carregar dados do dashboard:', err);
+    if (process.client) toast.add({ title: 'Erro ao carregar dados', description: err?.message || String(err), color: 'red' });
     return { stats: {}, statusChart: {}, lojasChart: {}, produtosChart: {} };
   }
-  return data;
 }, { watch: [profile, dateRange, selectedRegional] });
 
 const { data: desempenhoConsultores } = await useAsyncData('desempenho-consultores-master', async () => {
   if (!selectedPeriod.value) return [];
   const firstDayOfMonth = `${selectedPeriod.value}-01`;
-  
+
   try {
-    // Usa a função RPC otimizada ao invés da view
-    const { data, error } = await supabase.rpc('get_desempenho_consultores_month', {
-      p_periodo: firstDayOfMonth,
-      p_regional_id: selectedRegional.value || null
-    });
-    
-    if (error) {
-      console.error('❌ [DashboardMaster] Erro ao buscar desempenho consultores:', error);
-      if (process.client) {
-        toast.add({ title: 'Erro ao buscar desempenho', description: error.message, color: 'red' });
-      }
+    const sessionResp = await supabase.auth.getSession();
+    const token = sessionResp?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const body = { p_periodo: firstDayOfMonth, p_regional_id: selectedRegional.value || null };
+    const res = await $fetch('/api/dashboard/desempenho', { method: 'POST', body, headers });
+    if (!res || res.success === false) {
+      const msg = res?.error || 'Erro ao buscar desempenho do servidor';
+      console.error('❌ [DashboardMaster] Erro ao buscar desempenho consultores (server):', msg);
+      if (process.client) toast.add({ title: 'Erro ao buscar desempenho', description: msg, color: 'red' });
       return [];
     }
-    
-    return data || [];
+
+    return res.data || [];
   } catch (err) {
     console.error('❌ [DashboardMaster] Exceção ao buscar desempenho consultores:', err);
+    if (process.client) toast.add({ title: 'Erro ao buscar desempenho', description: err?.message || String(err), color: 'red' });
     return [];
   }
 }, { watch: [selectedPeriod, selectedRegional] });
@@ -368,54 +382,59 @@ const { data: desempenhoConsultores } = await useAsyncData('desempenho-consultor
 const { data: consultores } = await useAsyncData('consultores-ranking-master', async () => {
   if (!selectedPeriod.value) return [];
   const firstDayOfMonth = `${selectedPeriod.value}-01`;
-  
+
   try {
-    // Usa a função RPC otimizada ao invés da view
-    const { data, error } = await supabase.rpc('get_desempenho_consultores_month', {
-      p_periodo: firstDayOfMonth,
-      p_regional_id: selectedRegional.value || null
-    });
-    
-    if (error) {
-      console.error('❌ [DashboardMaster] Erro ao buscar consultores:', error);
-      if (process.client) {
-        toast.add({ title: 'Erro ao buscar consultores', description: error.message, color: 'red' });
-      }
+    const sessionResp = await supabase.auth.getSession();
+    const token = sessionResp?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const body = { p_periodo: firstDayOfMonth, p_regional_id: selectedRegional.value || null };
+    const res = await $fetch('/api/dashboard/desempenho', { method: 'POST', body, headers });
+    if (!res || res.success === false) {
+      const msg = res?.error || 'Erro ao buscar consultores no servidor';
+      console.error('❌ [DashboardMaster] Erro ao buscar consultores (server):', msg);
+      if (process.client) toast.add({ title: 'Erro ao buscar consultores', description: msg, color: 'red' });
       return [];
     }
-    
-    return (data || []).map(c => ({
+
+    return (res.data || []).map(c => ({
       ...c,
       total_producao: (c.atingido_cnc || 0) + (c.atingido_card || 0) + (c.atingido_card_beneficio || 0) + (c.atingido_consignado || 0) + (c.atingido_fgts || 0)
     }));
   } catch (err) {
     console.error('❌ [DashboardMaster] Exceção ao buscar consultores:', err);
+    if (process.client) toast.add({ title: 'Erro ao buscar consultores', description: err?.message || String(err), color: 'red' });
     return [];
   }
 }, { watch: [selectedPeriod, selectedRegional] });
 
-// --- NOVA BUSCA DE DADOS PARA METAS ---
+// --- NOVA BUSCA DE DADOS PARA METAS (via endpoint server para respeitar RLS) ---
 const { data: metasProgresso, pending: metasPending } = useAsyncData('metas-progresso-master', async () => {
-  // CORREÇÃO: Usa o novo filtro de período 'selectedPeriod'
   if (!selectedPeriod.value) return [];
 
   const firstDayOfMonth = `${selectedPeriod.value}-01`;
 
-  let query = supabase.from('metas_progresso').select('*').eq('periodo', firstDayOfMonth);
+  try {
+    const sessionResp = await supabase.auth.getSession();
+    const token = sessionResp?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-  if (selectedRegional.value) {
-    query = query.eq('regional_id', selectedRegional.value);
-  }
-
-  const { data, error } = await query;
-  if (error) {
-    console.error('❌ [DashboardMaster] Erro ao buscar metas:', error);
-    if (process.client) {
-      toast.add({ title: 'Erro ao buscar metas', description: error.message, color: 'red' });
+    const body = { p_periodo: firstDayOfMonth, p_regional_id: selectedRegional.value || null };
+    const res = await $fetch('/api/dashboard/metas', { method: 'POST', body, headers });
+    if (!res || res.success === false) {
+      const msg = res?.error || 'Erro ao buscar metas do servidor';
+      console.error('❌ [DashboardMaster] Erro ao buscar metas (server):', msg);
+      if (process.client) toast.add({ title: 'Erro ao buscar metas', description: msg, color: 'red' });
+      return [];
     }
+
+    return res.data || [];
+  } catch (err) {
+    console.error('❌ [DashboardMaster] Exceção ao buscar metas:', err);
+    if (process.client) toast.add({ title: 'Erro ao buscar metas', description: err?.message || String(err), color: 'red' });
+    return [];
   }
-  return data || [];
-}, { watch: [selectedPeriod, selectedRegional] }); // CORREÇÃO: Observa a variável correta
+}, { watch: [selectedPeriod, selectedRegional] });
 
 // --- BUSCA SEPARADA DE SEGUROS (VENDAS EXTERNAS) ---
 const { data: segurosData } = await useAsyncData('seguros-master', async () => {

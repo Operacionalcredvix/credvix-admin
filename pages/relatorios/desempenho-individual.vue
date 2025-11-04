@@ -562,74 +562,51 @@ const { data: desempenho, pending, refresh } = await useAsyncData(
       
       // Fallback: tentar query simplificada sem RPC
       console.log('Tentando query alternativa...')
-      
-      let fallbackQuery = supabase
-        .from('funcionarios')
-        .select(`
-          id,
-          nome_completo,
-          loja_id,
-          lojas!inner(nome, regional_id, regionais(nome_regional))
-        `)
-        .eq('is_active', true)
-        .in('perfil_id', supabase
-          .from('perfis')
-          .select('id')
-          .eq('nome', 'Consultor')
-        )
 
-      // Aplicar filtros de escopo
-      if (profile.value?.perfil === 'Supervisor' && profile.value?.loja_id) {
-        fallbackQuery = fallbackQuery.eq('loja_id', profile.value.loja_id)
-      } else if (profile.value?.perfil === 'Coordenador' && profile.value?.regional_id) {
-        fallbackQuery = fallbackQuery.eq('lojas.regional_id', profile.value.regional_id)
-      }
+      // Fallback: buscar consultores via endpoint server e completar com loja/regional já carregadas
+      try {
+        const tokenResp = await supabase.auth.getSession();
+        const token = tokenResp?.data?.session?.access_token || null;
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const resp = await $fetch('/api/funcionarios/search', { method: 'POST', headers, body: { perfil_names: ['Consultor'], is_active: true, limit: 100 } });
+        const fallbackData = resp?.data || [];
 
-      // Aplicar filtros selecionados
-      if (selectedLoja.value) {
-        fallbackQuery = fallbackQuery.eq('loja_id', selectedLoja.value)
-      }
-      if (selectedRegional.value && !selectedLoja.value) {
-        fallbackQuery = fallbackQuery.eq('lojas.regional_id', selectedRegional.value)
-      }
-
-      fallbackQuery = fallbackQuery.limit(100)
-
-      const { data: fallbackData, error: fallbackError } = await fallbackQuery
-
-      if (fallbackError) {
-        console.error('Erro na query alternativa:', fallbackError)
+        // Mapear lojas e regionais já carregadas no componente
+        return (fallbackData || []).map((consultor, index) => {
+          const lojaObj = (lojas?.value || []).find(l => l.id === consultor.loja_id) || {};
+          const regionalObj = (regionais?.value || []).find(r => r.id === lojaObj.regional_id) || {};
+          return {
+            consultor_id: consultor.id,
+            consultor_nome: consultor.nome_completo,
+            loja_id: consultor.loja_id,
+            loja_nome: lojaObj.nome,
+            regional_id: lojaObj.regional_id,
+            nome_regional: regionalObj.nome_regional,
+            periodo,
+            meta_individual_cnc: 0,
+            meta_individual_card: 0,
+            meta_individual_card_beneficio: 0,
+            meta_individual_consignado: 0,
+            meta_individual_fgts: 0,
+            meta_individual_bmg_med: 0,
+            meta_individual_seguro_familiar: 0,
+            atingido_cnc: 0,
+            atingido_card: 0,
+            atingido_card_beneficio: 0,
+            atingido_consignado: 0,
+            atingido_fgts: 0,
+            atingido_bmg_med: 0,
+            atingido_seguro_familiar: 0,
+            atingido_multi_volume: 0,
+            meta_multi_volume: 0,
+            percentual_multi_volume: 0,
+            rank: index + 1
+          }
+        })
+      } catch (fallbackError) {
+        console.error('Erro na query alternativa via endpoint:', fallbackError)
         return []
       }
-
-      // Retornar consultores sem dados de desempenho (zeros)
-      return (fallbackData || []).map((consultor, index) => ({
-        consultor_id: consultor.id,
-        consultor_nome: consultor.nome_completo,
-        loja_id: consultor.loja_id,
-        loja_nome: consultor.lojas.nome,
-        regional_id: consultor.lojas.regional_id,
-        nome_regional: consultor.lojas.regionais?.nome_regional,
-        periodo,
-        meta_individual_cnc: 0,
-        meta_individual_card: 0,
-        meta_individual_card_beneficio: 0,
-        meta_individual_consignado: 0,
-        meta_individual_fgts: 0,
-        meta_individual_bmg_med: 0,
-        meta_individual_seguro_familiar: 0,
-        atingido_cnc: 0,
-        atingido_card: 0,
-        atingido_card_beneficio: 0,
-        atingido_consignado: 0,
-        atingido_fgts: 0,
-        atingido_bmg_med: 0,
-        atingido_seguro_familiar: 0,
-        atingido_multi_volume: 0,
-        meta_multi_volume: 0,
-        percentual_multi_volume: 0,
-        rank: index + 1
-      }))
     }
 
     if (!data || data.length === 0) {

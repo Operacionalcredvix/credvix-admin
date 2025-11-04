@@ -318,29 +318,29 @@ const { data: initialData } = await useAsyncData('funcionarios-form-data', async
   const user = useSupabaseUser();
   if (!user.value?.id) return { perfis: [], regionais: [], lojas: [], meuPerfil: null, todosLideres: [] };
 
-  const [perfisRes, regionaisRes, lojasRes, meuPerfilRes, todosLideresRes] = await Promise.all([
+  // Busca dados públicos via supabase cliente (perfis, regionais, lojas)
+  const [perfisRes, regionaisRes, lojasRes] = await Promise.all([
     supabase.from('perfis').select('id, nome').order('nome'),
     supabase.from('regionais').select('id, nome_regional, coordenador_id').order('nome_regional'),
-    supabase.from('lojas').select('id, nome, regional_id').order('nome'),
-    supabase.from('funcionarios').select(`
-      id, user_id, perfil_id, loja_id,
-      perfis (nome),
-      lojas (id, regional_id)
-    `).eq('user_id', user.value.id).single(),
-    // Otimização: Carrega todos os funcionários que podem ser líderes (Coordenadores e Supervisores)
-    supabase.from('funcionarios').select(`
-      id, nome_completo, loja_id,
-      perfil:perfil_id (nome)
-    `).in('perfil_id', (await supabase.from('perfis').select('id').in('nome', ['Coordenador', 'Supervisor'])).data.map(p => p.id))
-      .eq('is_active', true)
+    supabase.from('lojas').select('id, nome, regional_id').order('nome')
+  ]);
+
+  // Busca meuPerfil e líderes via endpoints server (contornando RLS)
+  const tokenResp = await supabase.auth.getSession();
+  const token = tokenResp?.data?.session?.access_token || null;
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const [meuPerfilRes, todosLideresRes] = await Promise.all([
+    $fetch('/api/profile', { method: 'GET', headers }).catch(() => ({ success: false, data: null })),
+    $fetch('/api/funcionarios/search', { method: 'POST', headers, body: { perfil_names: ['Coordenador', 'Supervisor'], is_active: true, limit: 200 } }).catch(() => ({ success: false, data: [] }))
   ]);
 
   return {
     perfis: perfisRes.data || [],
     regionais: regionaisRes.data || [],
     lojas: lojasRes.data || [],
-    meuPerfil: meuPerfilRes.data || null,
-    todosLideres: todosLideresRes.data || []
+    meuPerfil: meuPerfilRes?.data || null,
+    todosLideres: (todosLideresRes?.data) || []
   };
 });
 
@@ -367,19 +367,25 @@ onMounted(() => {
 watch(searchTerm, useDebounceFn(async (newVal) => {
   if (newVal.length < 3) { searchResults.value = []; return; }
   searching.value = true;
-  // OTIMIZAÇÃO: Expande o select para trazer todos os dados necessários para a edição de uma só vez,
-  // incluindo o histórico de vínculo, evitando uma consulta extra ao clicar em "Editar".
-  const { data } = await supabase
-    .from('funcionarios')
-    .select(`
-      *,
-      perfis ( nome ),
-      lojas ( *, regionais ( id, nome_regional ) ),
-      historico_vinculos ( * )
-    `)
-    .or(`nome_completo.ilike.%${newVal}%,cpf.ilike.%${newVal}%`).limit(10);
-  searchResults.value = data || [];
-  searching.value = false;
+  try {
+    const sessionResp = await supabase.auth.getSession();
+    const token = sessionResp?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const res = await $fetch('/api/funcionarios/search', { method: 'POST', body: { q: newVal, limit: 10 }, headers });
+    if (!res || res.success === false) {
+      toast.add({ title: 'Erro na busca', description: res?.error || 'Falha ao buscar funcionários', color: 'red' });
+      searchResults.value = [];
+    } else {
+      searchResults.value = res.data || [];
+    }
+  } catch (err) {
+    console.error('[funcionarios] Erro na busca via server:', err);
+    toast.add({ title: 'Erro na busca', description: err?.message || String(err), color: 'red' });
+    searchResults.value = [];
+  } finally {
+    searching.value = false;
+  }
 }, 300));
 
 // --- LÓGICA DE EDIÇÃO (REATORADA E CORRIGIDA) ---
@@ -631,30 +637,25 @@ async function handleFormSubmit() {
         return;
       }
     }
-    // --- INÍCIO DA VALIDAÇÃO DE CPF DUPLICADO ---
+    // --- INÍCIO DA VALIDAÇÃO DE CPF DUPLICADO (via endpoint server) ---
     if (formData.cpf) {
       const cpfLimpo = formData.cpf.replace(/\D/g, '');
-      let query = supabase
-        .from('funcionarios')
-        .select('id, nome_completo')
-        .eq('cpf', cpfLimpo);
+      try {
+        const sessionResp = await supabase.auth.getSession();
+        const token = sessionResp?.data?.session?.access_token || null;
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await $fetch('/api/funcionarios/search', { method: 'POST', headers, body: { q: cpfLimpo, limit: 1 } });
+        const existingEmployee = (res?.data && res.data.length) ? res.data[0] : null;
 
-      // Se estiver a editar, exclui o funcionário atual da verificação
-      if (formData.id) {
-        query = query.neq('id', formData.id);
-      }
-
-      // Usa maybeSingle() em vez de single() para evitar erro 406 quando há múltiplos registros
-      const { data: existingEmployee, error: checkError } = await query.maybeSingle();
-
-      // Se houver erro na query, lança exceção
-      if (checkError) throw checkError;
-
-      // Se encontrou um funcionário, é um duplicado.
-      if (existingEmployee) {
-        toast.add({ title: 'CPF Duplicado!', description: `O CPF informado já está em uso pelo funcionário: ${existingEmployee.nome_completo}.`, color: 'red', timeout: 5000 });
-        saving.value = false;
-        return; // Interrompe a submissão
+        // Se estiver a editar, ignora o próprio registro
+        if (existingEmployee && String(existingEmployee.id) !== String(formData.id)) {
+          toast.add({ title: 'CPF Duplicado!', description: `O CPF informado já está em uso pelo funcionário: ${existingEmployee.nome_completo}.`, color: 'red', timeout: 5000 });
+          saving.value = false;
+          return; // Interrompe a submissão
+        }
+      } catch (err) {
+        console.error('Erro ao validar CPF via endpoint:', err);
+        throw err;
       }
     }
     // --- FIM DA VALIDAÇÃO ---
@@ -791,8 +792,16 @@ async function handleFormSubmit() {
 
     // Atualiza a lista de busca para refletir as alterações
     if (searchTerm.value) {
-      const { data } = await supabase.from('funcionarios').select('*, perfis(nome), lojas(nome)').or(`nome_completo.ilike.%${searchTerm.value}%,cpf.ilike.%${searchTerm.value}%`).limit(10);
-      searchResults.value = data || [];
+      try {
+        const sessionResp = await supabase.auth.getSession();
+        const token = sessionResp?.data?.session?.access_token || null;
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await $fetch('/api/funcionarios/search', { method: 'POST', headers, body: { q: searchTerm.value, limit: 10 } });
+        searchResults.value = res?.data || [];
+      } catch (err) {
+        console.error('Erro ao atualizar lista de busca via endpoint:', err);
+        searchResults.value = [];
+      }
     }
 
   } catch (error) {
