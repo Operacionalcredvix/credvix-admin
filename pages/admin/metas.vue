@@ -186,11 +186,20 @@ const { data: lojas } = await useAsyncData('lojas-para-metas', async () => {
 
 const { data: goals, pending, refresh } = await useAsyncData('metas-progresso', async () => {
   const firstDayOfMonth = `${selectedPeriod.value}-01`;
-  const { data } = await supabase
-    .from('metas_progresso') // <-- MUDANÇA: Usando a nova VIEW
-    .select('*')
-    .eq('periodo', firstDayOfMonth);
-  return data || []; // Garante que sempre retorna um array
+  try {
+    const session = await supabase.auth.getSession();
+    const token = session?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await $fetch('/api/dashboard/metas', { method: 'POST', headers, body: { p_periodo: firstDayOfMonth } });
+    if (!res || res.success === false) {
+      console.error('Erro ao buscar metas (server):', res?.error || 'Resposta inválida');
+      return [];
+    }
+    return res.data || [];
+  } catch (err) {
+    console.error('Exceção ao buscar metas (server):', err);
+    return [];
+  }
 }, { watch: [selectedPeriod] });
 
 // --- COLUNAS E FORMATAÇÃO DA TABELA ---
@@ -301,11 +310,25 @@ const handleSave = async () => {
     let error;
 
     if (isEditing.value) {
-      const { id, ...updateData } = dataToSave;
-      ({ error } = await supabase.from('metas').update(updateData).eq('id', id));
+      try {
+        const session = await supabase.auth.getSession();
+        const token = session?.data?.session?.access_token || null;
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await $fetch('/api/metas/update', { method: 'POST', headers, body: dataToSave });
+        if (!res || res.success === false) throw new Error(res?.error || 'Erro ao atualizar meta');
+      } catch (err) {
+        error = err;
+      }
     } else {
-      const { id, ...insertData } = dataToSave;
-      ({ error } = await supabase.from('metas').insert(insertData));
+      try {
+        const session = await supabase.auth.getSession();
+        const token = session?.data?.session?.access_token || null;
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await $fetch('/api/metas/create', { method: 'POST', headers, body: dataToSave });
+        if (!res || res.success === false) throw new Error(res?.error || 'Erro ao criar meta');
+      } catch (err) {
+        error = err;
+      }
     }
 
     if (error) {
@@ -328,8 +351,11 @@ const handleSave = async () => {
 const handleDelete = async (row) => {
   if (confirm(`Tem a certeza que quer apagar a meta da loja "${row.loja_nome}" para o período de ${selectedPeriod.value}?`)) {
     try {
-      const { error } = await supabase.from('metas').delete().eq('id', row.id);
-      if (error) throw error;
+  const session = await supabase.auth.getSession();
+  const token = session?.data?.session?.access_token || null;
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const res = await $fetch('/api/metas/delete', { method: 'POST', headers, body: { id: row.id } });
+  if (!res || res.success === false) throw new Error(res?.error || 'Erro ao apagar meta');
       toast.add({ title: 'Sucesso!', description: 'Meta apagada com sucesso.' });
       await refresh();
     } catch (err) {
