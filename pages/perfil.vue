@@ -10,7 +10,7 @@
           <h3 class="text-lg font-semibold">Informações da Conta</h3>
         </template>
         <div class="flex items-center gap-6">
-          <UAvatar :key="profile.avatar_url" :src="profile.avatar_url" :alt="profile.nome_completo"
+          <UAvatar :key="profile.avatar_url" :src="previewUrl || profile.avatar_url" :alt="profile.nome_completo"
             icon="i-heroicons-user-circle" size="3xl" />
           <div>
             <p class="text-2xl font-bold">{{ profile.nome_completo }}</p>
@@ -113,7 +113,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, onUnmounted } from 'vue';
 
 const { profile, fetchProfile } = useProfile();
 const client = useSupabaseClient();
@@ -121,6 +121,7 @@ const toast = useToast();
 const user = useSupabaseUser(); // Pega o utilizador autenticado
 const uploading = ref(false);
 const uploadError = ref(null);
+const previewUrl = ref(null);
 
 // --- LÓGICA DE ALTERAÇÃO DE SENHA ---
 const isPasswordModalOpen = ref(false);
@@ -216,53 +217,115 @@ const alocacoesColumns = [
 ];
 
 const onFileChange = async (event) => {
-  const file = event.target.files[0];
+  // O componente de input pode emitir diferentes payloads dependendo da implementação
+  // - event.target.files (nativo)
+  // - event.files (alguns componentes custom)
+  // - receber um File diretamente
+  let file = null
+  try {
+    if (!event) {
+      uploadError.value = 'Arquivo inválido.'
+      return
+    }
+    if (event.target && event.target.files) file = event.target.files[0]
+    else if (event.files) file = event.files[0]
+    else if (Array.isArray(event) && event[0]) file = event[0]
+    else if (event instanceof File) file = event
+    else if (event[0] && event[0] instanceof File) file = event[0]
+  } catch (err) {
+    console.warn('onFileChange: payload parsing failed', err)
+  }
+
   // Garante que temos um utilizador e um perfil antes de continuar
-  if (!file || !user.value || !profile.value) return;
+  if (!file) {
+    uploadError.value = 'Nenhum ficheiro selecionado.'
+    return
+  }
+  if (!user.value || !profile.value) {
+    uploadError.value = 'Utilizador não autenticado.'
+    return
+  }
+
+  // Validações básicas do ficheiro
+  const maxSize = 5 * 1024 * 1024 // 5MB
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+  if (file.size > maxSize) {
+    uploadError.value = 'O ficheiro é demasiado grande (max 5MB).'
+    return
+  }
+  if (file.type && !allowedTypes.includes(file.type)) {
+    uploadError.value = 'Tipo de ficheiro não suportado. Use JPG/PNG/WEBP.'
+    return
+  }
 
   uploading.value = true;
   uploadError.value = null;
 
   try {
-    const fileExt = file.name.split('.').pop();
-    // CORREÇÃO: O nome do ficheiro pode ser aleatório para evitar problemas de cache.
-    // O importante é que ele esteja dentro da pasta com o ID do utilizador.
+    // mostra preview instantâneo enquanto acontece o upload
+    try { previewUrl.value = URL.createObjectURL(file) } catch(e) { /* ignore */ }
+
+    const fileExt = (file.name || 'img').split('.').pop();
+    // Nome aleatório para evitar problemas de cache
     const fileName = `${Math.random()}.${fileExt}`;
     const filePath = `${user.value.id}/${fileName}`;
 
-    // Faz o upload para o bucket 'avatars'
-    const { error: uploadErr } = await client.storage
-      .from('avatars')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: true,
-      });
+    // Faz upload via endpoint server que usa a service role (fallback/solução robusta)
+    const toBase64 = (f) => new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = reader.result
+        if (!result || typeof result !== 'string') return resolve(null)
+        const parts = result.split(',')
+        resolve(parts[1])
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(f)
+    })
 
-    if (uploadErr) throw uploadErr;
+    const base64 = await toBase64(file)
+    if (!base64) throw new Error('Falha ao converter ficheiro para base64')
 
-    // Obtém o URL público da nova imagem
-    const { data } = client.storage.from('avatars').getPublicUrl(filePath);
-    const publicUrl = `${data.publicUrl}?t=${new Date().getTime()}`;
+    const sessionToken = (await client.auth.getSession())?.data?.session?.access_token || null
+    const headers = sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}
 
-    // Atualiza a tabela 'funcionarios' com o novo URL
-    const { error: updateErr } = await client
-      .from('funcionarios')
-      .update({ avatar_url: publicUrl })
-      .eq('id', profile.value.id);
-
-    if (updateErr) throw updateErr;
+    const res = await $fetch('/api/profile/upload', {
+      method: 'POST',
+      headers,
+      body: {
+        filePath,
+        fileName,
+        contentType: file.type,
+        base64
+      }
+    })
+    if (!res || res.success === false) throw new Error(res?.error || 'Falha ao atualizar avatar')
 
     // Força a atualização dos dados do perfil localmente
-    await fetchProfile();
-    
+    await fetchProfile()
+
+    // limpa preview temporário (será substituído pelo avatar do profile atual)
+    try { if (previewUrl.value) { URL.revokeObjectURL(previewUrl.value); previewUrl.value = null } } catch (e) {}
+
     toast.add({ title: 'Sucesso!', description: 'Foto de perfil atualizada.' });
 
   } catch (error) {
     console.error('Erro ao fazer upload da imagem:', error);
-    uploadError.value = 'Não foi possível enviar a imagem. Tente novamente.';
-    toast.add({ title: 'Erro!', description: error.message, color: 'red' });
+    // Mensagem amigável quando bucket não existe
+    const msg = String(error?.message || error || '')
+    if (msg.toLowerCase().includes('bucket not found') || msg.toLowerCase().includes('bucket não encontrado') || msg.includes('404')) {
+      uploadError.value = 'Bucket "avatars" não encontrado no Supabase Storage. Verifique a configuração do bucket.'
+    } else {
+      uploadError.value = 'Não foi possível enviar a imagem. Tente novamente.';
+    }
+    toast.add({ title: 'Erro!', description: msg, color: 'red' });
   } finally {
     uploading.value = false;
   }
-};
+}
+
+// cleanup preview URL when component unmounts
+onUnmounted(() => {
+  try { if (previewUrl.value) { URL.revokeObjectURL(previewUrl.value); previewUrl.value = null } } catch (e) {}
+})
 </script>
