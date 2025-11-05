@@ -60,12 +60,13 @@ const menuItems = [
     ]
   },
   {
-    label: 'Admin',
-    icon: 'i-heroicons-shield-check',
+    label: 'Importações',
+    // ícone atualizado para representar upload/importações
+    icon: 'i-heroicons-cloud-arrow-up',
     slot: 'item',
     links: [
       { label: 'Metas', to: '/admin/metas', icon: 'i-heroicons-trophy' },
-      { label: 'Importações', to: '/admin/importacoes', icon: 'i-heroicons-arrow-up-tray' }
+      { label: 'Seguros', to: '/admin/importacoes', icon: 'i-heroicons-arrow-up-tray' }
     ]
   },
   {
