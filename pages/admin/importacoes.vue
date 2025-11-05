@@ -12,13 +12,15 @@
         </template>
 
         <UFormGroup label="Tipo de Dados a Importar" name="importType">
-          <USelectMenu 
-            v-model="importType" 
-            :options="importOptions" 
-            placeholder="Selecione o tipo" 
-            value-attribute="value"
-            option-attribute="label"
-          />
+          <ClientOnly placeholder="Carregando...">
+            <USelectMenu 
+              v-model="importType" 
+              :options="importOptions" 
+              placeholder="Selecione o tipo" 
+              value-attribute="value"
+              option-attribute="label"
+            />
+          </ClientOnly>
         </UFormGroup>
       </UCard>
 
@@ -59,63 +61,127 @@
       </UCard>
 
       <!-- Modal de Preview -->
-      <UModal v-model="showPreview" :ui="{ width: 'max-w-6xl' }">
-        <UCard>
-          <template #header>
-            <div class="flex items-center justify-between">
-              <h3 class="text-lg font-semibold">Preview da Importação</h3>
-              <UBadge :label="`${previewData.length} registos`" color="primary" />
-            </div>
-          </template>
+      <UModal v-model="showPreview" size="full">
+        <div ref="resizeWrapper" :style="wrapperStyle" class="p-4">
+          <UCard :class="['h-full relative', isFullscreen ? 'overflow-auto' : 'overflow-hidden']" style="width:100%; height:100%; min-width:600px;">
+            <template #header>
+              <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold">Preview da Importação</h3>
+                <div class="flex items-center gap-2">
+                  <UBadge :label="`${previewData.length} registos`" color="primary" />
+                  <UButton size="sm" variant="outline" :icon="isFullscreen ? 'i-heroicons-arrows-pointing-in' : 'i-heroicons-arrows-pointing-out'" @click="toggleFullscreen">
+                    {{ isFullscreen ? 'Fechar' : 'Expandir' }}
+                  </UButton>
+                  <UButton size="sm" variant="ghost" icon="i-heroicons-x-mark" title="Fechar preview" @click="closePreview" />
+                </div>
+              </div>
+            </template>
 
-          <div class="space-y-4">
-            <UAlert color="primary" variant="soft" icon="i-heroicons-information-circle">
-              <template #title>Confira os dados antes de confirmar</template>
-              <template #description>
-                Verifique se todos os vínculos estão corretos (✓ verde = vinculado com sucesso).
-              </template>
-            </UAlert>
+            <div class="space-y-4">
+              <UAlert color="primary" variant="soft" icon="i-heroicons-information-circle">
+                <template #title>Confira os dados antes de confirmar</template>
+                <template #description>
+                  Verifique se todos os vínculos estão corretos (✓ verde = vinculado com sucesso).
+                </template>
+              </UAlert>
 
-            <div class="max-h-96 overflow-y-auto">
-              <UTable :rows="previewData" :columns="previewColumns">
+              <div class="max-h-96 overflow-y-auto">
+                <UTable :rows="previewData" :columns="previewColumns">
                 <template #rowNumber-data="{ row }">
                   <span class="text-xs text-gray-500">Linha {{ row.rowNumber }}</span>
                 </template>
 
-                <template #consultor-data="{ row }">
-                  <div class="flex items-center gap-1">
-                    <UIcon v-if="row.vinculado.consultor" name="i-heroicons-check-circle" class="text-green-500" />
+                <template #franquia-data="{ row }">
+                  <div class="flex items-center gap-2">
+                    <UIcon v-if="row.vinculado?.loja" name="i-heroicons-check-circle" class="text-green-500" />
                     <UIcon v-else name="i-heroicons-x-circle" class="text-red-500" />
-                    <span>{{ row.consultor }}</span>
+                    <div class="flex-1">
+                      <USelectMenu
+                        v-model="row.selectedLojaId"
+                        :options="(row.possibleLojas || []).map(l => ({ label: l.name, value: l.id }))"
+                        placeholder="Selecionar loja"
+                        value-attribute="value"
+                        option-attribute="label"
+                      />
+                    </div>
+                  </div>
+                </template>
+
+                <template #adesao-data="{ row }">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium">{{ row.adesao }}</span>
+                    <span v-if="row.existingQuantidade" class="text-xs text-gray-500">(já registado: {{ row.existingQuantidade }})</span>
+                  </div>
+                </template>
+
+                <template #registered-data="{ row }">
+                  <div class="text-sm text-gray-600">
+                    <span v-if="row.existing">Registrado</span>
+                    <span v-else>—</span>
+                  </div>
+                </template>
+
+                <template #consultor-data="{ row }">
+                  <div class="flex items-center gap-2">
+                    <UIcon v-if="row.vinculado?.consultor" name="i-heroicons-check-circle" class="text-green-500" />
+                    <UIcon v-else name="i-heroicons-x-circle" class="text-red-500" />
+                    <div class="flex-1">
+                      <USelectMenu
+                        v-model="row.selectedConsultor"
+                        :options="buildPersonOptions(row.possibleConsultores, row.consultorRaw, row.selectedConsultor)"
+                        placeholder="Selecionar consultor"
+                        value-attribute="value"
+                        option-attribute="label"
+                      />
+                    </div>
                   </div>
                 </template>
 
                 <template #supervisor-data="{ row }">
-                  <div class="flex items-center gap-1">
-                    <UIcon v-if="row.vinculado.supervisor" name="i-heroicons-check-circle" class="text-green-500" />
+                  <div class="flex items-center gap-2">
+                    <UIcon v-if="row.vinculado?.supervisor" name="i-heroicons-check-circle" class="text-green-500" />
                     <UIcon v-else name="i-heroicons-x-circle" class="text-red-500" />
-                    <span>{{ row.supervisor }}</span>
+                    <div class="flex-1">
+                      <USelectMenu
+                        v-model="row.selectedSupervisor"
+                        :options="buildPersonOptions(row.possibleSupervisores, row.supervisorRaw, row.selectedSupervisor)"
+                        placeholder="Selecionar supervisor"
+                        value-attribute="value"
+                        option-attribute="label"
+                      />
+                    </div>
                   </div>
                 </template>
 
                 <template #coordenador-data="{ row }">
-                  <div class="flex items-center gap-1">
-                    <UIcon v-if="row.vinculado.coordenador" name="i-heroicons-check-circle" class="text-green-500" />
+                  <div class="flex items-center gap-2">
+                    <UIcon v-if="row.vinculado?.coordenador" name="i-heroicons-check-circle" class="text-green-500" />
                     <UIcon v-else name="i-heroicons-x-circle" class="text-red-500" />
-                    <span>{{ row.coordenador }}</span>
-                  </div>
-                </template>
-
-                <template #franquia-data="{ row }">
-                  <div class="flex items-center gap-1">
-                    <UIcon v-if="row.vinculado.loja" name="i-heroicons-check-circle" class="text-green-500" />
-                    <UIcon v-else name="i-heroicons-x-circle" class="text-red-500" />
-                    <span>{{ row.franquia }}</span>
+                    <div class="flex-1">
+                      <USelectMenu
+                        v-model="row.selectedCoordenador"
+                        :options="buildPersonOptions(row.possibleCoordenadores, row.coordenadorRaw, row.selectedCoordenador)"
+                        placeholder="Selecionar coordenador"
+                        value-attribute="value"
+                        option-attribute="label"
+                      />
+                    </div>
                   </div>
                 </template>
 
                 <template #dataContrato-data="{ row }">
-                  <span class="text-sm">{{ new Date(row.dataContrato).toLocaleDateString('pt-BR') }}</span>
+                  <UInput type="date" v-model="row.dataContrato" />
+                </template>
+
+                <template #quantidade-data="{ row }">
+                  <UInput type="number" v-model.number="row.quantidade" class="w-32" />
+                </template>
+
+                <template #acoes-data="{ row }">
+                  <div class="flex gap-2 items-center">
+                    <UButton size="sm" color="primary" @click="saveSingleRow(row)" :loading="row.saving">Gravar</UButton>
+                    <span v-if="row.saved" class="text-sm text-green-600">Salvo</span>
+                  </div>
                 </template>
               </UTable>
             </div>
@@ -132,6 +198,7 @@
             </div>
           </template>
         </UCard>
+        </div>
       </UModal>
     </div>
   </div>
@@ -153,6 +220,29 @@ const parsedData = ref([]);
 const validationErrors = ref([]);
 const importSummary = reactive({ total: 0 });
 const showPreview = ref(false);
+// fullscreen modal state (uses same approach as metas preview)
+const resizeWrapper = ref(null)
+const isFullscreen = ref(false)
+const modalWidth = ref('1200px')
+const modalHeight = ref('70vh')
+
+const wrapperStyle = computed(() => {
+  if (isFullscreen.value) {
+    return { width: '100vw', height: '100vh', position: 'fixed', left: '0', top: '0', transform: 'none', zIndex: 9999 }
+  }
+  return { width: modalWidth.value, height: modalHeight.value, position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', zIndex: 9999 }
+})
+
+const toggleFullscreen = () => {
+  isFullscreen.value = !isFullscreen.value
+  try { document.body.style.overflow = isFullscreen.value ? 'hidden' : '' } catch (e) {}
+}
+
+const closePreview = () => {
+  // if in fullscreen, exit first to restore body scroll
+  if (isFullscreen.value) toggleFullscreen()
+  showPreview.value = false
+}
 const previewData = ref([]);
 
 const importOptions = [
@@ -171,6 +261,16 @@ const expectedColumns = computed(() => {
   if (importType.value === 'seguro_familiar') return `${base}, Qtd Seguro Familiar`;
   return base;
 });
+
+// helper to build select options showing name first (server returns {id,name} candidates)
+const buildPersonOptions = (persons, rawLabel, selectedId) => {
+  const opts = (persons || []).map(p => ({ label: p.name || p.nome || p.email || p.id, value: p.id }))
+  // ensure selectedId is present so select shows label instead of raw id
+  if (selectedId && !opts.find(o => String(o.value) === String(selectedId))) {
+    opts.unshift({ label: rawLabel || String(selectedId), value: selectedId })
+  }
+  return opts
+}
 
 // --- CARREGAMENTO DE DADOS PARA VALIDAÇÃO ---
 const { data: validationData } = await useAsyncData('validation-data', async () => {
@@ -248,73 +348,90 @@ const handleFileSelect = async (event) => {
       range: 1 // Começa a ler os dados da segunda linha (índice 1)
     });
 
-    // --- VALIDAÇÃO ---
-    // CORREÇÃO: Cria mapas para todos os perfis e usa a coluna 'franquia' para o mapa de lojas.
-    const consultorMap = new Map(validationData.value.consultores.map(c => [c.nome_completo.trim().toUpperCase(), c.id]));
-    const supervisorMap = new Map(validationData.value.supervisores.map(s => [s.nome_completo.trim().toUpperCase(), s.id]));
-    const coordenadorMap = new Map(validationData.value.coordenadores.map(c => [c.nome_completo.trim().toUpperCase(), c.id]));
-    const lojaMap = new Map(validationData.value.lojas.map(l => [l.franquia.trim().toUpperCase(), l.id]));
-    const errors = [];
-    const dataToImport = [];
-
-    // CORREÇÃO: Usa os nomes de coluna normalizados.
-    const qtyColumn = importType.value === 'bmg_med' ? 'qtdsegurosbmgmed' : 'qtdsegurofamiliar';
-
-    jsonData.forEach((row, index) => {
-      // CORREÇÃO: Busca os IDs de todos os funcionários e da loja corretamente.
-      const consultorId = consultorMap.get(row.consultor?.trim().toUpperCase());
-      const supervisorId = supervisorMap.get(row.supervisor?.trim().toUpperCase());
-      const coordenadorId = coordenadorMap.get(row.coordenador?.trim().toUpperCase());
-      const lojaId = lojaMap.get(row.franquia?.trim().toUpperCase());
-
-      if (!consultorId) errors.push(`Linha ${index + 2}: Consultor "${row.consultor}" não encontrado ou inativo.`);
-      if (!supervisorId) errors.push(`Linha ${index + 2}: Supervisor "${row.supervisor}" não encontrado ou inativo.`);
-      if (!coordenadorId) errors.push(`Linha ${index + 2}: Coordenador "${row.coordenador}" não encontrado ou inativo.`);
-      if (!lojaId) errors.push(`Linha ${index + 2}: Loja "${row.franquia}" não encontrada ou inativa.`);
-      if (!row[qtyColumn] || isNaN(parseInt(row[qtyColumn]))) errors.push(`Linha ${index + 2}: Quantidade inválida ou ausente.`);
-      if (!row.datacontrato || !(row.datacontrato instanceof Date)) errors.push(`Linha ${index + 2}: Data do contrato inválida ou ausente.`);
-
-      if (consultorId && supervisorId && coordenadorId && lojaId) {
-        dataToImport.push({
-          consultor_id: consultorId,
-          supervisor_id: supervisorId,
-          coordenador_id: coordenadorId,
-          loja_id: lojaId,
-          tipo_produto: importType.value,
-          data_venda: row.datacontrato,
-          quantidade: parseInt(row[qtyColumn]),
-          adesao: row.adesao, // Agora sem acento após normalização
-          // Dados para preview
-          _preview: {
-            consultor: row.consultor,
-            supervisor: row.supervisor,
-            coordenador: row.coordenador,
-            franquia: row.franquia,
-            dataContrato: row.datacontrato,
-            quantidade: parseInt(row[qtyColumn])
-          }
-        });
-      }
-    });
-
-    validationErrors.value = errors;
-    parsedData.value = dataToImport;
-    importSummary.total = dataToImport.length;
-
-    // Se não houver erros, mostra o preview
-    if (errors.length === 0 && dataToImport.length > 0) {
-      previewData.value = dataToImport.map((item, idx) => ({
-        ...item._preview,
-        rowNumber: idx + 2,
-        vinculado: {
-          consultor: !!item.consultor_id,
-          supervisor: !!item.supervisor_id,
-          coordenador: !!item.coordenador_id,
-          loja: !!item.loja_id
-        }
-      }));
-      showPreview.value = true;
+    // Map header keys to canonical keys so server recognizes qty/date/adesao regardless of header wording
+    const mapHeader = (k) => {
+      const key = String(k || '').toLowerCase()
+      if (/franquia/.test(key)) return 'franquia'
+      if (/consultor/.test(key)) return 'consultor'
+      if (/supervisor/.test(key)) return 'supervisor'
+      if (/coordenador/.test(key)) return 'coordenador'
+      if (/adesa|adesao|adesã/.test(key)) return 'adesao'
+      if (/data.*contr|datacontrato|contrato/.test(key)) return 'datacontrato'
+      // quantity columns: look for qtd, quant, seguro, vida, familiar, bmg
+      if (/(qtd|quant).*bmg|bmg/.test(key)) return 'qtdsegurosbmgmed'
+      if (/(qtd|quant).*(segur|vida|familiar)|seguro.*vida|seguro.*familiar/.test(key)) return 'qtdsegurofamiliar'
+      if (/qtd|quant/.test(key) && /bmg/.test(key)) return 'qtdsegurosbmgmed'
+      if (/qtd|quant/.test(key) && /(segur|vida|familiar)/.test(key)) return 'qtdsegurofamiliar'
+      // fallback: return original normalized key
+      return key
     }
+
+    const mappedRows = jsonData.map(r => {
+      const out = {}
+      for (const rawKey of Object.keys(r || {})) {
+        const target = mapHeader(rawKey)
+        out[target] = r[rawKey]
+      }
+      return out
+    })
+
+    // Preview step: call server preview endpoint and show modal for confirmation
+    const sessionToken = (await supabase.auth.getSession())?.data?.session?.access_token || null
+    const headers = sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}
+    const previewRes = await $fetch('/api/seguros/import-preview', { method: 'POST', headers, body: { tipo: importType.value, rows: mappedRows } })
+    if (!previewRes || previewRes.success === false) {
+      toast.add({ title: 'Erro', description: previewRes?.error || 'Falha ao gerar preview', color: 'red' })
+      readingFile.value = false
+      return
+    }
+
+    const { previewRows, errors } = previewRes.data || {}
+    validationErrors.value = (errors || []).map(e => `Linha ${e.row}: ${ (e.reasons || []).join('; ') }`)
+
+    // Build editable preview state: include selected IDs and editable fields
+    previewData.value = (previewRows || []).map(r => ({
+      rowNumber: r.rowNumber,
+      franquia: r.franquia,
+      lojaId: r.lojaId,
+      lojaName: r.lojaName,
+      consultorRaw: r.consultorRaw,
+      supervisorRaw: r.supervisorRaw,
+      coordenadorRaw: r.coordenadorRaw,
+      consultorId: r.consultorId,
+      supervisorId: r.supervisorId,
+      coordenadorId: r.coordenadorId,
+      possibleConsultores: r.possibleConsultores || [],
+      possibleSupervisores: r.possibleSupervisores || [],
+      possibleCoordenadores: r.possibleCoordenadores || [],
+      adesao: r.adesao,
+      // normalize date to yyyy-mm-dd for input[type=date]
+      dataContrato: r.dataContrato ? (new Date(r.dataContrato).toISOString().slice(0,10)) : null,
+      quantidade: r.quantidade,
+      existing: r.existing || null,
+      existingQuantidade: r.existing?.quantidade || null,
+      vinculado: r.vinculado,
+      // ui state
+      selectedConsultor: r.consultorId || (r.possibleConsultores && r.possibleConsultores[0]?.id) || null,
+      selectedSupervisor: r.supervisorId || (r.possibleSupervisores && r.possibleSupervisores[0]?.id) || null,
+      selectedCoordenador: r.coordenadorId || (r.possibleCoordenadores && r.possibleCoordenadores[0]?.id) || null,
+      selectedLojaId: r.lojaId || null,
+      possibleLojas: r.lojaName ? [{ id: r.lojaId, name: r.lojaName }] : []
+    }))
+
+    // prepare parsedData for import (will be refreshed on user edits)
+    parsedData.value = previewData.value.map(r => ({
+      consultor_id: r.selectedConsultor,
+      supervisor_id: r.selectedSupervisor,
+      coordenador_id: r.selectedCoordenador,
+      loja_id: r.selectedLojaId,
+      tipo_produto: importType.value,
+      data_venda: r.dataContrato,
+      quantidade: Number(r.quantidade || 0),
+      adesao: r.adesao
+    }))
+
+    importSummary.total = parsedData.value.length
+    if ((errors || []).length === 0 && parsedData.value.length > 0) showPreview.value = true
 
   } catch (error) {
     toast.add({ title: 'Erro ao ler arquivo', description: error.message, color: 'red' });
@@ -326,32 +443,66 @@ const handleFileSelect = async (event) => {
   }
 };
 
+const saveSingleRow = async (row) => {
+  row.saving = true
+  try {
+    const sessionToken = (await supabase.auth.getSession())?.data?.session?.access_token || null
+    const headers = sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}
+
+    const payload = [{
+      consultor_id: row.selectedConsultor,
+      supervisor_id: row.selectedSupervisor,
+      coordenador_id: row.selectedCoordenador,
+      loja_id: row.selectedLojaId,
+      tipo_produto: importType.value,
+      data_venda: row.dataContrato,
+      quantidade: Number(row.quantidade || 0),
+      adesao: row.adesao
+    }]
+
+    const res = await $fetch('/api/seguros/import', { method: 'POST', headers, body: { rows: payload } })
+    if (!res || res.success === false) throw new Error(res?.error || 'Falha ao gravar linha')
+
+    row.saved = true
+    toast.add({ title: 'Linha gravada', description: `Linha ${row.rowNumber} gravada com sucesso`, color: 'green' })
+  } catch (err) {
+    console.error('Erro ao gravar linha:', err)
+    toast.add({ title: 'Erro', description: err.message || String(err), color: 'red' })
+  } finally {
+    row.saving = false
+  }
+}
+
 const confirmImport = async () => {
   importing.value = true;
-
   try {
-    // Remove o campo _preview antes de inserir
-    const dataToInsert = parsedData.value.map(({ _preview, ...rest }) => rest);
-    
-    const { error } = await supabase.from('vendas_externas').upsert(dataToInsert, {
-      onConflict: 'adesao, tipo_produto' // Chave única para evitar duplicados
-    });
+    const sessionToken = (await supabase.auth.getSession())?.data?.session?.access_token || null
+    const headers = sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}
 
-    if (error) throw error;
+    // Build payload from current previewData (take user's selections/edits)
+    const payload = previewData.value.map(r => ({
+      consultor_id: r.selectedConsultor,
+      supervisor_id: r.selectedSupervisor,
+      coordenador_id: r.selectedCoordenador,
+      loja_id: r.selectedLojaId,
+      tipo_produto: importType.value,
+      data_venda: r.dataContrato,
+      quantidade: Number(r.quantidade || 0),
+      adesao: r.adesao
+    }))
 
-    toast.add({ 
-      title: 'Sucesso!', 
-      description: `${dataToInsert.length} registos de seguros foram importados/atualizados.`,
-      color: 'green'
-    });
-    resetForm();
+    const res = await $fetch('/api/seguros/import', { method: 'POST', headers, body: { rows: payload } })
+    if (!res || res.success === false) throw new Error(res?.error || 'Falha ao importar')
+
+    toast.add({ title: 'Sucesso!', description: `${payload.length} registos foram importados/atualizados.`, color: 'green' })
+    resetForm()
   } catch (error) {
     console.error('Erro na importação:', error);
-    toast.add({ title: 'Erro na Importação', description: error.message, color: 'red' });
+    toast.add({ title: 'Erro na Importação', description: error.message || String(error), color: 'red' });
   } finally {
     importing.value = false;
   }
-};
+}
 
 const cancelImport = () => {
   showPreview.value = false;
@@ -374,6 +525,9 @@ const previewColumns = [
   { key: 'supervisor', label: 'Supervisor' },
   { key: 'coordenador', label: 'Coordenador' },
   { key: 'dataContrato', label: 'Data' },
-  { key: 'quantidade', label: 'Qtd' }
+  { key: 'quantidade', label: 'Qtd' },
+  { key: 'adesao', label: 'Adesão' },
+  { key: 'registered', label: 'Registrado' },
+  { key: 'acoes', label: 'Ações' }
 ];
 </script>
