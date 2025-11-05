@@ -42,7 +42,7 @@
 
           <!-- Barra de Progresso da Leitura -->
           <div v-if="readingFile" class="space-y-2 pt-4">
-            <p class="text-sm text-gray-500">A ler e validar o ficheiro...</p>
+            <p class="text-sm text-gray-500">Lendo e validar o ficheiro...</p>
             <UProgress animation="carousel" />
           </div>
 
@@ -69,6 +69,8 @@
                 <h3 class="text-lg font-semibold">Preview da Importação</h3>
                 <div class="flex items-center gap-2">
                   <UBadge :label="`${previewData.length} registos`" color="primary" />
+                  <UBadge :label="`Importados: ${importedCount}`" color="green" />
+                  <UBadge :label="`Problemas: ${errorCount}`" color="red" />
                   <UButton size="sm" variant="outline" :icon="isFullscreen ? 'i-heroicons-arrows-pointing-in' : 'i-heroicons-arrows-pointing-out'" @click="toggleFullscreen">
                     {{ isFullscreen ? 'Fechar' : 'Expandir' }}
                   </UButton>
@@ -88,8 +90,12 @@
               <div class="max-h-96 overflow-y-auto">
                 <UTable :rows="previewData" :columns="previewColumns">
                 <template #rowNumber-data="{ row }">
-                  <span class="text-xs text-gray-500">Linha {{ row.rowNumber }}</span>
+                  <div :id="`preview-row-${row.rowNumber}`">
+                    <span class="text-xs text-gray-500">Linha {{ row.rowNumber }}</span>
+                  </div>
                 </template>
+
+                <!-- registro column removed per UX request -->
 
                 <template #franquia-data="{ row }">
                   <div class="flex items-center gap-2">
@@ -179,7 +185,14 @@
 
                 <template #acoes-data="{ row }">
                   <div class="flex gap-2 items-center">
-                    <UButton size="sm" color="primary" @click="saveSingleRow(row)" :loading="row.saving">Gravar</UButton>
+                    <div v-if="row.existing" class="flex items-center gap-2">
+                      <UIcon name="i-heroicons-check-circle" class="text-green-500" />
+                      <UButton size="sm" color="gray" variant="ghost" disabled title="Já importado">Importado</UButton>
+                      <span v-if="row.existing.id" class="text-xs text-gray-500">(ID {{ row.existing.id }})</span>
+                    </div>
+                    <div v-else>
+                      <UButton size="sm" color="primary" @click="saveSingleRow(row)" :loading="row.saving">Gravar</UButton>
+                    </div>
                     <span v-if="row.saved" class="text-sm text-green-600">Salvo</span>
                   </div>
                 </template>
@@ -205,7 +218,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, nextTick, watch } from 'vue';
 import * as XLSX from 'xlsx';
 
 const supabase = useSupabaseClient();
@@ -311,7 +324,8 @@ const { data: validationData } = await useAsyncData('validation-data', async () 
 
 const handleFileSelect = async (event) => {
   resetForm();
-  const selectedFile = event[0];
+  // support both native event (event.target.files) and passed FileList/array
+  const selectedFile = (event && event.target && event.target.files && event.target.files[0]) || (Array.isArray(event) && event[0]) || (event && event[0]) || (event && event.files && event.files[0])
   if (!selectedFile) return;
 
   file.value = selectedFile;
@@ -430,8 +444,9 @@ const handleFileSelect = async (event) => {
       adesao: r.adesao
     }))
 
-    importSummary.total = parsedData.value.length
-    if ((errors || []).length === 0 && parsedData.value.length > 0) showPreview.value = true
+  importSummary.total = parsedData.value.length
+  // Always show preview when we have parsed rows, even if there are validation errors
+  if (parsedData.value.length > 0) showPreview.value = true
 
   } catch (error) {
     toast.add({ title: 'Erro ao ler arquivo', description: error.message, color: 'red' });
@@ -444,6 +459,10 @@ const handleFileSelect = async (event) => {
 };
 
 const saveSingleRow = async (row) => {
+  if (row.existing) {
+    toast.add({ title: 'Importado', description: `Linha ${row.rowNumber} já está importada no sistema.`, color: 'gray' })
+    return
+  }
   row.saving = true
   try {
     const sessionToken = (await supabase.auth.getSession())?.data?.session?.access_token || null
@@ -480,7 +499,7 @@ const confirmImport = async () => {
     const headers = sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}
 
     // Build payload from current previewData (take user's selections/edits)
-    const payload = previewData.value.map(r => ({
+    const rowsToSend = previewData.value.filter(r => !r.existing).map(r => ({
       consultor_id: r.selectedConsultor,
       supervisor_id: r.selectedSupervisor,
       coordenador_id: r.selectedCoordenador,
@@ -491,7 +510,13 @@ const confirmImport = async () => {
       adesao: r.adesao
     }))
 
-    const res = await $fetch('/api/seguros/import', { method: 'POST', headers, body: { rows: payload } })
+    if (!rowsToSend.length) {
+      toast.add({ title: 'Nada para importar', description: 'Todas as linhas já estão importadas.', color: 'gray' })
+      importing.value = false
+      return
+    }
+
+    const res = await $fetch('/api/seguros/import', { method: 'POST', headers, body: { rows: rowsToSend } })
     if (!res || res.success === false) throw new Error(res?.error || 'Falha ao importar')
 
     toast.add({ title: 'Sucesso!', description: `${payload.length} registos foram importados/atualizados.`, color: 'green' })
@@ -518,16 +543,54 @@ const resetForm = () => {
   Object.assign(importSummary, { total: 0 });
 };
 
-const previewColumns = [
-  { key: 'rowNumber', label: '#' },
-  { key: 'franquia', label: 'Franquia' },
-  { key: 'consultor', label: 'Consultor' },
-  { key: 'supervisor', label: 'Supervisor' },
-  { key: 'coordenador', label: 'Coordenador' },
-  { key: 'dataContrato', label: 'Data' },
-  { key: 'quantidade', label: 'Qtd' },
-  { key: 'adesao', label: 'Adesão' },
-  { key: 'registered', label: 'Registrado' },
-  { key: 'acoes', label: 'Ações' }
-];
+const previewColumns = computed(() => {
+  const qtyLabel = importType.value === 'bmg_med' ? 'Qtd BMG MED' : 'Qtd Seguro Familiar'
+  return [
+    { key: 'rowNumber', label: '#' },
+    { key: 'franquia', label: 'Franquia' },
+    { key: 'consultor', label: 'Consultor' },
+    { key: 'supervisor', label: 'Supervisor' },
+    { key: 'coordenador', label: 'Coordenador' },
+    { key: 'dataContrato', label: 'Data' },
+    { key: 'quantidade', label: qtyLabel },
+    { key: 'adesao', label: 'Adesão' },
+    { key: 'registered', label: 'Registrado' },
+    { key: 'acoes', label: 'Ações' }
+  ]
+})
+
+// counts for header badges
+const importedCount = computed(() => previewData.value.filter(r => r.existing).length)
+const errorCount = computed(() => previewData.value.filter(r => {
+  // consider a row errored if required bindings are missing (and it's not already imported)
+  if (r.existing) return false
+  if (!r.selectedLojaId) return true
+  if (!r.selectedConsultor) return true
+  if (!r.dataContrato) return true
+  if (!r.quantidade || Number(r.quantidade) <= 0) return true
+  return false
+}).length)
+
+const rowIsProblematic = (r) => {
+  if (!r) return false
+  if (r.existing) return true
+  if (!r.selectedLojaId) return true
+  if (!r.selectedConsultor) return true
+  if (!r.dataContrato) return true
+  if (!r.quantidade || Number(r.quantidade) <= 0) return true
+  return false
+}
+
+// when preview opens, scroll to first problematic (errored or already imported) row
+watch(showPreview, async (val) => {
+  if (!val) return
+  await nextTick()
+  const first = previewData.value.find(r => rowIsProblematic(r))
+  if (first) {
+    const el = document.getElementById(`preview-row-${first.rowNumber}`)
+    if (el && el.scrollIntoView) {
+      try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }) } catch (e) { el.scrollIntoView() }
+    }
+  }
+})
 </script>
