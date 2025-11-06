@@ -10,7 +10,7 @@
           <UButton icon="i-heroicons-plus-circle" size="lg" @click="openModal()">
             Nova Meta
           </UButton>
-          <UButton icon="i-heroicons-arrow-up-tray" size="lg" color="primary" variant="outline" @click="triggerImport">
+          <UButton icon="i-heroicons-arrow-up-tray" size="lg" color="primary" variant="ghost" @click="triggerImport">
             Importar Excel
           </UButton>
           <input ref="fileInput" type="file" accept=".xlsx,.xls,.csv" class="hidden" @change="handleFile" />
@@ -150,7 +150,7 @@
             <div class="flex items-center gap-3">
               <input v-model="previewSearch" placeholder="Pesquisar loja..." class="px-3 py-2 border rounded text-sm w-64" />
               <USelectMenu v-model="importFilter" :options="filterOptions" option-attribute="label" value-attribute="value" size="md" :style="{ minWidth: '220px' }" class="text-sm" />
-              <UButton size="md" variant="outline" :icon="isFullscreen ? 'i-heroicons-arrows-pointing-in' : 'i-heroicons-arrows-pointing-out'" @click="toggleFullscreen">
+              <UButton size="md" variant="ghost" :icon="isFullscreen ? 'i-heroicons-arrows-pointing-in' : 'i-heroicons-arrows-pointing-out'" @click="toggleFullscreen">
                 {{ isFullscreen ? 'Sair da Tela Cheia' : 'Tela Cheia' }}
               </UButton>
             </div>
@@ -211,12 +211,12 @@
                       <div v-else>
                         <div v-if="!row.existing" class="flex items-center gap-2">
                           <span title="Inserir: não existe meta no período; pode gravar esta linha individualmente ou usar 'Confirmar e Gravar' para enviar todas as linhas de uma só vez">Inserir</span>
-                          <UButton size="sm" color="primary" variant="outline" :loading="rowSaving[row.rowIndex]" @click="() => saveSingleRow(row)">Gravar</UButton>
+                          <UButton size="sm" color="primary" variant="ghost" :loading="rowSaving[row.rowIndex]" @click="() => saveSingleRow(row)">Gravar</UButton>
                         </div>
                         <div v-else class="flex flex-col">
                           <div class="flex items-center gap-2">
                             <div class="text-amber-600">Atualizar</div>
-                            <UButton size="sm" color="primary" variant="outline" :loading="rowSaving[row.rowIndex]" @click="() => saveSingleRow(row)">Gravar</UButton>
+                            <UButton size="sm" color="primary" variant="ghost" :loading="rowSaving[row.rowIndex]" @click="() => saveSingleRow(row)">Gravar</UButton>
                           </div>
                           <div class="text-xs text-gray-500 mt-1" v-if="changedFields(row).length">Campos: {{ changedFields(row).join(', ') }}</div>
                         </div>

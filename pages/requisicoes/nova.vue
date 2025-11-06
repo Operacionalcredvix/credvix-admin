@@ -139,7 +139,7 @@
               <UButton
                 icon="i-heroicons-paper-clip"
                 color="gray"
-                variant="outline"
+                variant="ghost"
                 :disabled="salvando"
                 @click="$refs.fileInput.click()"
               >
@@ -194,7 +194,7 @@
           <div class="flex justify-end gap-3">
             <UButton
               color="gray"
-              variant="outline"
+              variant="ghost"
               :disabled="salvando"
               @click="router.back()"
             >

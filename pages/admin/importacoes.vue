@@ -71,7 +71,7 @@
                   <UBadge :label="`${previewData.length} registos`" color="primary" />
                   <UBadge :label="`Importados: ${importedCount}`" color="green" />
                   <UBadge :label="`Problemas: ${errorCount}`" color="red" />
-                  <UButton size="sm" variant="outline" :icon="isFullscreen ? 'i-heroicons-arrows-pointing-in' : 'i-heroicons-arrows-pointing-out'" @click="toggleFullscreen">
+                  <UButton size="sm" variant="ghost" :icon="isFullscreen ? 'i-heroicons-arrows-pointing-in' : 'i-heroicons-arrows-pointing-out'" @click="toggleFullscreen">
                     {{ isFullscreen ? 'Fechar' : 'Expandir' }}
                   </UButton>
                   <UButton size="sm" variant="ghost" icon="i-heroicons-x-mark" title="Fechar preview" @click="closePreview" />

@@ -67,7 +67,7 @@
           <UButton 
             @click="limparFiltros" 
             color="gray" 
-            variant="outline" 
+            variant="ghost" 
             icon="i-heroicons-x-mark"
             label="Limpar"
             size="sm"
@@ -130,7 +130,7 @@
           <UButton
             icon="i-heroicons-lock-open"
             color="red"
-            variant="outline"
+            variant="ghost"
             label="Desbloquear"
             size="sm"
             :loading="desbloqueando === (item.tipo === 'email' ? item.email : item.ip_address)"

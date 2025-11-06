@@ -80,7 +80,7 @@
             v-if="podeCancelar"
             size="sm"
             color="red"
-            variant="outline"
+            variant="ghost"
             icon="i-heroicons-x-mark"
             @click="abrirModalCancelar"
           >
@@ -346,7 +346,7 @@
       <template #footer>
         <div class="flex justify-end gap-2">
           <UButton color="gray" variant="ghost" @click="modalCancelarAberto = false">Voltar</UButton>
-          <UButton color="red" variant="outline" icon="i-heroicons-x-mark" @click="confirmarCancelar">Cancelar Requisição</UButton>
+          <UButton color="red" variant="ghost" icon="i-heroicons-x-mark" @click="confirmarCancelar">Cancelar Requisição</UButton>
         </div>
       </template>
     </UCard>

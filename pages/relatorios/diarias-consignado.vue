@@ -38,7 +38,7 @@
         <UButton 
           @click="limparFiltros" 
           color="gray" 
-          variant="outline" 
+          variant="ghost" 
           icon="i-heroicons-x-mark"
           label="Limpar Filtros"
           size="lg"

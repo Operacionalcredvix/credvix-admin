@@ -70,6 +70,14 @@ const menuItems = [
     ]
   },
   {
+    label: 'Financeiro',
+    icon: 'i-heroicons-currency-dollar',
+    slot: 'item',
+    links: [
+      { label: 'Contas a Pagar', to: '/financeiro/contas-a-pagar', icon: 'i-heroicons-document-text', profiles: ['Master','Diretoria','Financeiro'] }
+    ]
+  },
+  {
     label: 'Relatórios',
     icon: 'i-heroicons-chart-bar-square',
     slot: 'item',
@@ -107,7 +115,7 @@ export const useMenu = () => {
       Backoffice: ['Propostas', 'Relatórios', 'Backoffice', 'Requisições'],
       RH: ['Cadastros', 'RH', 'Requisições'],
       Administrativo: ['Requisições'],
-      Financeiro: ['Requisições'],
+  Financeiro: ['Requisições','Financeiro'],
       TI: ['Requisições']
     };
 

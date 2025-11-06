@@ -8,7 +8,7 @@
 
       <div class="flex items-center gap-3">
         <UButton size="sm" color="primary" @click="marcarTodasComoLidas" :loading="marcandoTodas">Marcar todas como lidas</UButton>
-        <UButton size="sm" color="gray" variant="outline" @click="carregar">Atualizar</UButton>
+  <UButton size="sm" color="gray" variant="ghost" @click="carregar">Atualizar</UButton>
         <div class="flex items-center gap-2 ml-2">
           <label class="text-sm text-gray-600">Apenas não-lidas</label>
           <input type="checkbox" v-model="showOnlyUnread" />
@@ -48,7 +48,7 @@
 
                   <div class="mt-2 flex items-center gap-2">
                     <UButton size="xs" variant="ghost" color="primary" @click="abrir(n)">Abrir</UButton>
-                    <UButton size="xs" variant="outline" color="gray" @click="marcarComoLida(n.id)" :disabled="n.lida">Marcar como lida</UButton>
+                    <UButton size="xs" variant="ghost" color="gray" @click="marcarComoLida(n.id)" :disabled="n.lida">Marcar como lida</UButton>
                     <UButton size="xs" variant="ghost" color="danger" @click="deletar(n.id)">Remover</UButton>
                   </div>
                 </div>

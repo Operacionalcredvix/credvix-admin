@@ -68,7 +68,7 @@
           <UButton icon="i-heroicons-x-mark" size="sm" color="gray" variant="ghost" @click="limparFiltros">
             Limpar
           </UButton>
-          <UButton icon="i-heroicons-arrow-down-tray" size="sm" color="green" variant="outline" @click="exportarCSV">
+          <UButton icon="i-heroicons-arrow-down-tray" size="sm" color="green" variant="ghost" @click="exportarCSV">
             Exportar CSV
           </UButton>
         </div>

@@ -174,7 +174,7 @@
       <div v-if="podeReprovar" class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
         <UButton
           color="red"
-          variant="outline"
+          variant="ghost"
           block
           icon="i-heroicons-x-circle"
           @click="$emit('reprovar')"

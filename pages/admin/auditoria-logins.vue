@@ -17,7 +17,7 @@
             <UButton 
               @click="limparFiltros" 
               color="gray" 
-              variant="outline" 
+              variant="ghost" 
               icon="i-heroicons-x-mark"
               label="Limpar"
               size="sm"
@@ -25,7 +25,7 @@
             <UButton 
               @click="exportarCSV" 
               color="primary" 
-              variant="outline" 
+              variant="ghost" 
               icon="i-heroicons-arrow-down-tray"
               label="Exportar CSV"
               size="sm"

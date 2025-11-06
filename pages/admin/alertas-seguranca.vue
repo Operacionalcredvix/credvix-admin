@@ -17,7 +17,7 @@
           icon="i-heroicons-arrow-path"
           label="Atualizar"
           color="gray"
-          variant="outline"
+          variant="ghost"
           @click="buscarAlertas"
         />
       </div>
@@ -85,7 +85,7 @@
           <UButton 
             @click="limparFiltros" 
             color="gray" 
-            variant="outline" 
+            variant="ghost" 
             icon="i-heroicons-x-mark"
             label="Limpar"
             size="sm"
@@ -203,7 +203,7 @@
                   label="Marcar como Lido"
                   size="xs"
                   color="gray"
-                  variant="outline"
+                  variant="ghost"
                   @click="marcarComoLido(alerta.id)"
                 />
                 <UButton
@@ -212,7 +212,7 @@
                   label="Resolver"
                   size="xs"
                   color="green"
-                  variant="outline"
+                  variant="ghost"
                   @click="abrirModalResolver(alerta)"
                 />
                 <UButton
@@ -221,7 +221,7 @@
                   label="Desbloquear Email"
                   size="xs"
                   color="primary"
-                  variant="outline"
+                  variant="ghost"
                   @click="desbloquear({ email: alerta.email, tipo: 'email' })"
                 />
                 <UButton
@@ -291,7 +291,7 @@
             <UButton
               label="Cancelar"
               color="gray"
-              variant="outline"
+              variant="ghost"
               @click="modalResolverAberto = false"
             />
             <UButton

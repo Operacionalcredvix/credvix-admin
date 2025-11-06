@@ -68,7 +68,7 @@
             <UButton 
               @click="limparFiltros" 
               color="gray" 
-              variant="outline" 
+              variant="ghost" 
               icon="i-heroicons-x-mark"
               label="Limpar"
               size="sm"
@@ -76,7 +76,7 @@
             <UButton 
               @click="buscarSessoes" 
               color="primary" 
-              variant="outline" 
+              variant="ghost" 
               icon="i-heroicons-arrow-path"
               label="Atualizar"
               size="sm"
@@ -135,7 +135,7 @@
               icon="i-heroicons-arrow-right-on-rectangle"
               label="Forçar Logout em Lote"
               color="red"
-              variant="outline"
+              variant="ghost"
               size="sm"
               @click="abrirModalLogoutLote"
             />
@@ -257,7 +257,7 @@
             <UButton
               label="Cancelar"
               color="gray"
-              variant="outline"
+              variant="ghost"
               @click="modalLogoutAberto = false"
             />
             <UButton
@@ -315,7 +315,7 @@
             <UButton
               label="Cancelar"
               color="gray"
-              variant="outline"
+              variant="ghost"
               @click="modalLogoutLoteAberto = false"
             />
             <UButton

@@ -79,7 +79,7 @@
         <!-- Botão Limpar -->
         <UButton
           color="gray"
-          variant="outline"
+          variant="ghost"
           icon="i-heroicons-x-mark"
           @click="limparFiltros"
         >
@@ -140,7 +140,7 @@
           :key="s || 'todos'"
           size="xs"
           :color="filtros.status === s ? 'primary' : 'gray'"
-          :variant="filtros.status === s ? 'solid' : 'outline'"
+          :variant="filtros.status === s ? 'solid' : 'ghost'"
           @click="filtros.status = s; buscarRequisicoes()"
         >
           {{ s || 'Todos' }}
