@@ -315,8 +315,6 @@ async function handleFormSubmit() {
     return;
   }
 
-  console.log('💾 [Novo Contrato] Dados do formulário antes de salvar:', formData);
-
   saving.value = true;
   try {
     // ---- INÍCIO DA VALIDAÇÃO DE DUPLICIDADE ----
@@ -363,8 +361,6 @@ async function handleFormSubmit() {
     if (dataToSubmit.prazo && typeof dataToSubmit.prazo !== 'number') {
       dataToSubmit.prazo = parseInt(String(dataToSubmit.prazo).replace(/\D/g, ''), 10);
     }
-    
-    console.log('💾 [Novo Contrato] Dados finais para INSERT:', dataToSubmit);
     
     const { data: inserted, error } = await supabase
       .from('contratos')

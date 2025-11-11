@@ -358,8 +358,6 @@ async function carregarFuncionariosSetor(setor) {
     if (error) throw error;
 
     funcionariosSetor.value = data || [];
-    
-    console.log(`[Nova Requisição] Setor destino: ${setor} → Setor trabalho: ${setorTrabalho} → Funcionários:`, data);
   } catch (error) {
     console.error('[Nova Requisição] Erro ao carregar funcionários do setor:', error);
     toast.add({

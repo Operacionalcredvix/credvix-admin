@@ -21,6 +21,7 @@ const dashboardMap = {
   Master: resolveComponent('DashboardMaster'),
   Diretoria: resolveComponent('DashboardMaster'),
   Gerência: resolveComponent('DashboardMaster'),
+  Financeiro: resolveComponent('DashboardFinanceiro'),
   Backoffice: resolveComponent('DashboardBackoffice'),
   Coordenador: resolveComponent('DashboardCoordenador'),
   Supervisor: resolveComponent('DashboardSupervisor'),

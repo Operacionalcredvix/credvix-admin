@@ -19,7 +19,6 @@ export function useSessionHeartbeat() {
       const { data: comandoLogout } = await client.rpc('verificar_comando_logout');
       if (comandoLogout && comandoLogout.length > 0) {
         const comando = comandoLogout[0];
-        console.log('[Heartbeat] Comando de logout forçado detectado:', comando);
         
         // Marca comando como executado
         await client.rpc('marcar_comando_executado', { 

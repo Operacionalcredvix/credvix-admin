@@ -49,7 +49,7 @@
                   <div class="mt-2 flex items-center gap-2">
                     <UButton size="xs" variant="ghost" color="primary" @click="abrir(n)">Abrir</UButton>
                     <UButton size="xs" variant="ghost" color="gray" @click="marcarComoLida(n.id)" :disabled="n.lida">Marcar como lida</UButton>
-                    <UButton size="xs" variant="ghost" color="danger" @click="deletar(n.id)">Remover</UButton>
+                    <UButton size="xs" variant="ghost" color="red" @click="deletar(n.id)">Remover</UButton>
                   </div>
                 </div>
               </div>

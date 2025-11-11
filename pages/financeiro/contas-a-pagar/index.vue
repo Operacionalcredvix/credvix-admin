@@ -15,22 +15,36 @@
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
           <label class="block text-sm text-gray-600">Loja</label>
-          <USelect v-model="form.loja_id" :options="lojasOptions" placeholder="Selecione uma loja" />
+          <USelect v-model="form.loja_id" :options="lojasOptions" placeholder="Selecione uma loja" selectClass="text-sm text-gray-800 dark:text-gray-100" />
         </div>
         <div>
-          <label class="block text-sm text-gray-600">Centro de Custo</label>
+          <label class="block text-sm text-gray-600">Centro de Custo <span class="text-red-600">*</span></label>
           <div class="flex items-center gap-2">
-            <USelect v-model="form.centro_custo_id" :options="centrosOptions" placeholder="Selecione centro" />
+            <USelect v-model="form.centro_custo_id" :options="centrosOptions" placeholder="Selecione centro" selectClass="text-sm text-gray-800 dark:text-gray-100" />
             <UButton size="sm" color="primary" variant="ghost" @click="isCreateCentroOpen = true">+ Centro</UButton>
-            <UButton size="sm" color="gray" variant="ghost" @click="isManageCentrosOpen = true">Gerenciar</UButton>
+            <UButton size="sm" color="gray" variant="ghost" @click="openManageCentros">Gerenciar</UButton>
           </div>
+          <p v-if="!centrosOptions || centrosOptions.length === 0" class="text-sm text-yellow-600 mt-1">Aviso: nenhum centro de custo carregado</p>
         </div>
         <div>
-          <label class="block text-sm text-gray-600">Data de Vencimento</label>
-          <UInput v-model="form.data_vencimento" type="date" />
+          <label class="block text-sm text-gray-600">Fornecedor <span class="text-red-600">*</span></label>
+          <USelect v-model="form.fornecedor_id" :options="fornecedoresOptions" placeholder="Selecione fornecedor" selectClass="text-sm text-gray-800 dark:text-gray-100" />
+          <p v-if="!fornecedoresOptions || fornecedoresOptions.length === 0" class="text-sm text-yellow-600 mt-1">Aviso: nenhum fornecedor carregado</p>
         </div>
         <div>
-          <label class="block text-sm text-gray-600">Valor (R$)</label>
+          <label class="block text-sm text-gray-600">Plano de Conta <span class="text-red-600">*</span></label>
+          <USelect v-model="form.plano_conta_id" :options="planosOptions" placeholder="Selecione plano contábil" selectClass="text-sm text-gray-800 dark:text-gray-100" />
+        </div>
+        <div>
+          <label for="form_data_vencimento" class="block text-sm text-gray-600">Data de Vencimento <span class="text-red-600">*</span></label>
+          <UInput id="form_data_vencimento" v-model="form.data_vencimento" type="date" />
+        </div>
+        <div>
+          <label for="form_agendado_para" class="block text-sm text-gray-600">Agendar pagamento (opcional)</label>
+          <UInput id="form_agendado_para" v-model="form.agendado_para" type="date" placeholder="Data agendada" />
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600">Valor (R$) <span class="text-red-600">*</span></label>
           <UInput v-model="form.valor" type="number" step="0.01" />
         </div>
         <div class="md:col-span-2">
@@ -44,239 +58,121 @@
 
       <p v-if="formError" class="text-red-500 text-sm mt-3">{{ formError }}</p>
     </UCard>
-    
-    <!-- Edit Modal -->
-    <UModal v-model="isEditModalOpen">
-      <UCard>
-        <template #header>
-          <h3 class="text-base font-semibold">Editar Lançamento</h3>
-        </template>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm text-gray-600">Loja</label>
-            <USelect v-model="editForm.loja_id" :options="lojasOptions" />
-          </div>
-          <div>
-            <label class="block text-sm text-gray-600">Centro de Custo</label>
-            <USelect v-model="editForm.centro_custo_id" :options="centrosOptions" />
-          </div>
-          <div>
-            <label class="block text-sm text-gray-600">Data de Vencimento</label>
-            <UInput v-model="editForm.data_vencimento" type="date" />
-          </div>
-          <div>
-            <label class="block text-sm text-gray-600">Valor (R$)</label>
-            <UInput v-model="editForm.valor" type="number" step="0.01" />
-          </div>
-          <div class="md:col-span-2">
-            <label class="block text-sm text-gray-600">Descrição</label>
-            <textarea v-model="editForm.descricao" rows="3" class="w-full border rounded px-3 py-2" placeholder="Descrição (opcional)"></textarea>
-          </div>
-        </div>
-        <div class="flex justify-end space-x-2 pt-4">
-          <UButton color="gray" variant="ghost" @click="isEditModalOpen = false">Cancelar</UButton>
-          <UButton :loading="editing" @click="saveEdit">Salvar</UButton>
-        </div>
-      </UCard>
-    </UModal>
 
-    <!-- Create Centro de Custo Modal (quick-create) -->
-    <UModal v-model="isCreateCentroOpen">
-      <UCard>
-        <template #header>
-          <h3 class="text-base font-semibold">Novo Centro de Custo</h3>
-        </template>
-        <div class="grid grid-cols-1 gap-4">
-          <div>
-            <label class="block text-sm text-gray-600">Nome</label>
-            <UInput v-model="centroForm.nome" placeholder="Nome do centro" />
-          </div>
-          <div>
-            <label class="block text-sm text-gray-600">Descrição</label>
-            <UInput v-model="centroForm.descricao" />
-          </div>
-        </div>
-        <div class="flex justify-end space-x-2 pt-4">
-          <UButton color="gray" variant="ghost" @click="closeCreateCentro">Cancelar</UButton>
-          <UButton :loading="creatingCentro" @click="createCentro">Criar Centro</UButton>
-        </div>
-      </UCard>
-    </UModal>
+  <!-- lista de lançamentos centralizada no componente -->
+  <LancamentosCard ref="lancamentosCard" :lojasOptions="lojasOptions" :centrosOptions="centrosOptions" :fornecedoresOptions="fornecedoresOptions" :planosOptions="planosOptions" />
 
-    <!-- Manage Centros Modal -->
-    <UModal v-model="isManageCentrosOpen">
-      <UCard>
-        <template #header>
-          <div class="flex items-center justify-between">
-            <h3 class="text-base font-semibold">Gerenciar Centros de Custo</h3>
-            <div>
-              <UButton size="sm" color="primary" variant="ghost" @click="fetchManagedCentros">Atualizar</UButton>
-            </div>
-          </div>
-        </template>
-        <div class="space-y-3">
-          <div v-if="managedError" class="text-red-500">{{ managedError }}</div>
-          <div v-for="c in managedCentros" :key="c.id" class="flex items-center justify-between p-2 border rounded">
-            <div>
-              <div class="font-medium">{{ c.nome }}</div>
-              <div class="text-sm text-gray-600">{{ c.descricao }}</div>
-              <div class="text-xs text-gray-500">{{ c.codigo }} • {{ c.ativo ? 'Ativo' : 'Inativo' }}</div>
-            </div>
-            <div class="flex items-center gap-2">
-              <UButton size="sm" color="primary" variant="ghost" @click="openEditCentro(c)">Editar</UButton>
-              <UButton size="sm" :color="c.ativo ? 'red' : 'green'" variant="ghost" @click="toggleCentroActive(c)">{{ c.ativo ? 'Desativar' : 'Ativar' }}</UButton>
-            </div>
-          </div>
-        </div>
-        <div class="flex justify-end pt-4">
-          <UButton color="gray" variant="ghost" @click="closeManageCentros">Fechar</UButton>
-        </div>
-      </UCard>
-    </UModal>
-
-    <!-- Edit Centro Modal -->
-    <UModal v-model="isEditCentroOpen">
-      <UCard>
-        <template #header>
-          <h3 class="text-base font-semibold">Editar Centro de Custo</h3>
-        </template>
-        <div class="grid grid-cols-1 gap-4">
-          <div>
-            <label class="block text-sm text-gray-600">Nome</label>
-            <UInput v-model="centroEditForm.nome" />
-          </div>
-          <div>
-            <label class="block text-sm text-gray-600">Descrição</label>
-            <UInput v-model="centroEditForm.descricao" />
-          </div>
-          <div>
-            <label class="inline-flex items-center gap-2"><input type="checkbox" v-model="centroEditForm.ativo" /> Ativo</label>
-          </div>
-        </div>
-        <div class="flex justify-end space-x-2 pt-4">
-          <UButton color="gray" variant="ghost" @click="isEditCentroOpen = false">Cancelar</UButton>
-          <UButton :loading="updatingCentro" @click="updateCentro">Salvar</UButton>
-        </div>
-      </UCard>
-    </UModal>
-
-    <UCard class="mt-6">
+  <!-- Modal: Criar Centro de Custo -->
+  <UModal v-model="isCreateCentroOpen">
+    <UCard>
       <template #header>
-        <h3 class="text-lg font-semibold">Lançamentos</h3>
+        <h3 class="text-base font-semibold">Novo Centro de Custo</h3>
       </template>
-      <div class="flex items-center gap-4 mb-4">
+      <div class="space-y-3">
         <div>
-          <UButton size="sm" color="red" variant="ghost" :pressed="filters.onlyVencidos" @click="toggleOnlyVencidos">Vencidos</UButton>
-        </div>
-        <div class="w-48">
-          <USelect v-model="filters.loja_id" :options="lojasOptions" placeholder="Todas as lojas" clearable />
-        </div>
-        <div class="w-48">
-          <USelect v-model="filters.centro_custo_id" :options="centrosOptions" placeholder="Todos os centros" clearable />
-        </div>
-        <div class="w-40">
-          <USelect v-model="filters.status" :options="[{ label: 'Todos', value: null }, { label: 'Pendente', value: 'pendente' }, { label: 'Pago', value: 'pago' }, { label: 'Cancelado', value: 'cancelado' }]" placeholder="Status" clearable />
+          <label class="block text-sm text-gray-600">Código</label>
+          <UInput v-model="centroForm.codigo" />
         </div>
         <div>
-          <UInput type="date" v-model="filters.date_from" placeholder="De" />
+          <label class="block text-sm text-gray-600">Nome</label>
+          <UInput v-model="centroForm.nome" />
         </div>
         <div>
-          <UInput type="date" v-model="filters.date_to" placeholder="Até" />
-        </div>
-        <div class="ml-auto flex items-center gap-2">
-          <UButton color="primary" variant="ghost" @click="doFilter">Filtrar</UButton>
-          <UButton color="gray" variant="ghost" @click="resetFilters">Limpar</UButton>
-          <UButton color="gray" variant="ghost" @click="exportCsv">Export CSV</UButton>
+          <label class="block text-sm text-gray-600">Descrição</label>
+          <UInput v-model="centroForm.descricao" />
         </div>
       </div>
-
-      <div v-if="listError" class="p-4 text-red-500">{{ listError }}</div>
-
-      <UTable v-else :rows="lancamentos" :columns="columns" :empty-state="{ icon: 'i-heroicons-archive-box-x-mark', label: 'Nenhum lançamento encontrado.' }">
-                <template #centro="{ row }">
-                          <div :class="rowHighlightClass(row)">
-                            <span>{{ row.centro_display || getCentroName(row) || 'N/D' }}</span>
-                          </div>
-                </template>
-          <template #descricao="{ row }">
-            <div :class="rowHighlightClass(row)">{{ row.descricao }}</div>
-          </template>
-        <template #vencido="{ row }">
-          <div>
-            <template>
-              <!-- calcula dias de diferença entre hoje e data_vencimento -->
-              <span v-if="!row.data_vencimento">-</span>
-              <template v-else>
-                  <UBadge v-if="isOverdue(row)" color="red" :label="overdueLabel(row)" :title="`Vencimento: ${row.data_vencimento} — ${daysDiff(row.data_vencimento)} dia(s) de atraso`" />
-                  <UBadge v-else-if="isDueSoon(row)" color="yellow" :label="dueSoonLabel(row)" :title="`Vencimento: ${row.data_vencimento}`" />
-                  <UBadge v-else color="gray" :label="dueInLabel(row)" :title="`Vencimento: ${row.data_vencimento}`" />
-              </template>
-            </template>
-          </div>
-        </template>
-        <template #status="{ row }">
-          <div>
-            <UBadge v-if="isPaid(row)" color="green" label="Pago" />
-            <UBadge v-else-if="row.status === 'cancelado'" color="red" label="Cancelado" />
-            <UBadge v-else color="yellow" label="Pendente" />
-          </div>
-        </template>
-        <template #loja="{ row }">
-          <div :class="rowHighlightClass(row)">{{ row.loja_display || getLojaName(row) || 'N/D' }}</div>
-        </template>
-        <template #data_vencimento="{ row }">
-          <div :class="rowHighlightClass(row)">{{ formatDate(row.data_vencimento) }}</div>
-        </template>
-        <template #lancamento="{ row }">
-          <div :class="rowHighlightClass(row)">{{ formatDate(row.criado_em || row.created_at || row.lancamento) }}</div>
-        </template>
-        <template #valor="{ row }">
-          <div :class="rowHighlightClass(row)">{{ formatCurrency(row.valor) }}</div>
-        </template>
-        <template #acoes="{ row }">
-            <div class="flex items-center gap-2">
-            <UButton v-if="!isPaid(row)" size="sm" color="green" variant="ghost" @click="markAsPaid(row)">Marcar Pago</UButton>
-            <UButton size="sm" color="primary" variant="ghost" @click="openEdit(row)">Editar</UButton>
-            <UButton size="sm" color="red" variant="ghost" @click="remove(row)">Excluir</UButton>
-          </div>
-        </template>
-      </UTable>
-
-      <!-- Paginação simples -->
-      <div class="flex items-center justify-between mt-4">
-        <div class="text-sm text-gray-600">Mostrando pagina {{ page }} — total {{ totalCount }}</div>
-        <div class="flex items-center gap-2">
-          <UButton size="sm" :disabled="page<=1" @click="prevPage">Anterior</UButton>
-          <UButton size="sm" :disabled="(page*pageSize) >= totalCount" @click="nextPage">Próxima</UButton>
-        </div>
+      <div class="flex justify-end gap-2 pt-4">
+        <UButton color="gray" variant="ghost" @click="closeCreateCentro">Cancelar</UButton>
+        <UButton :loading="creatingCentro" color="primary" @click="createCentro">Criar</UButton>
       </div>
     </UCard>
+  </UModal>
+
+  <!-- Modal: Gerenciar Centros -->
+  <UModal v-model="isManageCentrosOpen" class="max-w-3xl">
+    <UCard>
+      <template #header>
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-semibold">Gerenciar Centros de Custo</h3>
+        </div>
+      </template>
+      <div class="space-y-3">
+        <div v-if="managedError" class="text-red-500">{{ managedError }}</div>
+        <div v-if="!managedCentros || managedCentros.length === 0" class="text-sm text-gray-500">Nenhum centro encontrado.</div>
+        <div v-else class="space-y-2">
+          <div v-for="c in managedCentros" :key="c.id" class="flex items-center justify-between border-b pb-2">
+            <div>
+              <div class="font-medium">{{ c.nome }}</div>
+              <div class="text-sm text-gray-500">{{ c.descricao }}</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <UButton size="sm" color="green" variant="outline" @click="toggleCentroActive(c)">{{ c.ativo ? 'Desativar' : 'Ativar' }}</UButton>
+              <UButton size="sm" color="primary" @click="openEditCentro(c)">Editar</UButton>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-4">
+        <UButton color="gray" variant="ghost" @click="closeManageCentros">Fechar</UButton>
+      </div>
+    </UCard>
+  </UModal>
+
+  <!-- Modal: Edit Centro (reaproveita isEditCentroOpen & centroEditForm) -->
+  <UModal v-model="isEditCentroOpen">
+    <UCard>
+      <template #header>
+        <h3 class="text-base font-semibold">Editar Centro de Custo</h3>
+      </template>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-sm text-gray-600">Nome</label>
+          <UInput v-model="centroEditForm.nome" />
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600">Descrição</label>
+          <UInput v-model="centroEditForm.descricao" />
+        </div>
+        <div class="flex items-center gap-2">
+          <UInput type="checkbox" v-model="centroEditForm.ativo" />
+          <label class="text-sm text-gray-600">Ativo</label>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-4">
+        <UButton color="gray" variant="ghost" @click="isEditCentroOpen = false">Cancelar</UButton>
+        <UButton :loading="updatingCentro" color="primary" @click="updateCentro">Salvar</UButton>
+      </div>
+    </UCard>
+  </UModal>
+
   </div>
-</template>
+  </template>
 
-<script setup>
-import { ref, reactive, onMounted } from 'vue';
+  <script setup>
 
-const client = useSupabaseClient();
-const toast = useToast();
+import LancamentosCard from '~/components/financeiro/LancamentosCard.vue'
 
-const lojas = ref([]);
-const lancamentos = ref([]);
-const lojaMap = ref({});
-const lojasOptions = ref([]);
-const centros = ref([]);
-const centrosOptions = ref([]);
-const centroMap = ref({});
+// infra helpers
+const client = useSupabaseClient()
+const toast = useToast()
 
-const form = reactive({
-  loja_id: null,
-  centro_custo_id: null,
-  descricao: '',
-  data_vencimento: '',
-  valor: ''
-});
-
-const saving = ref(false);
+  const saving = ref(false);
+const form = reactive({ loja_id: null, centro_custo_id: null, fornecedor_id: null, plano_conta_id: null, data_vencimento: '', agendado_para: '', valor: '', descricao: '' })
+const lojas = ref([])
+const lojasOptions = ref([])
+const lojaMap = ref({})
+const fornecedores = ref([])
+const fornecedoresOptions = ref([])
+const fornecedorMap = ref({})
+const centros = ref([])
+const centrosOptions = ref([])
+const centroMap = ref({})
+const planosContas = ref([])
+const planosOptions = ref([])
+const planoMap = ref({})
+const lancamentos = ref([])
+const lancamentosCard = ref(null)
 const formError = ref(null);
 const listError = ref(null);
 const isCreateCentroOpen = ref(false)
@@ -293,12 +189,14 @@ const page = ref(1);
 const pageSize = ref(10);
 const totalCount = ref(0);
 
-const columns = [
+  const columns = [
   { key: 'descricao', label: 'Descrição' },
   { key: 'centro', label: 'Centro de Custo' },
   { key: 'vencido', label: 'Vencido' },
+  { key: 'fornecedor', label: 'Fornecedor' },
   { key: 'loja', label: 'Loja' },
   { key: 'data_vencimento', label: 'Vencimento' },
+  { key: 'agendado_para', label: 'Agendado' },
   { key: 'lancamento', label: 'Lançamento' },
   { key: 'valor', label: 'Valor' }
 ];
@@ -311,7 +209,7 @@ columns.splice(columns.length - 1, 0, { key: 'status', label: 'Status' })
 
 // --- AÇÕES: Marcar pago / Edit / Delete ---
 const isEditModalOpen = ref(false)
-const editForm = reactive({ id: null, loja_id: null, centro_custo_id: null, descricao: '', data_vencimento: '', valor: '' })
+const editForm = reactive({ id: null, loja_id: null, centro_custo_id: null, fornecedor_id: null, plano_conta_id: null, descricao: '', data_vencimento: '', valor: '', agendado_para: '' })
 const editing = ref(false)
 
 const markAsPaid = async (row) => {
@@ -322,7 +220,7 @@ const markAsPaid = async (row) => {
     const res = await $fetch(`/api/financeiro/contas-pagar/${row.id}/pagar`, { method: 'POST', headers })
     if (!res || res.success === false) throw new Error(res?.error || 'Falha ao marcar como pago')
     toast.add({ title: 'Sucesso', description: 'Lançamento marcado como pago.' })
-    await fetchLancamentos()
+  await lancamentosCard.value?.refresh()
   } catch (err) {
     console.error('Erro ao marcar como pago:', err)
     toast.add({ title: 'Erro', description: String(err?.message || err || 'Erro desconhecido'), color: 'red' })
@@ -338,7 +236,7 @@ const remove = async (row) => {
     const res = await $fetch(`/api/financeiro/contas-pagar/${row.id}`, { method: 'DELETE', headers })
     if (!res || res.success === false) throw new Error(res?.error || 'Falha ao excluir')
     toast.add({ title: 'Sucesso', description: 'Lançamento excluído.' })
-    await fetchLancamentos()
+  await lancamentosCard.value?.refresh()
   } catch (err) {
     console.error('Erro ao excluir:', err)
     toast.add({ title: 'Erro', description: String(err?.message || err || 'Erro desconhecido'), color: 'red' })
@@ -350,6 +248,8 @@ const openEdit = (row) => {
   // defensivo: aceite id vindo direto ou em objeto aninhado
   editForm.loja_id = row.loja_id ?? row.loja?.id ?? row.lojaId ?? row.lojas?.id ?? null
   editForm.centro_custo_id = row.centro_custo_id ?? row.centro?.id ?? row.centro_custo?.id ?? row.centroId ?? row.centros_custo?.id ?? null
+  editForm.fornecedor_id = row.fornecedor_id ?? row.fornecedor?.id ?? row.fornecedores?.id ?? row.fornecedores_id ?? null
+  editForm.plano_conta_id = row.plano_conta_id ?? row.plano_conta?.id ?? row.plano_contas?.id ?? null
   editForm.descricao = row.descricao
   editForm.data_vencimento = row.data_vencimento
   editForm.valor = row.valor
@@ -365,15 +265,18 @@ const saveEdit = async () => {
     const payload = {
       loja_id: editForm.loja_id,
       centro_custo_id: editForm.centro_custo_id,
+      fornecedor_id: editForm.fornecedor_id || null,
+      plano_conta_id: editForm.plano_conta_id || null,
       descricao: editForm.descricao,
       data_vencimento: editForm.data_vencimento,
+      agendado_para: editForm.agendado_para || null,
       valor: Number(editForm.valor)
     }
     const res = await $fetch(`/api/financeiro/contas-pagar/${editForm.id}`, { method: 'PUT', headers, body: payload })
     if (!res || res.success === false) throw new Error(res?.error || 'Falha ao atualizar')
     toast.add({ title: 'Sucesso', description: 'Lançamento atualizado.' })
-    isEditModalOpen.value = false
-    await fetchLancamentos()
+  isEditModalOpen.value = false
+  await lancamentosCard.value?.refresh()
   } catch (err) {
     console.error('Erro ao atualizar lançamento:', err)
     toast.add({ title: 'Erro', description: String(err?.message || err || 'Erro desconhecido'), color: 'red' })
@@ -396,6 +299,57 @@ const fetchLojas = async () => {
   }
 }
 
+const fetchFornecedores = async () => {
+  try {
+    const res = await client.from('fornecedores').select('id,nome_razao,ativo')
+    console.info('[fetchFornecedores] response:', res)
+    const data = res?.data ?? []
+    fornecedores.value = Array.isArray(data) ? data : []
+    fornecedoresOptions.value = fornecedores.value.map(f => ({ label: f.nome_razao, value: f.id }))
+    const map = {}
+    fornecedores.value.forEach(f => map[f.id] = f.nome_razao)
+    fornecedorMap.value = map
+  } catch (err) {
+    console.error('Erro ao buscar fornecedores:', err)
+  }
+}
+
+// fallback: try server endpoint (admin) when client returns empty list
+const fetchFornecedoresWithFallback = async () => {
+  await fetchFornecedores()
+  if (!fornecedores.value || fornecedores.value.length === 0) {
+    try {
+      console.info('[fetchFornecedoresWithFallback] client returned empty, trying server endpoint')
+      const res = await $fetch('/api/fornecedores?limit=1000', { method: 'GET' })
+      if (res && res.success && Array.isArray(res.data) && res.data.length) {
+        fornecedores.value = res.data
+        fornecedoresOptions.value = fornecedores.value.map(f => ({ label: f.nome_razao || f.nome, value: f.id }))
+        const map = {}
+        fornecedores.value.forEach(f => map[f.id] = f.nome_razao || f.nome)
+        fornecedorMap.value = map
+      } else {
+        console.info('[fetchFornecedoresWithFallback] server endpoint returned empty or failed', res)
+      }
+    } catch (e) {
+      console.error('[fetchFornecedoresWithFallback] error calling server endpoint', e)
+    }
+  }
+}
+
+const fetchPlanos = async () => {
+  try {
+    const res = await client.from('plano_contas').select('id,codigo,nome,ativo')
+    const data = res?.data ?? []
+    planosContas.value = Array.isArray(data) ? data : []
+    planosOptions.value = planosContas.value.map(p => ({ label: `${p.codigo} — ${p.nome}`, value: p.id }))
+    const map = {}
+    planosContas.value.forEach(p => map[p.id] = p.nome)
+    planoMap.value = map
+  } catch (err) {
+    console.error('Erro ao buscar plano de contas:', err)
+  }
+}
+
 const resetFilters = async () => {
   filters.loja_id = null
   filters.centro_custo_id = null
@@ -403,12 +357,13 @@ const resetFilters = async () => {
   filters.date_from = null
   filters.date_to = null
   page.value = 1
-  await fetchLancamentos()
+  await lancamentosCard.value?.refresh()
 }
 
 const fetchCentros = async () => {
   try {
     const res = await client.from('centros_custo').select('id,nome').eq('ativo', true)
+    console.info('[fetchCentros] response:', res)
     // debug: log response shape if something unexpected happens
     // console.debug('fetchCentros response', res)
     const data = res?.data ?? null
@@ -424,6 +379,28 @@ const fetchCentros = async () => {
   } catch (err) {
     console.error('Erro ao buscar centros de custo:', err)
     // não bloqueia; apenas não mostra opções
+  }
+}
+
+// fallback: call server endpoint if client returns empty
+const fetchCentrosWithFallback = async () => {
+  await fetchCentros()
+  if ((!centros.value || centros.value.length === 0)) {
+    try {
+      console.info('[fetchCentrosWithFallback] client returned empty, trying server endpoint')
+      const res = await $fetch('/api/centros-custo', { method: 'GET' })
+      if (res && res.success && Array.isArray(res.data) && res.data.length) {
+        centros.value = res.data
+        centrosOptions.value = centros.value.map(c => ({ label: c.nome, value: c.id }))
+        const map = {}
+        centros.value.forEach(c => map[c.id] = c.nome)
+        centroMap.value = map
+      } else {
+        console.info('[fetchCentrosWithFallback] server endpoint returned empty or failed', res)
+      }
+    } catch (e) {
+      console.error('[fetchCentrosWithFallback] error calling server endpoint', e)
+    }
   }
 }
 
@@ -449,52 +426,23 @@ const fetchLancamentos = async () => {
 
     const res = await $fetch(`/api/financeiro/contas-pagar?${params.toString()}`, { method: 'GET', headers });
     if (!res || res.success === false) throw new Error(res?.error || 'Falha ao buscar lançamentos');
-    // helper: parse JSON strings that may arrive stringified
-    const tryParseJson = (v) => {
-      try {
-        if (typeof v === 'string') {
-          const s = v.trim()
-          if ((s.startsWith('{') && s.endsWith('}')) || (s.startsWith('[') && s.endsWith(']'))) {
-            return JSON.parse(s)
-          }
-        }
-      } catch (e) {
-        // ignore parse errors
-      }
-      return v
-    }
-
-    // normalize rows to expected shape (accept snake_case or camelCase or nested objects coming from backend)
+    // Rely on server-provided display fields when available (less duplication):
+    // expected server fields: loja_nome, centro_nome, fornecedor_nome, valor (numérico), criado_em
     const rows = (res.data || []).map(r => {
-      // try to coerce nested/json fields into objects
-      const rawLoja = r.lojas ?? r.loja ?? r.store ?? null
-      const rawCentro = r.centros_custo ?? r.centro ?? null
-      const lojaObj = tryParseJson(rawLoja)
-      const centroObj = tryParseJson(rawCentro)
-      return ({
+      const valorNum = r.valor !== undefined && r.valor !== null ? Number(r.valor) : 0
+      const criado = r.criado_em ?? r.created_at ?? r.lancamento ?? r.criadoEm ?? null
+      return {
         ...r,
-        // ids (aceita campos diretos ou vindos no objeto relacionado retornado pelo servidor)
-        loja_id: r.loja_id ?? r.lojaId ?? (lojaObj && (lojaObj.id ?? lojaObj.ID)) ?? r.loja?.id ?? null,
-        centro_custo_id: r.centro_custo_id ?? r.centroCustoId ?? (centroObj && (centroObj.id ?? centroObj.ID)) ?? r.centro?.id ?? null,
-        // nested objects (parsed when stringified)
-        loja: lojaObj,
-        centro: centroObj,
-        // dates / values
-        data_vencimento: r.data_vencimento ?? r.dataVencimento ?? null,
-        criado_em: r.criado_em ?? r.created_at ?? r.lancamento ?? r.criadoEm ?? null,
-        valor: r.valor !== undefined && r.valor !== null ? Number(r.valor) : 0,
-        pago: r.pago
-      })
+        centro_display: r.centro_nome || r.centros_custo?.nome || (r.centro && (r.centro.nome || r.centro.name)) || getCentroName(r),
+        loja_display: r.loja_nome || r.lojas?.nome || (r.loja && (r.loja.nome || r.loja.fantasia)) || getLojaName(r),
+        fornecedor_display: r.fornecedor_nome || (r.fornecedores && (r.fornecedores.nome_razao || r.fornecedores.nome)) || (r.fornecedor && (r.fornecedor.nome_razao || r.fornecedor.nome)) || getFornecedorName(r),
+        valor: valorNum,
+        criado_em: criado,
+        lancamento_display: criado ? formatDate(criado) : 'N/A',
+        valor_display: formatCurrency(valorNum)
+      }
     })
-    // adiciona campos de exibição já formatados para evitar que objetos nested apareçam como JSON
-    const rowsWithDisplay = rows.map(r => ({
-      ...r,
-      centro_display: getCentroName(r),
-      loja_display: getLojaName(r)
-    }))
     lancamentos.value = rows;
-    // expõe também a lista com displays para garantir templates recebam strings
-    lancamentos.value = rowsWithDisplay;
     totalCount.value = res.count || 0;
     // se as tabelas de lojas/centros não estiverem disponíveis via client (RLS), tente preencher opções a partir dos lançamentos retornados
     ensureOptionsFromLancamentos()
@@ -566,7 +514,7 @@ const exportCsv = async () => {
     if (!res || res.success === false) throw new Error(res?.error || 'Falha ao exportar');
     const rows = res.data || [];
     const csvRows = [];
-  const headersRow = ['id','loja','centro_custo','descricao','data_vencimento','valor','status','pago','data_pagamento','lancamento','vencido_dias'];
+  const headersRow = ['id','loja','centro_custo','descricao','data_vencimento','agendado_para','valor','status','pago','data_pagamento','lancamento','vencido_dias'];
     csvRows.push(headersRow.join(','));
     for (const r of rows) {
       // defensive name resolution: prefer maps, then nested objects, then fallback fields
@@ -574,7 +522,7 @@ const exportCsv = async () => {
       const centroNome = centroMap.value[r.centro_custo_id] || r.centros_custo?.nome || r.centro?.nome || r.centro_nome || r.centroName || '';
       const vencidoDias = daysDiff(r.data_vencimento ?? r.dataVencimento);
       const createdAtVal = r.criado_em ?? r.created_at ?? r.lancamento ?? r.criadoEm ?? '';
-  const vals = [r.id, `"${(lojaNome||'').replace(/"/g,'\"')}"`, `"${(centroNome||'').replace(/"/g,'\"')}"`, `"${(r.descricao||'').replace(/"/g,'\"')}"`, (r.data_vencimento ?? r.dataVencimento) || '', `"${formatCurrency(r.valor)}"`, r.status || '', r.pago ? 'TRUE' : 'FALSE', r.data_pagamento || '', createdAtVal, (vencidoDias === null ? '' : String(vencidoDias))];
+  const vals = [r.id, `"${(lojaNome||'').replace(/"/g,'\"')}"`, `"${(centroNome||'').replace(/"/g,'\"')}"`, `"${(r.descricao||'').replace(/"/g,'\"')}"`, (r.data_vencimento ?? r.dataVencimento) || '', (r.agendado_para ?? r.agendadoPara) || '', `"${formatCurrency(r.valor)}"`, r.status || '', r.pago ? 'TRUE' : 'FALSE', r.data_pagamento || '', createdAtVal, (vencidoDias === null ? '' : String(vencidoDias))];
       csvRows.push(vals.join(','));
     }
     const csv = csvRows.join('\n');
@@ -627,6 +575,16 @@ const getLojaName = (row) => {
     || ''
 }
 
+const getFornecedorName = (row) => {
+  if (!row) return ''
+  return fornecedorMap.value[row.fornecedor_id]
+    || (row.fornecedor && (row.fornecedor.nome_razao || row.fornecedor.nome || row.fornecedor.name))
+    || (row.fornecedores && (row.fornecedores.nome_razao || row.fornecedores.nome))
+    || row.fornecedor_nome
+    || row.fornecedorName
+    || ''
+}
+
 // robust check for pago status (coerce strings/numbers)
 const isPaid = (row) => {
   if (!row) return false
@@ -643,10 +601,11 @@ const isPaid = (row) => {
 // ações de UI que mutam refs — declaradas como funções para evitar atribuições diretas em expressões do template
 const closeCreateCentro = () => { isCreateCentroOpen.value = false }
 const closeManageCentros = () => { isManageCentrosOpen.value = false }
-const toggleOnlyVencidos = () => { filters.onlyVencidos = !filters.onlyVencidos; page.value = 1; fetchLancamentos() }
-const doFilter = () => { page.value = 1; fetchLancamentos() }
-const prevPage = () => { page.value = Math.max(1, page.value - 1); fetchLancamentos() }
-const nextPage = () => { page.value = page.value + 1; fetchLancamentos() }
+const openManageCentros = async () => { isManageCentrosOpen.value = true; await fetchManagedCentros() }
+const toggleOnlyVencidos = () => { filters.onlyVencidos = !filters.onlyVencidos; page.value = 1; lancamentosCard.value?.refresh() }
+const doFilter = () => { page.value = 1; lancamentosCard.value?.refresh() }
+const prevPage = () => { page.value = Math.max(1, page.value - 1); lancamentosCard.value?.refresh() }
+const nextPage = () => { page.value = page.value + 1; lancamentosCard.value?.refresh() }
 
 // helpers para vencimento
 const daysDiff = (dateStr) => {
@@ -708,6 +667,9 @@ const rowHighlightClass = (row) => {
 const save = async () => {
   formError.value = null;
   if (!form.loja_id) { formError.value = 'Selecione a loja.'; return }
+  if (!form.fornecedor_id) { formError.value = 'Selecione o fornecedor.'; return }
+  if (!form.centro_custo_id) { formError.value = 'Selecione o centro de custo.'; return }
+  if (!form.plano_conta_id) { formError.value = 'Selecione a conta contábil (plano de contas).'; return }
   if (!form.data_vencimento) { formError.value = 'Data de vencimento é obrigatória.'; return }
   if (!form.valor || Number(form.valor) <= 0) { formError.value = 'Valor deve ser maior que zero.'; return }
 
@@ -721,8 +683,11 @@ const save = async () => {
     const body = {
       loja_id: form.loja_id,
       centro_custo_id: form.centro_custo_id,
+      fornecedor_id: form.fornecedor_id,
+      plano_conta_id: form.plano_conta_id,
       descricao: form.descricao || null,
       data_vencimento: form.data_vencimento,
+      agendado_para: form.agendado_para || null,
       valor: Number(form.valor)
     };
 
@@ -730,12 +695,16 @@ const save = async () => {
     if (!res || res.success === false) throw new Error(res?.error || 'Falha ao registrar');
 
     toast.add({ title: 'Sucesso', description: 'Lançamento registrado.' });
-    // limpa form e recarrega lista
-    form.descricao = '';
-    form.data_vencimento = '';
-    form.valor = '';
-    form.loja_id = null;
-    await fetchLancamentos();
+  // limpa form e recarrega lista
+  form.descricao = '';
+  form.data_vencimento = '';
+  form.agendado_para = '';
+  form.valor = '';
+  form.loja_id = null;
+  form.fornecedor_id = null;
+  form.centro_custo_id = null;
+  form.plano_conta_id = null;
+  await lancamentosCard.value?.refresh();
   } catch (err) {
     console.error('Erro ao salvar lançamento:', err);
     formError.value = String(err?.message || err || 'Erro desconhecido');
@@ -747,8 +716,11 @@ const save = async () => {
 
 onMounted(async () => {
   await fetchLojas();
-  await fetchCentros();
-  await fetchLancamentos();
+  await fetchCentrosWithFallback();
+  await fetchFornecedoresWithFallback();
+  await fetchPlanos();
+  // agora que as opções (lojas, centros, fornecedores, planos) estão carregadas, dispare o fetch dos lançamentos
+  await lancamentosCard.value?.refresh()
 });
 
 const createCentro = async () => {
@@ -843,3 +815,5 @@ const updateCentro = async () => {
   }
 }
 </script>
+
+<NuxtPage />

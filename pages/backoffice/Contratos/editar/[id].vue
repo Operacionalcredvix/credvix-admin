@@ -152,15 +152,12 @@ const { data: contrato, pending } = await useAsyncData(`contrato-${contractId}`,
     return null;
   }
   
-  console.log('📝 [Edição Contrato] Dados carregados:', data);
-  
   return data;
 });
 
 // Popula o formulário com os dados carregados
 watch(contrato, (novoContrato) => {
   if (novoContrato) {
-    console.log('📝 [Edição Contrato] Watch detectou dados:', novoContrato);
     
     // Garante que a edição só é possível nos status permitidos
     if (novoContrato.status !== 'Em Análise' && novoContrato.status !== 'Pendente') {
@@ -193,23 +190,6 @@ watch(contrato, (novoContrato) => {
     // Reabilita watchs após 100ms (dá tempo dos dados serem aplicados)
     setTimeout(() => {
       isLoadingInitialData.value = false;
-      console.log('📋 [Edição Contrato] FormData populado:', {
-        prazo: formData.prazo,
-        prazo_tipo: typeof formData.prazo,
-        tabela: formData.tabela,
-        banco_id: formData.banco_id,
-        consultor_id: formData.consultor_id,
-        numero_beneficio: formData.numero_beneficio,
-        especie_beneficio: formData.especie_beneficio,
-        loja_id: formData.loja_id
-      });
-      
-      // Debug: verifica prazos disponíveis após carregamento
-      setTimeout(() => {
-        console.log('🎯 [Debug Prazo] Prazos disponíveis:', prazosDisponiveis.value);
-        console.log('🎯 [Debug Prazo] Prazo atual no formData:', formData.prazo);
-        console.log('🎯 [Debug Prazo] Prazo encontrado?', prazosDisponiveis.value.some(p => p.value === formData.prazo));
-      }, 100);
     }, 100);
   }
 }, { immediate: true });
@@ -316,14 +296,12 @@ const consultoresFiltrados = computed(() => {
 watch(() => formData.cliente_id, () => {
   if (!isLoadingInitialData.value) {
     formData.numero_beneficio = null;
-    console.log('🧹 Limpou numero_beneficio (cliente mudou)');
   }
 });
 
 watch(() => formData.loja_id, () => {
   if (!isLoadingInitialData.value) {
     formData.consultor_id = null;
-    console.log('🧹 Limpou consultor_id (loja mudou)');
   }
 });
 
@@ -331,14 +309,12 @@ watch(() => formData.banco_id, () => {
   if (!isLoadingInitialData.value) {
     formData.tabela = null;
     formData.prazo = null;
-    console.log('🧹 Limpou tabela e prazo (banco mudou)');
   }
 });
 
 watch(() => formData.tabela, () => {
   if (!isLoadingInitialData.value) {
     formData.prazo = null;
-    console.log('🧹 Limpou prazo (tabela mudou)');
   }
 });
 
@@ -354,8 +330,6 @@ async function handleFormSubmit() {
     toast.add({ title: 'Atenção!', description: 'O campo "Adesão" é obrigatório.', color: 'amber' });
     return;
   }
-  
-  console.log('💾 [Edição Contrato] Dados a salvar:', formData);
   
   saving.value = true;
   try {
@@ -391,8 +365,6 @@ async function handleFormSubmit() {
         dataToUpdate.especie_beneficio = clienteSelecionado.value.especie_beneficio_2;
       }
     }
-    
-    console.log('💾 [Edição Contrato] Dados finais para UPDATE:', dataToUpdate);
     
     const { error } = await supabase
       .from('contratos')

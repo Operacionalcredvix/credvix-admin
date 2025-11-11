@@ -436,8 +436,31 @@ const { data: metasProgresso, pending: metasPending } = useAsyncData('metas-prog
   }
 }, { watch: [selectedPeriod, selectedRegional] });
 
+// --- BUSCA DE CONTAS A PAGAR POR VENCIMENTO ---
+const { data: contasVencimento, pending: contasPending } = useAsyncData('contas-vencimento-master', async () => {
+  try {
+    const sessionResp = await supabase.auth.getSession();
+    const token = sessionResp?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const res = await $fetch('/api/dashboard/contas-pagar-vencimento', { headers, method: 'GET' });
+    if (!res || res.success === false) {
+      const msg = res?.error || 'Erro ao carregar contas por vencimento';
+      console.error('❌ [DashboardMaster] Erro ao buscar contas vencimento (server):', msg);
+      if (process.client) toast.add({ title: 'Erro ao buscar contas vencimento', description: msg, color: 'red' });
+      return { weekly: {}, monthly: {} };
+    }
+
+    return res.data || { weekly: {}, monthly: {} };
+  } catch (err) {
+    console.error('❌ [DashboardMaster] Exceção ao buscar contas vencimento:', err);
+    if (process.client) toast.add({ title: 'Erro ao buscar contas vencimento', description: err?.message || String(err), color: 'red' });
+    return { weekly: {}, monthly: {} };
+  }
+});
+
 // --- BUSCA SEPARADA DE SEGUROS (VENDAS EXTERNAS) ---
-const { data: segurosData } = await useAsyncData('seguros-master', async () => {
+const { data: segurosData } = useAsyncData('seguros-master', async () => {
   if (!segurosDateFilter.value) return null;
 
   // Calcular início e fim do mês selecionado

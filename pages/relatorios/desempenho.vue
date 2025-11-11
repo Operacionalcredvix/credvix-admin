@@ -272,17 +272,6 @@ const fetchReportData = async () => {
   reportData.value = [];
 
   try {
-    console.log('🔍 Buscando relatório com filtros:', {
-      data_inicio: filters.startDate,
-      data_fim: filters.endDate,
-      agrupar_por: filters.groupBy,
-      status: filters.status,
-      produto_id: filters.produto_id,
-      banco_id: filters.banco_id,
-      regional_id: filters.regional_id,
-      consultor_id: filters.consultor_id,
-    });
-
     // Prepara os parâmetros (converte arrays vazios para null)
     const params = {
       data_inicio: filters.startDate,
@@ -301,8 +290,6 @@ const fetchReportData = async () => {
       console.error('❌ Erro na RPC:', error);
       throw error;
     }
-
-    console.log('✅ Dados retornados:', data);
 
     if (!data || data.length === 0) {
       toast.add({ 

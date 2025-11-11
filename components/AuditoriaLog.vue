@@ -104,9 +104,19 @@ import { ptBR } from 'date-fns/locale'
 import { ACOES_AUDITORIA } from '~/types/requisicoes'
 
 const props = defineProps({
+  // Backwards-compatible: requisicaoId used by Requisições page
   requisicaoId: {
+    type: [String, Number],
+    required: false
+  },
+  // Generic entity name (e.g. 'requisicao', 'contas_pagar')
+  entidade: {
     type: String,
-    required: true
+    default: null
+  },
+  entidadeId: {
+    type: [String, Number],
+    default: null
   }
 })
 
@@ -172,14 +182,22 @@ function toggleDetalhes(logId) {
 async function carregarLogs() {
   carregando.value = true
   try {
+    const entidade = props.entidade || (props.requisicaoId ? 'requisicao' : null)
+    const entidadeId = props.entidadeId || props.requisicaoId || null
+    if (!entidade || !entidadeId) {
+      logs.value = []
+      carregando.value = false
+      return
+    }
+
     const { data, error } = await supabase
       .from('auditoria')
       .select(`
         *,
         usuario:funcionarios!auditoria_autor_id_fkey(nome_completo, email, perfis(nome))
       `)
-      .eq('entidade', 'requisicao')
-      .eq('entidade_id', props.requisicaoId)
+      .eq('entidade', entidade)
+      .eq('entidade_id', String(entidadeId))
       .order('created_at', { ascending: false })
 
     if (error) throw error

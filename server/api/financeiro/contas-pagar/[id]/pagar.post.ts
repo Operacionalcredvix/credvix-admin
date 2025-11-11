@@ -1,4 +1,4 @@
-import { eventHandler } from 'h3'
+import { eventHandler, readBody } from 'h3'
 
 export default eventHandler(async (event) => {
   try {
@@ -28,12 +28,20 @@ export default eventHandler(async (event) => {
     }
     if (!perfil || !['Master','Diretoria','Financeiro'].includes(perfil)) return { success: false, error: 'Acesso negado' }
 
-    const payload = {
+  // aceita detalhes opcionais de pagamento no body: valor_pago, juros, multas, nota
+  // garantir que `body` é sempre um objeto (readBody pode resolver com undefined)
+  const _rawBody = await readBody(event).catch(() => ({}))
+  const body = _rawBody ?? {}
+    const payload: any = {
       pago: true,
       status: 'pago',
       data_pagamento: new Date().toISOString(),
       pago_por: func.id
     }
+    if (body.valor_pago !== undefined) payload.valor_pago = Number(body.valor_pago)
+    if (body.juros !== undefined) payload.juros = Number(body.juros)
+    if (body.multas !== undefined) payload.multas = Number(body.multas)
+    if (body.nota !== undefined) payload.nota = body.nota
 
     const { data, error } = await admin.from('contas_pagar').update(payload).eq('id', id).select().single()
     if (error) return { success: false, error: error.message || String(error) }

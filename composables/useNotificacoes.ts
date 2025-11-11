@@ -156,8 +156,6 @@ export function useNotificacoes() {
           filter: `usuario_id=eq.${profile.value.id}`
         },
         async (payload) => {
-          console.log('[useNotificacoes] Nova notificação:', payload.new)
-          
           // Busca dados completos com join
           const { data } = await supabase
             .from('notificacoes')
@@ -188,8 +186,6 @@ export function useNotificacoes() {
           filter: `usuario_id=eq.${profile.value.id}`
         },
         (payload) => {
-          console.log('[useNotificacoes] Notificação atualizada:', payload.new)
-          
           // Atualiza localmente
           const index = notificacoes.value.findIndex(n => n.id === payload.new.id)
           if (index !== -1) {
@@ -198,8 +194,6 @@ export function useNotificacoes() {
         }
       )
       .subscribe()
-
-    console.log('[useNotificacoes] Subscrito para notificações do usuário', profile.value.id)
   }
 
   /**
@@ -209,7 +203,6 @@ export function useNotificacoes() {
     if (channel) {
       supabase.removeChannel(channel)
       channel = null
-      console.log('[useNotificacoes] Unsubscribed')
     }
   }
 

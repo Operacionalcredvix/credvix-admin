@@ -304,7 +304,6 @@ const breadcrumbItems = computed(() => {
 
 // Função para navegar e fechar o dropdown
 const handleNavigate = async (path) => {
-  console.log('Navegando para:', path);
   isDropdownOpen.value = false;
   await nextTick();
   await navigateTo(path);

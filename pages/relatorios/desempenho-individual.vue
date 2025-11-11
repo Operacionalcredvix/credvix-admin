@@ -561,7 +561,6 @@ const { data: desempenho, pending, refresh } = await useAsyncData(
       console.error('Error message:', error.message)
       
       // Fallback: tentar query simplificada sem RPC
-      console.log('Tentando query alternativa...')
 
       // Fallback: buscar consultores via endpoint server e completar com loja/regional já carregadas
       try {

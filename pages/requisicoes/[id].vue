@@ -479,13 +479,6 @@ async function carregarRequisicao() {
 
     if (error) throw error;
 
-    console.log('[Requisições] Dados carregados:', {
-      id: data.id,
-      status: data.status,
-      parecer_resposta: data.parecer_resposta,
-      detalhamento_execucao: data.detalhamento_execucao
-    });
-
     requisicao.value = data;
 
     // Carrega anexos
@@ -591,7 +584,6 @@ async function carregarMeuFuncionario() {
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const res = await $fetch('/api/profile', { method: 'GET', headers }).catch(() => ({ data: null }));
       meuFuncionario.value = res?.data || null;
-      console.log('[Requisições] Meu funcionário carregado via /api/profile:', meuFuncionario.value);
     } catch (e) {
       console.error('[Requisições] Falha ao carregar funcionário via endpoint:', e);
     }
@@ -736,7 +728,6 @@ async function obterSlaSugerido(categoria, prioridade) {
 }
 
 async function atualizarRequisicao(update) {
-  console.log('[Requisições] Atualizando com:', update);
   const { error } = await supabase
     .from('requisicoes')
     .update(update)
@@ -760,9 +751,6 @@ async function confirmarAceitar() {
     const prazo_final = await obterSlaSugerido(requisicao.value.categoria, prioridade);
     
     const parecer = aceitarForm.value.parecer_resposta?.trim();
-
-    console.log('[Requisições] Aceitando (setor) com responsavel_id:', meuFuncionario.value.id);
-    console.log('[Requisições] Parecer/Resposta:', parecer);
 
     const { data, error } = await supabase.rpc('aceitar_requisicao_setor', {
       p_requisicao_id: Number(route.params.id),
@@ -789,7 +777,6 @@ async function confirmarAceitar() {
 async function confirmarSolicitarInfo() {
   try {
     const parecer = solicitarInfoForm.value.parecer_resposta?.trim();
-    console.log('[Requisições] Solicitando info com parecer:', parecer);
 
     // Garante que temos o funcionário carregado
     if (!meuFuncionario.value?.id) {
@@ -825,7 +812,6 @@ async function confirmarSolicitarInfo() {
 async function confirmarConcluir() {
   try {
     const detalhamento = concluirForm.value.detalhamento_execucao?.trim();
-    console.log('[Requisições] Concluindo com detalhamento:', detalhamento);
     
     if (!detalhamento) {
       throw new Error('O detalhamento da execução é obrigatório para concluir a requisição');
@@ -862,7 +848,6 @@ async function confirmarCancelar() {
 async function confirmarEnviarInformacoes() {
   try {
     const parecer = enviarInfoForm.value.parecer_resposta?.trim();
-    console.log('[Requisições] Enviando informações com parecer:', parecer);
     
     await atualizarRequisicao({
       status: 'Devolvida',

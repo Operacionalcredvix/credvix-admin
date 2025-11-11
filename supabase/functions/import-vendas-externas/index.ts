@@ -5,8 +5,7 @@
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 
-console.log("Hello from Functions!")
-
+// @ts-expect-error - Deno global is provided by Supabase Edge Runtime
 Deno.serve(async (req) => {
   const { name } = await req.json()
   const data = {

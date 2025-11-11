@@ -32,7 +32,6 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
         if (data) {
           sessionStorage.setItem('login_id', data.toString())
         }
-        console.log('[Login Tracking] Login registrado com sucesso')
       }
     } catch (err) {
       console.error('[Login Tracking] Erro ao capturar informações:', err)

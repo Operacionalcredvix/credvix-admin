@@ -74,7 +74,9 @@ const menuItems = [
     icon: 'i-heroicons-currency-dollar',
     slot: 'item',
     links: [
-      { label: 'Contas a Pagar', to: '/financeiro/contas-a-pagar', icon: 'i-heroicons-document-text', profiles: ['Master','Diretoria','Financeiro'] }
+      { label: 'Contas a Pagar', to: '/financeiro/contas-a-pagar', icon: 'i-heroicons-document-text', profiles: ['Master','Diretoria','Financeiro'] },
+      { label: 'Fornecedores', to: '/financeiro/fornecedores', icon: 'i-heroicons-truck', profiles: ['Master','Diretoria','Financeiro'] },
+  { label: 'Plano de Contas', to: '/financeiro/plano-contas', icon: 'i-heroicons-banknotes', profiles: ['Master','Diretoria','Financeiro'] }
     ]
   },
   {

@@ -28,9 +28,7 @@ export default eventHandler(async (event) => {
 
   // insere (remover campo `id` caso venha no body para evitar erro em colunas GENERATED)
   const { id: _id, ...insertData } = body || {}
-  console.log('[server/api/metas/create] insertData:', insertData)
   const { data, error } = await admin.from('metas').insert(insertData).select('*')
-  console.log('[server/api/metas/create] result data:', data, 'error:', error)
     if (error) {
       console.error('[server/api/metas/create] error:', error)
       return { success: false, error: error.message || 'Erro ao criar meta', data: null }

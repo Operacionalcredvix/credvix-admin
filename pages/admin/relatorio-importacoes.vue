@@ -339,15 +339,6 @@ const { data: sales, pending } = useAsyncData('vendas-externas-report', async ()
   const lastDayNum = new Date(y, m, 0).getDate(); // último dia do mês selecionado
   const lastDayOfMonth = `${yStr}-${mStr}-${String(lastDayNum).padStart(2, '0')}`;
 
-  console.log('🔍 [Relatório Seguros] Buscando dados:', {
-    periodo: selectedPeriod.value,
-    firstDay: firstDayOfMonth,
-    lastDay: lastDayOfMonth,
-    produto: selectedProduct.value,
-    regional: selectedRegional.value,
-    loja: selectedLoja.value
-  });
-
   let query = supabase
     .from('relatorio_vendas_externas_view')
     .select('*')
@@ -373,8 +364,6 @@ const { data: sales, pending } = useAsyncData('vendas-externas-report', async ()
       description: error.message, 
       color: 'red' 
     });
-  } else {
-    console.log('✅ [Relatório Seguros] Dados carregados:', data?.length || 0, 'registros');
   }
   
   return data || [];
