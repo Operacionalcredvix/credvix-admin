@@ -79,10 +79,10 @@
              <UToggle v-model="formData.is_active" />
           </UFormGroup>
 
-          <div class="flex justify-end space-x-2 pt-4">
-             <UButton label="Cancelar" color="gray" @click="isModalOpen = false" />
-             <UButton type="submit" :label="formData.id ? 'Salvar Loja' : 'Criar Loja'" :loading="saving" />
-          </div>
+        <div class="flex justify-end space-x-2 pt-4">
+           <UButton label="Cancelar" color="gray" @click="isModalOpen = false" />
+           <UButton type="submit" :label="formData.id ? 'Salvar Loja' : 'Criar Loja'" :loading="saving" :disabled="saving || justSubmitted" />
+         </div>
         </UForm>
       </UCard>
     </USlideover>
@@ -96,6 +96,7 @@ const toast = useToast();
 // --- ESTADO DA PÁGINA ---
 const isModalOpen = ref(false);
 const saving = ref(false);
+const justSubmitted = ref(false);
 const searchTerm = ref('');
 const getInitialFormData = () => ({
   id: null,
@@ -136,36 +137,49 @@ const pending = ref(true);
 const refresh = async () => {
   pending.value = true;
   try {
-    // Busca lojas, EXCLUINDO as internas (is_internal = true)
+    // 1) Tenta RPC que retorna JSONB (bypass do cache _vts)
+    const { data: rpcData, error: rpcError } = await supabase.rpc('get_lojas_completas')
+    if (!rpcError && rpcData) {
+      lojas.value = rpcData || []
+      return
+    }
+
+    if (rpcError) {
+      console.warn('Erro RPC get_lojas_completas, tentando endpoint /api/lojas:', rpcError)
+    }
+
+    // 2) TENTATIVA 2: Usa endpoint de API do Nuxt (server-side fetch)
+    try {
+      const response = await $fetch('/api/lojas')
+      if (response && response.success && response.data) {
+        lojas.value = response.data
+        return
+      }
+      console.warn('API /api/lojas retornou erro ou sem dados, prosseguindo para client supabase')
+    } catch (e) {
+      console.warn('Erro ao chamar /api/lojas:', e)
+    }
+
+    // 3) Último recurso: tentar o cliente supabase direto (pode apresentar erro _vts)
     const { data, error } = await supabase
       .from('lojas')
       .select('*')
-      .eq('is_internal', false)  // ← Filtra apenas lojas públicas
-      .order('nome');
-    
+      .eq('is_internal', false)
+      .order('nome')
+
     if (error) {
-      console.warn('Erro ao buscar lojas, tentando API fallback:', error);
-      
-      // TENTATIVA 2: Usa endpoint de API do Nuxt (server-side fetch)
-      const response = await $fetch('/api/lojas');
-      if (response.success && response.data) {
-        lojas.value = response.data;
-        return;
-      } else {
-        throw new Error(response.error || 'Erro ao buscar via API');
-      }
+      throw error
     }
-    
-    lojas.value = data || [];
-    
+
+    lojas.value = data || []
   } catch (error) {
-    console.error('Erro ao carregar lojas (todas tentativas falharam):', error);
-    toast.add({ title: 'Erro', description: error.message || 'Não foi possível carregar as lojas', color: 'red' });
-    lojas.value = [];
+    console.error('Erro ao carregar lojas (todas tentativas falharam):', error)
+    toast.add({ title: 'Erro', description: error.message || 'Não foi possível carregar as lojas', color: 'red' })
+    lojas.value = []
   } finally {
-    pending.value = false;
+    pending.value = false
   }
-};
+}
 
 // Carrega dados inicialmente
 await refresh();
@@ -207,22 +221,32 @@ const handleFormSubmit = async () => {
       // Remove o 'id' do objeto a ser salvo para não tentar atualizar a chave primária.
       delete dataToSave.id;
 
-      const { error } = await supabase.from('lojas').update(dataToSave).eq('id', formData.id);
-      if (error) throw error;
+  // Usar endpoint server-side para atualizar (service role)
+  const sessionResp = await supabase.auth.getSession()
+  const token = sessionResp?.data?.session?.access_token || null
+  const headers = token ? { Authorization: `Bearer ${token}` } : {}
+  const resp = await $fetch('/api/lojas', { method: 'PUT', body: { id: formData.id, ...dataToSave }, headers })
+      if (!resp || !resp.success) throw new Error(resp?.error || 'Erro ao atualizar loja')
       toast.add({ title: 'Sucesso!', description: 'Loja atualizada com sucesso.' });
     } else { // Modo de Criação
       // Garante que o id não seja enviado na criação.
       delete dataToSave.id;
 
-      // CORREÇÃO: Usa insert sem retorno para evitar erro de cache '_vts'
-      const { error } = await supabase
-        .from('lojas')
-        .insert(dataToSave, { returning: 'minimal' });
-      if (error) throw error;
+  // Chama endpoint server-side para criar a loja (service role)
+  const sessionResp = await supabase.auth.getSession()
+  const token = sessionResp?.data?.session?.access_token || null
+  const headers = token ? { Authorization: `Bearer ${token}` } : {}
+  const resp = await $fetch('/api/lojas', { method: 'POST', body: dataToSave, headers })
+      if (!resp || !resp.success) throw new Error(resp?.error || 'Erro ao criar loja')
       toast.add({ title: 'Sucesso!', description: 'Loja criada com sucesso.' });
     }
-    isModalOpen.value = false;
-    await refresh(); // Recarrega os dados da tabela
+  // Limpa o formulário para evitar re-submissões ou edição acidental
+  Object.assign(formData, getInitialFormData());
+  // Proteção extra: bloqueia o botão por 1s para evitar cliques duplos
+  justSubmitted.value = true
+  setTimeout(() => { justSubmitted.value = false }, 1000)
+  isModalOpen.value = false;
+  await refresh(); // Recarrega os dados da tabela
   } catch (error) {
     console.error('Erro ao salvar loja:', error);
     toast.add({ title: 'Erro!', description: error.message, color: 'red' });
@@ -234,8 +258,11 @@ const handleFormSubmit = async () => {
 const handleDelete = async (loja) => {
   if (confirm(`Tem a certeza de que quer excluir a loja "${loja.nome}"?`)) {
     try {
-      const { error } = await supabase.from('lojas').delete().eq('id', loja.id);
-      if (error) throw error;
+  const sessionResp = await supabase.auth.getSession()
+  const token = sessionResp?.data?.session?.access_token || null
+  const headers = token ? { Authorization: `Bearer ${token}` } : {}
+  const resp = await $fetch('/api/lojas', { method: 'DELETE', body: { id: loja.id }, headers })
+      if (!resp || !resp.success) throw new Error(resp?.error || 'Erro ao excluir loja')
       toast.add({ title: 'Sucesso!', description: 'Loja excluída.' });
       await refresh();
     } catch (error) {
