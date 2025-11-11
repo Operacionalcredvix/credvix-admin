@@ -1,4 +1,4 @@
-import { eventHandler } from 'h3'
+import { eventHandler, getQuery } from 'h3'
 
 export default eventHandler(async (event) => {
   try {
@@ -46,16 +46,30 @@ export default eventHandler(async (event) => {
       return { success: false, error: 'Sem permissão para acessar dados financeiros', data: null }
     }
 
-    // Buscar despesas dos últimos 6 meses
-    const sixMonthsAgo = new Date()
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-    const startDate = sixMonthsAgo.toISOString().split('T')[0]
+  // Lê filtros gerais de query: loja_id, date_from, date_to
+  const query = getQuery(event)
+  const lojaId = query.loja_id || null
+  const dateFrom = query.date_from || null
+  const dateTo = query.date_to || null
 
-    const { data, error } = await admin
+  // Buscar despesas (por padrão últimos 6 meses)
+  const sixMonthsAgo = new Date()
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+  const defaultStart = sixMonthsAgo.toISOString().split('T')[0]
+  const startDate = dateFrom || defaultStart
+
+    // Note: `contas_pagar` stores centro via centro_custo_id and may not have a 'categoria' text column.
+    // Selecionamos as relações para obter nomes legíveis (centros, plano_contas, fornecedores)
+    let base = admin
       .from('contas_pagar')
-      .select('id, data_vencimento, valor, categoria, centro_custo, status')
-      .gte('data_vencimento', startDate)
+      .select('id, data_vencimento, valor, status, centro_custo_id, plano_conta_id, fornecedor_id, centros_custo(id,nome),plano_contas(id,nome),fornecedores(id,nome_razao)')
       .neq('status', 'cancelado')
+    if (lojaId) base = base.eq('loja_id', lojaId as string)
+    if (dateFrom) base = base.gte('data_vencimento', dateFrom as string)
+    else base = base.gte('data_vencimento', startDate)
+    if (dateTo) base = base.lte('data_vencimento', dateTo as string)
+
+    const { data, error } = await base
 
     if (error) return { success: false, error: error.message || String(error) }
 
@@ -67,9 +81,15 @@ export default eventHandler(async (event) => {
     }
 
     ;(data || []).forEach(item => {
-      const valor = item.valor || 0
-      const categoria = item.categoria || 'Não categorizado'
-      const centro = item.centro_custo || 'Não definido'
+  const valor = item.valor || 0
+  // Normalizar possíveis arrays retornados pelo supabase (relações podem ser arrays)
+  const plano = Array.isArray(item.plano_contas) ? item.plano_contas[0] : item.plano_contas
+  const fornecedor = Array.isArray(item.fornecedores) ? item.fornecedores[0] : item.fornecedores
+  const centroObj = Array.isArray(item.centros_custo) ? item.centros_custo[0] : item.centros_custo
+
+  // Derivar categoria a partir do plano de contas ou do fornecedor quando existir
+  const categoria = ((plano as any)?.nome) || ((fornecedor as any)?.nome_razao || (fornecedor as any)?.nome) || 'Não categorizado'
+  const centro = ((centroObj as any)?.nome) || 'Não definido'
 
       // Agrupar por categoria
       if (!grouped.categorias[categoria]) grouped.categorias[categoria] = 0
@@ -86,8 +106,12 @@ export default eventHandler(async (event) => {
       if (!item.data_vencimento) return
       const date = new Date(item.data_vencimento)
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-      const categoria = item.categoria || 'Não categorizado'
-      const centro = item.centro_custo || 'Não definido'
+  const plano = Array.isArray(item.plano_contas) ? item.plano_contas[0] : item.plano_contas
+  const fornecedor = Array.isArray(item.fornecedores) ? item.fornecedores[0] : item.fornecedores
+  const centroObj = Array.isArray(item.centros_custo) ? item.centros_custo[0] : item.centros_custo
+
+  const categoria = ((plano as any)?.nome) || ((fornecedor as any)?.nome_razao || (fornecedor as any)?.nome) || 'Não categorizado'
+  const centro = ((centroObj as any)?.nome) || 'Não definido'
 
       if (!monthlySummary[monthKey]) {
         monthlySummary[monthKey] = {}

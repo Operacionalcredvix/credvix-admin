@@ -1,4 +1,4 @@
-import { eventHandler } from 'h3'
+import { eventHandler, getQuery } from 'h3'
 
 export default eventHandler(async (event) => {
   try {
@@ -41,18 +41,25 @@ export default eventHandler(async (event) => {
   // perfis pode ser um objeto ou um array dependendo do SELECT; normalize
   const perfilObj = Array.isArray(perfilRow.perfis) ? perfilRow.perfis[0] : perfilRow.perfis
   const perfilNome = perfilObj?.nome || null
-    const allowed = ['Master', 'Diretoria', 'Gerência']
+    const allowed = ['Master', 'Diretoria', 'Gerência', 'Financeiro']
     if (!allowed.includes(perfilNome)) {
-      return { success: false, error: 'Sem permissão para acessar dashboard Master', data: null }
+      return { success: false, error: 'Sem permissão para acessar dados financeiros', data: null }
     }
 
+    // Lê filtros gerais de query: loja_id, date_from, date_to
+    const query = getQuery(event)
+    const lojaId = query.loja_id || null
+    const dateFrom = query.date_from || null
+    const dateTo = query.date_to || null
+
     // Buscar contas a pagar pendentes (excluindo pagas)
-    const { data, error } = await admin
-      .from('contas_pagar')
-      .select('id, data_vencimento, valor, status')
-      .neq('status', 'pago')
-      .not('pago', 'is', null)
-      .not('pago', 'eq', false)
+    // Mantemos apenas a verificação de status != 'pago' para incluir lançamentos pendentes/agendados.
+    let base = admin.from('contas_pagar').select('id, data_vencimento, valor, status, loja_id').neq('status', 'pago')
+    if (lojaId) base = base.eq('loja_id', lojaId as string)
+    if (dateFrom) base = base.gte('data_vencimento', dateFrom as string)
+    if (dateTo) base = base.lte('data_vencimento', dateTo as string)
+
+    const { data, error } = await base
 
     if (error) return { success: false, error: error.message || String(error) }
 

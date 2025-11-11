@@ -1,16 +1,30 @@
 <template>
   <div class="space-y-6">
-    <!-- Header -->
-    <div class="flex justify-between items-center">
-      <div>
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
-          Dashboard Financeiro
-        </h1>
-        <p class="text-gray-600 dark:text-gray-400 mt-1">
-          Visão financeira e análises
-        </p>
+
+    <!-- FILTROS GERAIS -->
+    <UCard class="mb-4">
+      <template #header>
+        <div class="flex items-center justify-between w-full">
+          <h3 class="font-semibold">Filtros</h3>
+          <div class="flex items-center gap-2">
+            <UButton size="sm" color="gray" variant="ghost" @click="limparFiltros">Limpar</UButton>
+            <UButton size="sm" color="primary" @click="aplicarFiltros">Aplicar</UButton>
+          </div>
+        </div>
+      </template>
+      <div class="flex flex-wrap gap-4 items-end">
+        <UFormGroup label="Loja" name="loja" class="w-64">
+          <USelectMenu v-model="selectedLoja" :options="lojas || []" value-attribute="id" option-attribute="nome" placeholder="Todas as lojas" clearable />
+        </UFormGroup>
+        <UFormGroup label="De" name="date_from" class="w-48">
+          <UInput type="date" v-model="dateFrom" />
+        </UFormGroup>
+        <UFormGroup label="Até" name="date_to" class="w-48">
+          <UInput type="date" v-model="dateTo" />
+        </UFormGroup>
       </div>
-    </div>
+    </UCard>
+
 
     <!-- RELATÓRIO DE CONTAS A PAGAR POR VENCIMENTO -->
     <UCard>
@@ -30,6 +44,14 @@
         <div v-if="contasPending" class="text-center py-10 text-gray-500">
           <UIcon name="i-heroicons-arrow-path" class="text-2xl animate-spin" />
           <p>Carregando contas...</p>
+        </div>
+        <div v-else-if="contasError" class="text-center py-10 text-red-600">
+          <UIcon name="i-heroicons-exclamation-triangle" class="text-2xl" />
+          <p>Erro ao carregar dados. Verifique suas permissões.</p>
+        </div>
+        <div v-else-if="!contasVencimento" class="text-center py-10 text-amber-600">
+          <UIcon name="i-heroicons-exclamation-circle" class="text-2xl" />
+          <p>Sem permissão para visualizar contas a pagar.</p>
         </div>
         <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <UCard>
@@ -78,6 +100,14 @@
         <div v-if="despesasPending" class="text-center py-10 text-gray-500">
           <UIcon name="i-heroicons-arrow-path" class="text-2xl animate-spin" />
           <p>Carregando despesas...</p>
+        </div>
+        <div v-else-if="despesasError" class="text-center py-10 text-red-600">
+          <UIcon name="i-heroicons-exclamation-triangle" class="text-2xl" />
+          <p>Erro ao carregar dados. Verifique suas permissões.</p>
+        </div>
+        <div v-else-if="!despesasClassificadas" class="text-center py-10 text-amber-600">
+          <UIcon name="i-heroicons-exclamation-circle" class="text-2xl" />
+          <p>Sem permissão para visualizar despesas.</p>
         </div>
         <div v-else>
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
@@ -142,6 +172,14 @@
           <UIcon name="i-heroicons-arrow-path" class="text-2xl animate-spin" />
           <p>Carregando conciliação...</p>
         </div>
+        <div v-else-if="conciliacaoError" class="text-center py-10 text-red-600">
+          <UIcon name="i-heroicons-exclamation-triangle" class="text-2xl" />
+          <p>Erro ao carregar dados. Verifique suas permissões.</p>
+        </div>
+        <div v-else-if="!conciliacaoSimples" class="text-center py-10 text-amber-600">
+          <UIcon name="i-heroicons-exclamation-circle" class="text-2xl" />
+          <p>Sem permissão para visualizar conciliação.</p>
+        </div>
         <div v-else>
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             <UCard>
@@ -191,26 +229,143 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 
 // Declaração para satisfazer o verificador TypeScript
 declare function useAsyncData<T = any>(key: string, fetcher: (...args: any[]) => Promise<T>, opts?: any): any
+
+// Helpers do Supabase (existem no runtime do Nuxt)
+declare function useSupabaseClient(): any
+declare function useProfile(): any
+// Nuxt auto-imports - declarações para o TypeScript no ambiente de desenvolvimento
+declare function useRoute(): any
+declare function useRouter(): any
 
 const isContasExpanded = ref(true)
 const isDespesasExpanded = ref(false)
 const isConciliacaoExpanded = ref(false)
 
-const { data: contasVencimento, pending: contasPending } = await useAsyncData('contas-pagar-vencimento', async () =>
-  await $fetch('/api/dashboard/contas-pagar-vencimento')
-)
+const supabase = useSupabaseClient()
+const { profile } = useProfile()
+const route = useRoute()
+const router = useRouter()
 
-const { data: despesasClassificadas, pending: despesasPending } = await useAsyncData('despesas-classificadas', async () =>
-  await $fetch('/api/dashboard/despesas-classificadas')
-)
+// filtros locais que serão sincronizados com a query da rota
+const selectedLoja = ref(route.query.loja_id || null)
+const dateFrom = ref(route.query.date_from || '')
+const dateTo = ref(route.query.date_to || '')
 
-const { data: conciliacaoSimples, pending: conciliacaoPending } = await useAsyncData('conciliacao-simples', async () =>
-  await $fetch('/api/dashboard/conciliacao-simples')
-)
+// sincronizar campos locais quando a rota muda (ex.: back/forward ou link direto)
+watch(() => route.query, (q) => {
+  selectedLoja.value = q.loja_id || null
+  dateFrom.value = q.date_from || ''
+  dateTo.value = q.date_to || ''
+})
+
+// carregar lista de lojas para o select
+const { data: lojas } = await useAsyncData('lojas-list-dashboard-financeiro', async () => {
+  const { data } = await supabase.from('lojas').select('id,nome').order('nome')
+  return data || []
+})
+
+const aplicarFiltros = () => {
+  const q: any = { ...route.query }
+  if (selectedLoja.value) q.loja_id = String(selectedLoja.value)
+  else delete q.loja_id
+  if (dateFrom.value) q.date_from = String(dateFrom.value)
+  else delete q.date_from
+  if (dateTo.value) q.date_to = String(dateTo.value)
+  else delete q.date_to
+
+  router.push({ query: q })
+}
+
+const limparFiltros = () => {
+  selectedLoja.value = null
+  dateFrom.value = ''
+  dateTo.value = ''
+  const q = { ...route.query }
+  delete q.loja_id
+  delete q.date_from
+  delete q.date_to
+  router.push({ query: q })
+}
+
+const { data: contasVencimento, pending: contasPending, error: contasError } = await useAsyncData('contas-pagar-vencimento', async () => {
+  try {
+  const sessionResp = await supabase.auth.getSession()
+  const token = sessionResp?.data?.session?.access_token || null
+  const headers: Record<string, string> = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  // monta query params gerais (loja_id, date_from, date_to) a partir da rota
+  const params = new URLSearchParams()
+  if (route.query.loja_id) params.set('loja_id', String(route.query.loja_id))
+  if (route.query.date_from) params.set('date_from', String(route.query.date_from))
+  if (route.query.date_to) params.set('date_to', String(route.query.date_to))
+  const url = '/api/dashboard/contas-pagar-vencimento' + (params.toString() ? `?${params.toString()}` : '')
+
+  const response: any = await $fetch(url, { headers, method: 'GET' })
+    if (!response.success) {
+      console.error('[DashboardFinanceiro] Erro ao carregar contas:', response.error)
+      return null
+    }
+    return response?.data || null
+  } catch (err) {
+    console.error('[DashboardFinanceiro] Exceção ao carregar contas:', err)
+    return null
+  }
+}, { watch: [profile, () => route.query.loja_id, () => route.query.date_from, () => route.query.date_to] })
+
+const { data: despesasClassificadas, pending: despesasPending, error: despesasError } = await useAsyncData('despesas-classificadas', async () => {
+  try {
+  const sessionResp = await supabase.auth.getSession()
+  const token = sessionResp?.data?.session?.access_token || null
+  const headers: Record<string, string> = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  const params = new URLSearchParams()
+  if (route.query.loja_id) params.set('loja_id', String(route.query.loja_id))
+  if (route.query.date_from) params.set('date_from', String(route.query.date_from))
+  if (route.query.date_to) params.set('date_to', String(route.query.date_to))
+  const url = '/api/dashboard/despesas-classificadas' + (params.toString() ? `?${params.toString()}` : '')
+
+  const response: any = await $fetch(url, { headers, method: 'GET' })
+    if (!response.success) {
+      console.error('[DashboardFinanceiro] Erro ao carregar despesas:', response.error)
+      return null
+    }
+    return response?.data || null
+  } catch (err) {
+    console.error('[DashboardFinanceiro] Exceção ao carregar despesas:', err)
+    return null
+  }
+}, { watch: [profile, () => route.query.loja_id, () => route.query.date_from, () => route.query.date_to] })
+
+const { data: conciliacaoSimples, pending: conciliacaoPending, error: conciliacaoError } = await useAsyncData('conciliacao-simples', async () => {
+  try {
+  const sessionResp = await supabase.auth.getSession()
+  const token = sessionResp?.data?.session?.access_token || null
+  const headers: Record<string, string> = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  const params = new URLSearchParams()
+  if (route.query.loja_id) params.set('loja_id', String(route.query.loja_id))
+  if (route.query.date_from) params.set('date_from', String(route.query.date_from))
+  if (route.query.date_to) params.set('date_to', String(route.query.date_to))
+  const url = '/api/dashboard/conciliacao-simples' + (params.toString() ? `?${params.toString()}` : '')
+
+  const response: any = await $fetch(url, { headers, method: 'GET' })
+    if (!response.success) {
+      console.error('[DashboardFinanceiro] Erro ao carregar conciliação:', response.error)
+      return null
+    }
+    return response?.data || null
+  } catch (err) {
+    console.error('[DashboardFinanceiro] Exceção ao carregar conciliação:', err)
+    return null
+  }
+}, { watch: [profile, () => route.query.loja_id, () => route.query.date_from, () => route.query.date_to] })
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {

@@ -1,4 +1,4 @@
-import { eventHandler } from 'h3'
+import { eventHandler, getQuery } from 'h3'
 
 export default eventHandler(async (event) => {
   try {
@@ -46,28 +46,45 @@ export default eventHandler(async (event) => {
       return { success: false, error: 'Sem permissão para acessar dados financeiros', data: null }
     }
 
-    // Período atual (mês corrente)
-    const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+  // Lê filtros gerais de query: loja_id, date_from, date_to
+  const query = getQuery(event)
+  const lojaId = query.loja_id || null
+  const dateFrom = query.date_from || null
+  const dateTo = query.date_to || null
+
+  // Coerce query values to strings when present
+  const dateFromStr = dateFrom ? String(dateFrom) : null
+  const dateToStr = dateTo ? String(dateTo) : null
+
+  // Período padrão (mês corrente) se não houver override por date_from/date_to
+  const now = new Date()
+  const startOfMonth = dateFromStr ? new Date(dateFromStr) : new Date(now.getFullYear(), now.getMonth(), 1)
+  const endOfMonth = dateToStr ? new Date(dateToStr) : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
     // Buscar entradas (pagamentos recebidos) - contratos pagos
-    const { data: entradasData, error: entradasError } = await admin
+    // Note: contratos.status is an ENUM (contrato_status) with values like 'Pago' (case-sensitive)
+    let contratosQuery = admin
       .from('contratos')
       .select('id, valor_total, data_pagamento, status')
-      .eq('status', 'pago')
+      .eq('status', 'Pago')
       .gte('data_pagamento', startOfMonth.toISOString())
       .lte('data_pagamento', endOfMonth.toISOString())
+    if (lojaId) contratosQuery = contratosQuery.eq('loja_id', lojaId as string)
+
+    const { data: entradasData, error: entradasError } = await contratosQuery
 
     if (entradasError) return { success: false, error: entradasError.message || String(entradasError) }
 
     // Buscar saídas (contas pagas)
-    const { data: saidasData, error: saidasError } = await admin
+    let saidasQuery = admin
       .from('contas_pagar')
       .select('id, valor, data_pagamento, descricao, status')
       .eq('status', 'pago')
       .gte('data_pagamento', startOfMonth.toISOString())
       .lte('data_pagamento', endOfMonth.toISOString())
+    if (lojaId) saidasQuery = saidasQuery.eq('loja_id', lojaId as string)
+
+    const { data: saidasData, error: saidasError } = await saidasQuery
 
     if (saidasError) return { success: false, error: saidasError.message || String(saidasError) }
 
