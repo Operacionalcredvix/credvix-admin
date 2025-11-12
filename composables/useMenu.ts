@@ -66,7 +66,12 @@ const menuItems = [
     slot: 'item',
     links: [
       { label: 'Metas', to: '/admin/metas', icon: 'i-heroicons-trophy' },
-      { label: 'Seguros', to: '/admin/importacoes', icon: 'i-heroicons-arrow-up-tray' }
+      { label: 'Seguros', to: '/admin/importacoes', icon: 'i-heroicons-arrow-up-tray' },
+      { label: 'Dia a Dia Lojas', to: '/admin/importacoes/dia-a-dia-lojas', icon: 'i-heroicons-building-storefront' },
+      { label: 'Meta Consultor', to: '/admin/importacoes/meta-consultor', icon: 'i-heroicons-trophy' },
+      { label: 'Meta Supervisor', to: '/admin/importacoes/meta-supervisor', icon: 'i-heroicons-trophy' },
+      { label: 'Liga Consultor', to: '/admin/importacoes/liga-consultor', icon: 'i-heroicons-link' },
+      { label: 'Liga Supervisor', to: '/admin/importacoes/liga-supervisor', icon: 'i-heroicons-link' }
     ]
   },
   {
