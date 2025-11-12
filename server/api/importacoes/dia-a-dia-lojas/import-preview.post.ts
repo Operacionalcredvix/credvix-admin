@@ -18,7 +18,9 @@ export default eventHandler(async (event) => {
 
     const body = await readBody(event) || {}
     const rows = Array.isArray(body.rows) ? body.rows : []
+    const periodo = body.periodo || null
     if (!rows.length) return { success: false, error: 'Nenhuma linha para importar', data: null }
+    if (!periodo) return { success: false, error: 'Período ausente', data: null }
 
     // checa perfil do chamador
     const { data: perfilRow } = await admin.from('funcionarios').select('perfil_id').eq('user_id', userData.user.id).single()
@@ -28,77 +30,107 @@ export default eventHandler(async (event) => {
     const allowed = ['Master', 'Diretoria', 'Gerência', 'Backoffice']
     if (!allowed.includes(nomePerfil)) return { success: false, error: 'Permissão negada', data: null }
 
-    // load lojas and funcionarios for matching
-    const [{ data: lojas }, { data: funcionarios }, { data: perfis }] = await Promise.all([
-      admin.from('lojas').select('id,nome,franquia'),
-      admin.from('funcionarios').select('id,nome_completo,perfil_id'),
-      admin.from('perfis').select('id,nome')
-    ])
+    // load lojas
+    const { data: lojas } = await admin.from('lojas').select('id,nome,franquia')
 
-    const normalize = (s: string) => String(s || '').normalize('NFKD').replace(/\p{Diacritic}/gu, '').replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
+    const normalize = (s: string) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
 
     const lojaMapByFranquia = new Map((lojas || []).map((l: any) => [String(l.franquia || '').trim().toUpperCase(), { id: l.id, name: l.nome }]))
     const lojaMapByName = new Map((lojas || []).map((l: any) => [normalize(l.nome), { id: l.id, name: l.nome }]))
 
-    const perfilMap = new Map((perfis || []).map((p: any) => [p.id, p.nome]))
-    const funcMeta = (funcionarios || []).map((f: any) => {
-      const name = String(f.nome_completo || '')
-      const norm = normalize(name)
-      const tokens = norm.split(' ').filter(Boolean)
-      const perfilNome = perfilMap.get(f.perfil_id) || ''
-      return { id: f.id, name, norm, tokens, perfilNome }
-    })
-
-    const findBest = (nameRaw: string, perfilWanted: string) => {
-      const norm = normalize(nameRaw)
-      if (!norm) return { id: null, possible: [] }
-      const exact = funcMeta.find((fm: any) => fm.perfilNome === perfilWanted && fm.norm === norm)
-      if (exact) return { id: exact.id, possible: [{ id: exact.id, name: exact.name, score: 1 }] }
-      const tokens = norm.split(' ').filter(Boolean)
-      const scored = funcMeta.filter((fm: any) => fm.perfilNome === perfilWanted).map((fm: any) => {
-        const common = fm.tokens.filter((t: any) => tokens.includes(t)).length
-        const score = tokens.length + fm.tokens.length === 0 ? 0 : (common * 2) / (tokens.length + fm.tokens.length)
-        return { ...fm, score }
-      }).filter((s: any) => s.score > 0)
-      scored.sort((a: any, b: any) => b.score - a.score)
-      return { id: (scored[0] && scored[0].id) || null, possible: scored.slice(0,5).map((c: any) => ({ id: c.id, name: c.name, score: c.score })) }
+    // Helper to parse numbers from Excel
+    const parseNumber = (v: any) => {
+      if (v === null || v === undefined || v === '') return 0
+      const num = Number(String(v).replace(/[^0-9,.-]/g, '').replace(',', '.'))
+      return Number.isNaN(num) ? 0 : num
     }
+
+    // Extract first column value (store name/franchise code)
+    const getFirstColumnValue = (r: any) => {
+      const keys = Object.keys(r || {})
+      return keys.length ? String(r[keys[0]] || '').trim() : ''
+    }
+
+    // Load existing metas for the period
+    const lojaIds = Array.from(new Set((lojas || []).map((l: any) => l.id)))
+    const { data: existingMetas } = await admin.from('metas').select('*').in('loja_id', lojaIds).eq('periodo', periodo)
+    const metasMap = new Map((existingMetas || []).map((m: any) => [m.loja_id, m]))
 
     const previewRows: any[] = []
     const errors: any[] = []
 
+    // Process each data row (skip if it's a header-like row)
     for (const [i, r] of rows.entries()) {
-      // try common keys: franquia, loja, nome_loja
-      const franquiaRaw = String(r['franquia'] || r['FRANQUIA'] || r['Franquia'] || r['franq'] || '').trim()
-      const lojaRaw = String(r['loja'] || r['nome_loja'] || r['Nome Loja'] || '').trim()
-      const franquiaKey = String(franquiaRaw || '').trim().toUpperCase()
+      // Extract store identifier from first column
+      const firstCol = getFirstColumnValue(r)
+      const franquiaKey = String(firstCol).trim().toUpperCase()
+      
+      // Try to match by franchise code first, then by name
       const lojaByFranquia = lojaMapByFranquia.get(franquiaKey) || null
-      const lojaByName = lojaMapByName.get(normalize(lojaRaw)) || null
-
+      const lojaByName = lojaMapByName.get(normalize(firstCol)) || null
       const loja = lojaByFranquia || lojaByName || null
 
       const rowErrors: string[] = []
-      if (!loja) rowErrors.push(`Loja não encontrada para franquia/nome '${franquiaRaw || lojaRaw}'`)
+      if (!loja) {
+        rowErrors.push(`Loja não encontrada para '${firstCol}'`)
+        errors.push({ row: i + 3, reasons: rowErrors })
+        previewRows.push({
+          rowNumber: i + 3,
+          franquia: firstCol,
+          lojaId: null,
+          lojaName: null,
+          errors: rowErrors,
+          parsed: null,
+          existing: null
+        })
+        continue
+      }
 
-      // optional: try to resolve consultor/supervisor if provided
-      const consultorRaw = String(r['consultor'] || r['Consultor'] || '')
-      const consultor = consultorRaw ? findBest(consultorRaw, 'Consultor') : { id: null, possible: [] }
+      // Parse product values from the row
+      // The Excel has dual headers: row 1 = product name, row 2 = metric type
+      // So in the JSON, columns might be like "CNC_Vlr Liberado", "CNC_meta", etc.
+      // We need to extract "Vlr Liberado" and "meta" for each product
+      
+      const parsed = {
+        // Standard products
+        cnc_liberado: parseNumber(r['cnc_vlr_liberado'] || r['cnc_vlrliberado'] || r['vlr_liberado_cnc'] || 0),
+        meta_cnc: parseNumber(r['cnc_meta'] || r['meta_cnc'] || 0),
+        
+        card_beneficio_liberado: parseNumber(r['cartao_beneficio_vlr_liberado'] || r['card_beneficio_vlr_liberado'] || r['cartaobeneficio_vlrliberado'] || 0),
+        meta_card_beneficio: parseNumber(r['cartao_beneficio_meta'] || r['card_beneficio_meta'] || r['meta_card_beneficio'] || 0),
+        
+        bmg_card_liberado: parseNumber(r['bmg_card_vlr_liberado'] || r['bmgcard_vlrliberado'] || 0),
+        meta_bmg_card: parseNumber(r['bmg_card_meta'] || r['meta_bmg_card'] || 0),
+        
+        fgts_liberado: parseNumber(r['fgts_vlr_liberado'] || r['fgts_vlrliberado'] || 0),
+        meta_fgts: parseNumber(r['fgts_meta'] || r['meta_fgts'] || 0),
+        
+        // New products
+        cp_pra_todos_liberado: parseNumber(r['cp_pra_todos_vlr_liberado'] || r['cppratodos_vlrliberado'] || 0),
+        meta_cp_pra_todos: parseNumber(r['cp_pra_todos_meta'] || r['meta_cp_pra_todos'] || 0),
+        
+        antecipacao_liberado: parseNumber(r['antecipacao_vlr_liberado'] || r['antecipacao_vlrliberado'] || 0),
+        meta_antecipacao: parseNumber(r['antecipacao_meta'] || r['meta_antecipacao'] || 0),
+        
+        // Consig. Privado maps to Consignado
+        consignado_liberado: parseNumber(r['consig_privado_vlr_liberado'] || r['consigprivado_vlrliberado'] || r['consignado_vlr_liberado'] || 0),
+        meta_consignado: parseNumber(r['consig_privado_meta'] || r['consigprivado_meta'] || r['meta_consignado'] || 0)
+      }
 
-      if (consultorRaw && !consultor.id) rowErrors.push(`Consultor '${consultorRaw}' não encontrado`)
+      const existing = metasMap.get(loja.id) || null
 
       previewRows.push({
-        rowNumber: i + 2,
+        rowNumber: i + 3,
         raw: r,
-        franquia: franquiaRaw,
-        lojaId: loja?.id || null,
-        lojaName: loja?.name || null,
-        consultorRaw,
-        consultorId: consultor.id,
-        possibleConsultores: consultor.possible,
+        franquia: firstCol,
+        lojaId: loja.id,
+        lojaName: loja.name,
+        parsed,
+        existing,
         errors: rowErrors
       })
 
-      if (rowErrors.length) errors.push({ row: i + 2, reasons: rowErrors })
+      if (rowErrors.length) errors.push({ row: i + 3, reasons: rowErrors })
     }
 
     return { success: true, data: { previewRows, errors } }
