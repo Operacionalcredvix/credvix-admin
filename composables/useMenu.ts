@@ -22,6 +22,7 @@ const menuItems = [
     icon: 'i-heroicons-briefcase',
     slot: 'item',
     links: [
+      { label: 'Gestão de Vagas', to: '/rh/gestao-vagas', icon: 'i-heroicons-clipboard-document-check' },
       { label: 'Vagas', to: '/rh/vagas', icon: 'i-heroicons-megaphone' },
       { label: 'Currículos', to: '/rh/curriculos', icon: 'i-heroicons-document-text' },
       { label: 'Histórico de Alocações', to: '/rh/historico-alocacoes', icon: 'i-heroicons-folder-open' },
