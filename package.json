@@ -9,8 +9,8 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare"
   },
-  "overrides": {
-    "oxc-parser": "npm:@oxc-parser/wasm@latest"
+  "resolutions": {
+    "oxc-parser": "npm:@oxc-parser/wasm@0.30.5"
   },
   "dependencies": {
     "@nuxt/ui": "^2.17.0",

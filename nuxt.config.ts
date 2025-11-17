@@ -9,6 +9,12 @@ export default defineNuxtConfig({
     '@nuxtjs/supabase'
   ],
 
+  vite: {
+    optimizeDeps: {
+      exclude: ['oxc-parser']
+    }
+  },
+
   runtimeConfig: {
     // Chaves privadas que só estão disponíveis no lado do servidor
     supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY,
