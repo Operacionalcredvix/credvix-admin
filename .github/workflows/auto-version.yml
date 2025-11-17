@@ -1,0 +1,146 @@
+# Workflow para atualizar automaticamente a versão do sistema após deploy na master
+name: Auto Version Update
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Tipo de versão (patch, minor, major)'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  update-version:
+    name: Atualizar Versão do Sistema
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Necessário para pegar histórico completo
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Obter versão atual do banco
+        id: current_version
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          # Busca versão atual via API do Supabase
+          RESPONSE=$(curl -s "${SUPABASE_URL}/rest/v1/rpc/get_system_version" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}")
+          
+          CURRENT_VERSION=$(echo $RESPONSE | jq -r '.[0].version' | sed 's/+.*//')
+          echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Versão atual: $CURRENT_VERSION"
+      
+      - name: Calcular nova versão
+        id: new_version
+        run: |
+          CURRENT="${{ steps.current_version.outputs.current }}"
+          
+          # Parse semver
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          
+          # Determina tipo de bump (manual ou automático baseado em commits)
+          VERSION_TYPE="${{ github.event.inputs.version_type }}"
+          
+          if [ -z "$VERSION_TYPE" ]; then
+            # Automático: analisa commits desde última tag
+            COMMITS=$(git log --pretty=format:"%s" -n 20)
+            
+            if echo "$COMMITS" | grep -qiE "^(break|breaking|major):"; then
+              VERSION_TYPE="major"
+            elif echo "$COMMITS" | grep -qiE "^(feat|feature):"; then
+              VERSION_TYPE="minor"
+            else
+              VERSION_TYPE="patch"
+            fi
+          fi
+          
+          # Incrementa versão
+          case $VERSION_TYPE in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          BUILD_META="build.$(date +%Y.%m.%d)"
+          NEW_VERSION_FULL="${NEW_VERSION}+${BUILD_META}"
+          
+          echo "version=$NEW_VERSION_FULL" >> $GITHUB_OUTPUT
+          echo "version_short=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "type=$VERSION_TYPE" >> $GITHUB_OUTPUT
+          echo "🚀 Nova versão: $NEW_VERSION_FULL (tipo: $VERSION_TYPE)"
+      
+      - name: Gerar changelog
+        id: changelog
+        run: |
+          # Pega últimos 10 commits
+          COMMITS=$(git log --pretty=format:"- %s (%h)" -n 10 | head -c 500)
+          
+          # Escapa para JSON
+          COMMITS_ESCAPED=$(echo "$COMMITS" | jq -Rs .)
+          
+          DESCRIPTION="Deploy automático - ${{ steps.new_version.outputs.type }} version bump\n\nCommits recentes:\n${COMMITS}"
+          
+          # Salva em arquivo para evitar problemas com multiline
+          echo "$DESCRIPTION" > /tmp/changelog.txt
+          echo "📝 Changelog gerado"
+      
+      - name: Atualizar versão no Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          VERSION="${{ steps.new_version.outputs.version }}"
+          DESCRIPTION=$(cat /tmp/changelog.txt)
+          
+          # Chama RPC set_system_version
+          curl -X POST "${SUPABASE_URL}/rest/v1/rpc/set_system_version" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{\"p_version\": \"${VERSION}\", \"p_description\": \"${DESCRIPTION}\"}"
+          
+          echo "✅ Versão $VERSION atualizada no banco de dados"
+      
+      - name: Criar tag Git
+        run: |
+          VERSION="${{ steps.new_version.outputs.version_short }}"
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git tag -a "v${VERSION}" -m "Release v${VERSION}"
+          git push origin "v${VERSION}"
+          echo "🏷️ Tag v${VERSION} criada"
+      
+      - name: Notificar sucesso
+        if: success()
+        run: |
+          echo "🎉 Sistema atualizado com sucesso!"
+          echo "Versão: ${{ steps.new_version.outputs.version }}"
+          echo "Tipo: ${{ steps.new_version.outputs.type }}"

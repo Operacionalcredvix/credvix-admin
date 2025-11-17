@@ -1,6 +1,14 @@
-# Nuxt Minimal Starter
+````markdown
+# Credvix Admin
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+Sistema administrativo para gestão de vendas, contratos e requisições.
+
+## 📚 Documentação
+
+- [🔐 Notificações por Email](./docs/EMAIL_NOTIFICATIONS.md)
+- [📦 Versionamento do Sistema](./docs/VERSIONING.md)
+
+## 🚀 Quick Start
 
 ## Setup
 

@@ -333,7 +333,8 @@ const profileDropdownItems = computed(() => {
           { label: 'Rate Limit', icon: 'i-heroicons-shield-exclamation', to: '/admin/rate-limit' },
           { label: 'Alertas de Segurança', icon: 'i-heroicons-bell-alert', to: '/admin/alertas-seguranca' },
           { label: 'Sessões Ativas', icon: 'i-heroicons-user-group', to: '/admin/sessoes-ativas' },
-          { label: 'Auditoria de Falhas', icon: 'i-heroicons-exclamation-triangle', to: '/admin/auditoria-falhas' }
+          { label: 'Auditoria de Falhas', icon: 'i-heroicons-exclamation-triangle', to: '/admin/auditoria-falhas' },
+          { label: 'Versão do Sistema', icon: 'i-heroicons-code-bracket', to: '/admin/versao-sistema' }
         ]
       }
     }]);
