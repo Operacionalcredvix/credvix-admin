@@ -1,4 +1,5 @@
-// @ts-nocheck
+import { serverSupabaseServiceRole } from '#supabase/server'
+
 // API para registrar tentativa de login (sucesso ou falha)
 export default defineEventHandler(async (event) => {
   try {
@@ -17,18 +18,7 @@ export default defineEventHandler(async (event) => {
     const userAgent = getRequestHeader(event, 'user-agent') || 'Unknown';
 
     // Cria cliente Supabase com service_role para bypass RLS
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw createError({
-        statusCode: 500,
-        message: 'Configuração do Supabase ausente'
-      });
-    }
-
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = await serverSupabaseServiceRole(event);
 
     // Registra tentativa
     const { data, error } = await supabase.rpc('registrar_tentativa_login', {
