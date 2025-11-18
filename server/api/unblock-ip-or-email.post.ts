@@ -1,4 +1,5 @@
-// @ts-nocheck
+import { serverSupabaseServiceRole } from '#supabase/server'
+
 // API para desbloquear manualmente um IP ou email
 export default defineEventHandler(async (event) => {
   try {
@@ -13,18 +14,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // Cria cliente Supabase com service_role para bypass RLS
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw createError({
-        statusCode: 500,
-        message: 'Configuração do Supabase ausente'
-      });
-    }
-
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = await serverSupabaseServiceRole(event);
 
     // Chama função para desbloquear
     const { data, error } = await supabase.rpc('desbloquear_ip_ou_email', {
