@@ -29,30 +29,18 @@ export default defineEventHandler(async (event) => {
       console.error('[Rate Limit] Erro ao verificar bloqueio:', error);
       console.error('[Rate Limit] Detalhes:', JSON.stringify(error, null, 2));
       
-      // Se a função não existe, retorna fallback permitindo login
-      if (error.message?.includes('function') || error.code === '42883') {
-        console.warn('[Rate Limit] Função verificar_bloqueio_login não encontrada. Permitindo login.');
-        return { bloqueado: false, tentativas_restantes: 5, tempo_bloqueio_segundos: 0 };
-      }
-      
-      throw createError({
-        statusCode: 500,
-        message: 'Erro ao verificar rate limit',
-        data: error
-      });
+      // Em caso de qualquer erro, permite login (fail-open) por segurança
+      console.warn('[Rate Limit] Permitindo login devido a erro na verificação');
+      return { bloqueado: false, tentativas_restantes: 5, tempo_bloqueio_segundos: 0 };
     }
 
     return data?.[0] || { bloqueado: false, tentativas_restantes: 5, tempo_bloqueio_segundos: 0 };
-  } catch (err) {
+  } catch (err: any) {
     console.error('[Rate Limit] Erro geral:', err);
     
-    // Em caso de erro crítico, permite login (fail-open) mas loga o erro
-    if (err.statusCode === 400 || err.statusCode === 500) {
-      throw err;
-    }
-    
-    // Para outros erros, permite login mas registra
-    console.warn('[Rate Limit] Erro não tratado, permitindo login:', err);
+    // SEMPRE permite login em caso de erro (fail-open)
+    // Registra mas não bloqueia o acesso do usuário
+    console.warn('[Rate Limit] Permitindo login devido a exceção não tratada');
     return { bloqueado: false, tentativas_restantes: 5, tempo_bloqueio_segundos: 0 };
   }
 });
