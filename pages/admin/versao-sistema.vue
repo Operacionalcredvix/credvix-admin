@@ -42,8 +42,8 @@
         </div>
       </div>
 
-      <!-- Formulário de Nova Versão -->
-      <UCard>
+      <!-- Formulário de Nova Versão - Apenas para Master -->
+      <UCard v-if="isMaster">
         <template #header>
           <h2 class="text-lg font-semibold">Atualizar Versão</h2>
         </template>
@@ -182,7 +182,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -193,6 +193,10 @@ definePageMeta({
 
 const supabase = useSupabaseClient()
 const toast = useToast()
+const { profile } = useProfile()
+
+// Verifica se é Master
+const isMaster = computed(() => profile.value?.perfis?.nome === 'Master')
 
 // Estado
 const versaoAtual = ref(null)

@@ -50,28 +50,139 @@
         </ul>
       </nav>
 
-      <!-- Pequena linha com a versão do sistema (sidebar) -->
-      <div v-if="systemVersion && !isSidebarCollapsed" class="text-center text-xs text-gray-400 px-2 mb-2">
-        <span>Versão: <strong>{{ systemVersion.version }}</strong></span>
-        <span v-if="systemVersion.description" class="mx-1">•</span>
-        <span v-if="systemVersion.description" class="text-xs">{{ systemVersion.description }}</span>
-      </div>
-
-      <!-- Quando a sidebar estiver recolhida, mostrar um ícone compacto com popover (clique) -->
-      <div v-if="systemVersion && isSidebarCollapsed" class="mb-3 flex justify-center">
+      <!-- Versão do sistema com popover (sidebar expandida) -->
+      <div v-if="systemVersion && !isSidebarCollapsed" class="px-2 mb-2">
         <UPopover :popper="{ placement: 'right' }" mode="click">
           <template #default>
-            <button class="text-gray-400 hover:text-white" aria-label="Versão do sistema">
+            <button class="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors text-gray-400 hover:text-white group">
+              <div class="flex items-center gap-2">
+                <UIcon name="i-heroicons-information-circle" class="w-4 h-4 flex-shrink-0" />
+                <span class="text-xs font-medium">v{{ systemVersion.version }}</span>
+              </div>
+              <UIcon name="i-heroicons-chevron-right" class="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          </template>
+
+          <template #panel="{ close }">
+            <div class="w-96 bg-white dark:bg-gray-800 rounded-lg shadow-xl overflow-hidden">
+              <!-- Header -->
+              <div class="bg-gradient-to-r from-primary-600 to-primary-700 p-4 text-white">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h3 class="text-base font-bold">Versão Atual</h3>
+                    <p class="text-sm text-primary-100 mt-0.5">v{{ systemVersion.version }}</p>
+                  </div>
+                  <UBadge color="white" variant="solid" size="sm">Atual</UBadge>
+                </div>
+              </div>
+
+              <!-- Últimas versões -->
+              <div class="p-4 max-h-96 overflow-y-auto">
+                <div v-if="loadingVersionHistory" class="text-center py-4">
+                  <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin mx-auto text-gray-400" />
+                </div>
+                
+                <div v-else-if="versionHistory.length > 0" class="space-y-3">
+                  <div v-for="(version, index) in versionHistory" :key="version.id" class="relative">
+                    <!-- Timeline line -->
+                    <div v-if="index < versionHistory.length - 1" class="absolute left-2 top-8 w-0.5 h-full bg-gray-200 dark:bg-gray-700"></div>
+                    
+                    <div class="flex gap-3">
+                      <!-- Timeline dot -->
+                      <div class="relative z-10 flex-shrink-0">
+                        <div class="w-4 h-4 rounded-full mt-1" :class="index === 0 ? 'bg-primary-500' : 'bg-gray-300 dark:bg-gray-600'"></div>
+                      </div>
+                      
+                      <!-- Content -->
+                      <div class="flex-1 pb-4">
+                        <div class="flex items-center justify-between mb-1">
+                          <span class="text-sm font-semibold text-gray-900 dark:text-white">v{{ version.version }}</span>
+                          <span class="text-xs text-gray-500 dark:text-gray-400">{{ formatRelativeDate(version.created_at) }}</span>
+                        </div>
+                        <p v-if="version.description" class="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">{{ version.description }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-else class="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
+                  Nenhum histórico disponível
+                </div>
+              </div>
+
+              <!-- Footer -->
+              <div class="border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center">
+                <NuxtLink to="/admin/versao-sistema" class="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400 font-medium" @click="close">
+                  Ver todas as versões →
+                </NuxtLink>
+                <UButton size="xs" color="gray" variant="ghost" @click="close">Fechar</UButton>
+              </div>
+            </div>
+          </template>
+        </UPopover>
+      </div>
+
+      <!-- Versão do sistema (sidebar recolhida) -->
+      <div v-if="systemVersion && isSidebarCollapsed" class="mb-2 flex justify-center">
+        <UPopover :popper="{ placement: 'right' }" mode="click">
+          <template #default>
+            <button class="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-700 transition-colors" aria-label="Versão do sistema">
               <UIcon name="i-heroicons-information-circle" class="w-5 h-5" />
             </button>
           </template>
 
           <template #panel="{ close }">
-            <div class="text-xs p-3 max-w-xs bg-white dark:bg-gray-800 rounded shadow-md text-gray-800 dark:text-gray-200">
-              <div class="font-medium">Versão: <span class="font-semibold">{{ systemVersion.version }}</span></div>
-              <div v-if="systemVersion.description" class="text-gray-500 dark:text-gray-400 mt-1">{{ systemVersion.description }}</div>
-              <div v-if="systemVersion.created_at" class="text-gray-400 mt-2 text-xs">{{ new Date(systemVersion.created_at).toLocaleString() }}</div>
-              <div class="mt-2 flex justify-end">
+            <div class="w-96 bg-white dark:bg-gray-800 rounded-lg shadow-xl overflow-hidden">
+              <!-- Header -->
+              <div class="bg-gradient-to-r from-primary-600 to-primary-700 p-4 text-white">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h3 class="text-base font-bold">Versão Atual</h3>
+                    <p class="text-sm text-primary-100 mt-0.5">v{{ systemVersion.version }}</p>
+                  </div>
+                  <UBadge color="white" variant="solid" size="sm">Atual</UBadge>
+                </div>
+              </div>
+
+              <!-- Últimas versões -->
+              <div class="p-4 max-h-96 overflow-y-auto">
+                <div v-if="loadingVersionHistory" class="text-center py-4">
+                  <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin mx-auto text-gray-400" />
+                </div>
+                
+                <div v-else-if="versionHistory.length > 0" class="space-y-3">
+                  <div v-for="(version, index) in versionHistory" :key="version.id" class="relative">
+                    <!-- Timeline line -->
+                    <div v-if="index < versionHistory.length - 1" class="absolute left-2 top-8 w-0.5 h-full bg-gray-200 dark:bg-gray-700"></div>
+                    
+                    <div class="flex gap-3">
+                      <!-- Timeline dot -->
+                      <div class="relative z-10 flex-shrink-0">
+                        <div class="w-4 h-4 rounded-full mt-1" :class="index === 0 ? 'bg-primary-500' : 'bg-gray-300 dark:bg-gray-600'"></div>
+                      </div>
+                      
+                      <!-- Content -->
+                      <div class="flex-1 pb-4">
+                        <div class="flex items-center justify-between mb-1">
+                          <span class="text-sm font-semibold text-gray-900 dark:text-white">v{{ version.version }}</span>
+                          <span class="text-xs text-gray-500 dark:text-gray-400">{{ formatRelativeDate(version.created_at) }}</span>
+                        </div>
+                        <p v-if="version.description" class="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">{{ version.description }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-else class="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
+                  Nenhum histórico disponível
+                </div>
+              </div>
+
+              <!-- Footer -->
+              <div class="border-t border-gray-200 dark:border-gray-700 p-3 flex justify-between items-center">
+                <NuxtLink to="/admin/versao-sistema" class="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400 font-medium" @click="close">
+                  Ver todas as versões →
+                </NuxtLink>
                 <UButton size="xs" color="gray" variant="ghost" @click="close">Fechar</UButton>
               </div>
             </div>
@@ -177,7 +288,7 @@ useSessionHeartbeat();
 const supabase = useSupabaseClient();
 const router = useRouter();
 const route = useRoute();
-import { computed, ref, nextTick } from 'vue';
+import { computed, ref, nextTick, onMounted, watch } from 'vue';
 const { profile } = useProfile();
 // NOVO: Usa o composable para obter os itens de menu filtrados
 const { menuItems, filteredMenuItems } = useMenu();
@@ -376,14 +487,52 @@ const handleLogout = async () => {
 const { data: _sysVersionResp } = useFetch('/api/system-version');
 const systemVersion = computed(() => _sysVersionResp.value?.data || null);
 
-// Tooltip/composition para exibir versão condensada quando a sidebar estiver recolhida
-const versionTooltip = computed(() => {
-  if (!systemVersion.value) return 'Versão: desconhecida';
-  const parts = [systemVersion.value.version];
-  if (systemVersion.value.description) parts.push(systemVersion.value.description);
-  if (systemVersion.value.created_at) parts.push(new Date(systemVersion.value.created_at).toLocaleString());
-  return parts.join(' • ');
-});
+// Histórico de versões
+const versionHistory = ref([]);
+const loadingVersionHistory = ref(false);
+
+const fetchVersionHistory = async () => {
+  loadingVersionHistory.value = true;
+  try {
+    const { data } = await supabase
+      .from('system_version')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(5);
+    
+    if (data) {
+      versionHistory.value = data;
+    }
+  } catch (error) {
+    console.error('Erro ao buscar histórico de versões:', error);
+  } finally {
+    loadingVersionHistory.value = false;
+  }
+};
+
+// Buscar histórico quando a versão atual for carregada
+watch(systemVersion, (newVal) => {
+  if (newVal) {
+    fetchVersionHistory();
+  }
+}, { immediate: true });
+
+// Formatar data relativa
+const formatRelativeDate = (date) => {
+  if (!date) return '';
+  const now = new Date();
+  const past = new Date(date);
+  const diffMs = now - past;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return 'agora';
+  if (diffMins < 60) return `${diffMins}min atrás`;
+  if (diffHours < 24) return `${diffHours}h atrás`;
+  if (diffDays < 7) return `${diffDays}d atrás`;
+  return past.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+};
 </script>
 
 
