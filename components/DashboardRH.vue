@@ -1,9 +1,6 @@
 <template>
   <div>
-    <header class="mb-8">
-      <h1 class="text-primary-500 text-3xl font-bold">Dashboard RH</h1>
-      <p class="text-gray-500 mt-1">Bem-vindo ao painel de Recursos Humanos</p>
-    </header>
+
 
     <!-- Placeholder para conteúdo futuro -->
     <UCard>
