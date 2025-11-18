@@ -1,13 +1,9 @@
 import { readBody, eventHandler } from 'h3'
+import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default eventHandler(async (event) => {
   try {
-    const supabaseUrl = process.env.SUPABASE_URL || ''
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || ''
-    if (!supabaseUrl || !supabaseServiceKey) return { success: false, error: 'Supabase não configurado no servidor' }
-
-    const { createClient } = await import('@supabase/supabase-js')
-    const admin = createClient(supabaseUrl, supabaseServiceKey)
+    const admin = await serverSupabaseServiceRole(event)
 
   const body = await readBody(event)
   const { nome_razao, documento = null, banco = null, agencia = null, conta = null, email = null, telefone1 = null, telefone2 = null, dados_contato = null, ativo = true } = body || {}

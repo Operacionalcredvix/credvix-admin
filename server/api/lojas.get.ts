@@ -1,20 +1,11 @@
 // API endpoint para buscar lojas sem problemas de cache do Supabase
 // Este endpoint bypassa completamente o cliente Supabase do frontend
 
-import { createClient } from '@supabase/supabase-js'
+import { serverSupabaseServiceRole } from '#supabase/server'
 
-// @ts-ignore - defineEventHandler é auto-importado pelo Nuxt
 export default defineEventHandler(async (event) => {
   try {
-    // Cria cliente Supabase server-side
-    const supabaseUrl = process.env.SUPABASE_URL || ''
-    const supabaseKey = process.env.SUPABASE_KEY || ''
-    
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Configuração Supabase ausente')
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const supabase = await serverSupabaseServiceRole(event)
 
     // Usa a função RPC que retorna JSONB
     const { data, error } = await supabase.rpc('get_lojas_completas')

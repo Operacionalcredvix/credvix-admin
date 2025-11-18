@@ -1,13 +1,9 @@
 import { eventHandler, readBody } from 'h3'
+import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default eventHandler(async (event) => {
   try {
-    const supabaseUrl = process.env.SUPABASE_URL || ''
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || ''
-    if (!supabaseUrl || !supabaseServiceKey) return { success: false, error: 'Configuração do Supabase ausente no servidor', data: null }
-
-    const { createClient } = await import('@supabase/supabase-js')
-    const admin = createClient(supabaseUrl, supabaseServiceKey)
+    const admin = await serverSupabaseServiceRole(event)
 
     const body = await readBody(event) || {}
     const periodo = body.periodo || null

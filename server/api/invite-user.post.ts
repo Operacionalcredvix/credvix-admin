@@ -1,9 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
+import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
-  // Lê as configurações do Nuxt (que contêm as chaves do .env)
-  const config = useRuntimeConfig()
-  
   // Lê o email enviado pelo formulário no corpo da requisição
   const { email } = await readBody(event)
 
@@ -14,11 +11,8 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Cria um novo cliente Supabase **no servidor** usando a chave de administrador
-  const supabaseAdmin = createClient(
-    config.public.supabase.url, 
-    config.supabaseServiceKey
-  )
+  // Usa o cliente Supabase com service role
+  const supabaseAdmin = await serverSupabaseServiceRole(event)
 
   // Chama a função de convite de forma segura
   const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email)

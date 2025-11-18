@@ -1,15 +1,11 @@
 import { eventHandler } from 'h3'
+import { serverSupabaseServiceRole } from '#supabase/server'
 
 export const schedule = '0 0 * * *' // execução diária à meia-noite (UTC)
 
 export default eventHandler(async (event) => {
   try {
-    const supabaseUrl = process.env.SUPABASE_URL || ''
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || ''
-    if (!supabaseUrl || !supabaseServiceKey) return { success: false, error: 'Supabase não configurado no servidor' }
-
-    const { createClient } = await import('@supabase/supabase-js')
-    const admin = createClient(supabaseUrl, supabaseServiceKey)
+    const admin = await serverSupabaseServiceRole(event)
 
     // Permite execução manual (via POST) ou automática pela schedule.
     // Encontrar títulos agendados cuja data agendada já chegou e movê-los para pendente.

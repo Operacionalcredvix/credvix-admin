@@ -1,17 +1,7 @@
-import { createClient } from '@supabase/supabase-js'
+import { serverSupabaseServiceRole } from '#supabase/server'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  
-  const supabaseUrl = config.public.supabase.url
-  const supabaseServiceKey = config.supabaseServiceKey
-
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'As variáveis de ambiente do Supabase (URL ou Service Key) não foram configuradas corretamente no servidor. Verifique o arquivo .env e reinicie o servidor.',
-    })
-  }
 
   const { email } = await readBody(event)
   if (!email) {
@@ -21,7 +11,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+  const supabaseAdmin = await serverSupabaseServiceRole(event)
 
   // CORREÇÃO: Utilizando a variável correta "supabaseAdmin"
   const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
