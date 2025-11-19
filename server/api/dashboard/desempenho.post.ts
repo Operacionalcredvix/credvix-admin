@@ -30,6 +30,9 @@ export default eventHandler(async (event) => {
     const allowed = ['Master', 'Diretoria', 'Gerência']
     if (!allowed.includes(perfilNome)) return { success: false, error: 'Sem permissão', data: null }
 
+    const body = await readBody(event) || {}
+    const { p_periodo, p_regional_id } = body
+
     const rpcArgs: Record<string, any> = {}
     if (p_periodo) rpcArgs.p_periodo = p_periodo
     if (p_regional_id) rpcArgs.p_regional_id = p_regional_id

@@ -30,6 +30,9 @@ export default eventHandler(async (event) => {
     const allowed = ['Master', 'Diretoria', 'Gerência']
     if (!allowed.includes(perfilNome)) return { success: false, error: 'Sem permissão', data: null }
 
+    const body = await readBody(event) || {}
+    const { p_periodo, p_regional_id } = body
+
     if (!p_periodo) return { success: false, error: 'Parâmetro p_periodo ausente', data: null }
 
     let query = admin.from('metas_progresso').select('*').eq('periodo', p_periodo)
