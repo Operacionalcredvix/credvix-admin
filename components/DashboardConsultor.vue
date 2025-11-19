@@ -256,32 +256,64 @@ const { data: meuDesempenho, pending } = await useAsyncData('meu-desempenho-pess
     atingido_seguro_familiar: atingidoVendasExternasRes.data?.filter(v => v.tipo_produto === 'seguro_familiar').reduce((sum, v) => sum + v.quantidade, 0) || 0,
   };
 
-  // 2. Tenta buscar as METAS individuais da view.
-    const { data: metas, error: metasError } = await supabase
-      .from('desempenho_consultores')
-      .select('periodo, meta_individual_cnc, meta_individual_card, meta_individual_card_beneficio, meta_individual_consignado, meta_individual_fgts, meta_individual_bmg_med, meta_individual_seguro_familiar')
-      .eq('consultor_id', profile.value.id)
-      .eq('periodo', firstDayOfMonth)
-      .maybeSingle(); // .maybeSingle() não retorna erro se não encontrar nada
-  
-  // Se houver erro (view não existe), log no console
-  if (metasError) {
-    console.warn('⚠️ View desempenho_consultores não encontrada. Execute o script de migração do banco.', metasError);
-  }
+  // 2. Busca as METAS individuais via API
+  try {
+    const sessionResp = await supabase.auth.getSession();
+    const token = sessionResp?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-  // 3. Combina os resultados. Se não houver metas, os valores de meta serão 0.
-  return {
-    consultor_id: profile.value.id,
-    periodo: metas?.periodo || firstDayOfMonth,
-    ...atingido,
-    meta_individual_cnc: metas?.meta_individual_cnc || 0,
-    meta_individual_card: metas?.meta_individual_card || 0,
-    meta_individual_card_beneficio: metas?.meta_individual_card_beneficio || 0,
-    meta_individual_consignado: metas?.meta_individual_consignado || 0,
-    meta_individual_fgts: metas?.meta_individual_fgts || 0,
-    meta_individual_bmg_med: metas?.meta_individual_bmg_med || 0,
-    meta_individual_seguro_familiar: metas?.meta_individual_seguro_familiar || 0,
-  };
+    const body = { p_periodo: firstDayOfMonth };
+    const res = await $fetch('/api/dashboard/desempenho-consultor', { method: 'POST', body, headers });
+    
+    if (!res || res.success === false) {
+      const msg = res?.error || 'Erro ao buscar metas do servidor';
+      console.error('❌ [DashboardConsultor] Erro ao buscar metas (server):', msg);
+      // Retorna com atingido mas metas zeradas
+      return {
+        consultor_id: profile.value.id,
+        periodo: firstDayOfMonth,
+        ...atingido,
+        meta_individual_cnc: 0,
+        meta_individual_card: 0,
+        meta_individual_card_beneficio: 0,
+        meta_individual_consignado: 0,
+        meta_individual_fgts: 0,
+        meta_individual_bmg_med: 0,
+        meta_individual_seguro_familiar: 0,
+      };
+    }
+
+    const metas = res.data || {};
+
+    // 3. Combina atingido (do banco) com metas (da API)
+    return {
+      consultor_id: profile.value.id,
+      periodo: metas.periodo || firstDayOfMonth,
+      ...atingido,
+      meta_individual_cnc: metas.meta_individual_cnc || 0,
+      meta_individual_card: metas.meta_individual_card || 0,
+      meta_individual_card_beneficio: metas.meta_individual_card_beneficio || 0,
+      meta_individual_consignado: metas.meta_individual_consignado || 0,
+      meta_individual_fgts: metas.meta_individual_fgts || 0,
+      meta_individual_bmg_med: metas.meta_individual_bmg_med || 0,
+      meta_individual_seguro_familiar: metas.meta_individual_seguro_familiar || 0,
+    };
+  } catch (err) {
+    console.error('❌ [DashboardConsultor] Exceção ao buscar metas:', err);
+    // Retorna com atingido mas metas zeradas
+    return {
+      consultor_id: profile.value.id,
+      periodo: firstDayOfMonth,
+      ...atingido,
+      meta_individual_cnc: 0,
+      meta_individual_card: 0,
+      meta_individual_card_beneficio: 0,
+      meta_individual_consignado: 0,
+      meta_individual_fgts: 0,
+      meta_individual_bmg_med: 0,
+      meta_individual_seguro_familiar: 0,
+    };
+  }
 }, { watch: [selectedPeriod, profile] }); // Adiciona o filtro ao watch
 
 const { data: metaLoja } = await useAsyncData('meta-loja-consultor', async () => {

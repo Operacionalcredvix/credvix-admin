@@ -230,44 +230,87 @@ const { data: dashboardData, pending } = useAsyncData('dashboard-data-supervisor
 }, { watch: [profile, dateRange] });
 
 const { data: desempenhoConsultores } = await useAsyncData('desempenho-consultores-supervisor', async () => {
-  if (!profile.value?.loja_id || !selectedPeriod.value) return [];
-
-  // Busca a regional do supervisor a partir da sua loja
-  const { data: lojaData } = await supabase.from('lojas').select('regional_id').eq('id', profile.value.loja_id).single();
-  if (!lojaData?.regional_id) return [];
-
+  if (!selectedPeriod.value) return [];
   const firstDayOfMonth = `${selectedPeriod.value}-01`;
 
-  const { data } = await supabase.from('desempenho_consultores')
-    .select('consultor_nome, loja_nome, atingido_cnc, atingido_card, atingido_card_beneficio, atingido_consignado, atingido_fgts')
-    .eq('periodo', firstDayOfMonth)
-    .eq('regional_id', lojaData.regional_id);
+  try {
+    const sessionResp = await supabase.auth.getSession();
+    const token = sessionResp?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-  return data || [];
-}, { watch: [selectedPeriod, profile] });
+    const body = { p_periodo: firstDayOfMonth, tipo: 'desempenho' };
+    const res = await $fetch('/api/dashboard/desempenho-supervisor', { method: 'POST', body, headers });
+    if (!res || res.success === false) {
+      const msg = res?.error || 'Erro ao buscar desempenho do servidor';
+      console.error('❌ [DashboardSupervisor] Erro ao buscar desempenho (server):', msg);
+      if (process.client) toast.add({ title: 'Erro ao buscar desempenho', description: msg, color: 'red' });
+      return [];
+    }
+
+    return res.data || [];
+  } catch (err) {
+    console.error('❌ [DashboardSupervisor] Exceção ao buscar desempenho:', err);
+    if (process.client) toast.add({ title: 'Erro ao buscar desempenho', description: err?.message || String(err), color: 'red' });
+    return [];
+  }
+}, { watch: [selectedPeriod] });
 
 // Busca metas da regional do supervisor para ranking de lojas
 const { data: metasProgressoRegional, pending: metasPending } = await useAsyncData('metas-progresso-supervisor', async () => {
-  if (!profile.value?.loja_id || !selectedPeriod.value) return [];
-  const { data: lojaData } = await supabase.from('lojas').select('regional_id').eq('id', profile.value.loja_id).single();
-  if (!lojaData?.regional_id) return [];
+  if (!selectedPeriod.value) return [];
   const firstDayOfMonth = `${selectedPeriod.value}-01`;
-  const { data } = await supabase.from('metas_progresso').select('*').eq('periodo', firstDayOfMonth).eq('regional_id', lojaData.regional_id);
-  return data || [];
-}, { watch: [selectedPeriod, profile] });
+
+  try {
+    const sessionResp = await supabase.auth.getSession();
+    const token = sessionResp?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const body = { p_periodo: firstDayOfMonth };
+    const res = await $fetch('/api/dashboard/metas-supervisor', { method: 'POST', body, headers });
+    if (!res || res.success === false) {
+      const msg = res?.error || 'Erro ao buscar metas do servidor';
+      console.error('❌ [DashboardSupervisor] Erro ao buscar metas (server):', msg);
+      if (process.client) toast.add({ title: 'Erro ao buscar metas', description: msg, color: 'red' });
+      return [];
+    }
+
+    return res.data || [];
+  } catch (err) {
+    console.error('❌ [DashboardSupervisor] Exceção ao buscar metas:', err);
+    if (process.client) toast.add({ title: 'Erro ao buscar metas', description: err?.message || String(err), color: 'red' });
+    return [];
+  }
+}, { watch: [selectedPeriod] });
 
 // --- BUSCA DE CONSULTORES (para ranking de usuários) ---
 const { data: consultores } = await useAsyncData('consultores-ranking-supervisor', async () => {
-  if (!profile.value?.loja_id || !selectedPeriod.value) return [];
-  const { data: lojaData } = await supabase.from('lojas').select('regional_id').eq('id', profile.value.loja_id).single();
-  if (!lojaData?.regional_id) return [];
+  if (!selectedPeriod.value) return [];
   const firstDayOfMonth = `${selectedPeriod.value}-01`;
-  const { data } = await supabase.from('desempenho_consultores').select('consultor_id, consultor_nome, loja_id, loja_nome, regional_id, nome_regional, atingido_cnc, atingido_card, atingido_card_beneficio, atingido_consignado, atingido_fgts').eq('periodo', firstDayOfMonth).eq('regional_id', lojaData.regional_id);
-  return (data || []).map(c => ({
-    ...c,
-    total_producao: (c.atingido_cnc || 0) + (c.atingido_card || 0) + (c.atingido_card_beneficio || 0) + (c.atingido_consignado || 0) + (c.atingido_fgts || 0)
-  }));
-}, { watch: [selectedPeriod, profile] });
+
+  try {
+    const sessionResp = await supabase.auth.getSession();
+    const token = sessionResp?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const body = { p_periodo: firstDayOfMonth };
+    const res = await $fetch('/api/dashboard/desempenho-supervisor', { method: 'POST', body, headers });
+    if (!res || res.success === false) {
+      const msg = res?.error || 'Erro ao buscar consultores do servidor';
+      console.error('❌ [DashboardSupervisor] Erro ao buscar consultores (server):', msg);
+      if (process.client) toast.add({ title: 'Erro ao buscar consultores', description: msg, color: 'red' });
+      return [];
+    }
+
+    return (res.data || []).map(c => ({
+      ...c,
+      total_producao: (c.atingido_cnc || 0) + (c.atingido_card || 0) + (c.atingido_card_beneficio || 0) + (c.atingido_consignado || 0) + (c.atingido_fgts || 0)
+    }));
+  } catch (err) {
+    console.error('❌ [DashboardSupervisor] Exceção ao buscar consultores:', err);
+    if (process.client) toast.add({ title: 'Erro ao buscar consultores', description: err?.message || String(err), color: 'red' });
+    return [];
+  }
+}, { watch: [selectedPeriod] });
 
 // --- BUSCA SEPARADA DE SEGUROS (VENDAS EXTERNAS) ---
 const { data: segurosData } = await useAsyncData('seguros-supervisor', async () => {
