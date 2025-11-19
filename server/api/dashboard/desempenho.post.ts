@@ -51,27 +51,23 @@ export default eventHandler(async (event) => {
         return { success: true, data: [] } // Coordenador sem regionais
       }
 
-      // Se não foi especificada regional ou a especificada não pertence ao coordenador, usa todas as regionais dele
-      if (!p_regional_id || !regionalIds.includes(Number(p_regional_id))) {
-        // Para múltiplas regionais, busca os dados de cada uma
-        if (!p_periodo) {
-          return { success: false, error: 'Parâmetro p_periodo ausente', data: null }
-        }
-
-        const { data: desempenhoData, error: desempenhoErr } = await admin
-          .from('desempenho_consultores')
-          .select('*')
-          .eq('periodo', p_periodo)
-          .in('regional_id', regionalIds)
-
-        if (desempenhoErr) {
-          console.error('[server/api/dashboard/desempenho] Erro ao buscar desempenho:', desempenhoErr)
-          return { success: false, error: desempenhoErr.message || 'Erro ao buscar desempenho', data: null }
-        }
-
-        return { success: true, data: desempenhoData || [] }
+      // Para múltiplas regionais, usa RPC function
+      if (!p_periodo) {
+        return { success: false, error: 'Parâmetro p_periodo ausente', data: null }
       }
-      // Se foi especificada uma regional válida do coordenador, mantém o filtro
+
+      // Usa RPC function para buscar desempenho filtrado por regionais
+      const { data: desempenhoData, error: desempenhoErr } = await admin.rpc('get_desempenho_consultores_by_regional', {
+        p_periodo,
+        p_regional_ids: regionalIds
+      })
+
+      if (desempenhoErr) {
+        console.error('[server/api/dashboard/desempenho] Erro ao buscar desempenho:', desempenhoErr)
+        return { success: false, error: desempenhoErr.message || 'Erro ao buscar desempenho', data: null }
+      }
+
+      return { success: true, data: desempenhoData || [] }
     }
 
     const rpcArgs: Record<string, any> = {}
