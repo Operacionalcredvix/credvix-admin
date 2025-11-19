@@ -7,14 +7,14 @@ export default defineEventHandler(async (event) => {
     const { email } = body;
 
     if (!email) {
-      throw createError({
-        statusCode: 400,
-        message: 'Email é obrigatório'
-      });
+      console.error('[Rate Limit] Email não fornecido');
+      // Permite login mesmo sem email por segurança
+      return { bloqueado: false, tentativas_restantes: 5, tempo_bloqueio_segundos: 0 };
     }
 
-    // Captura IP
-    const ip = getRequestIP(event, { xForwardedFor: true });
+    // Captura IP (pode ser null em alguns ambientes)
+    const ip = getRequestIP(event, { xForwardedFor: true }) || '0.0.0.0';
+    console.log('[Rate Limit] Verificando:', { email, ip });
 
     // Cria cliente Supabase com service_role para bypass RLS
     const supabase = await serverSupabaseServiceRole(event);
