@@ -31,9 +31,46 @@ export default eventHandler(async (event) => {
     if (!allowed.includes(perfilNome)) return { success: false, error: 'Sem permissão', data: null }
 
     const body = await readBody(event) || {}
-    const { p_periodo, p_regional_id } = body
+    let { p_periodo, p_regional_id } = body
 
     if (!p_periodo) return { success: false, error: 'Parâmetro p_periodo ausente', data: null }
+
+    // Se for Coordenador, busca as regionais que ele coordena e filtra automaticamente
+    if (perfilNome === 'Coordenador') {
+      const { data: regionais, error: regionaisErr } = await admin
+        .from('regionais')
+        .select('id')
+        .eq('coordenador_id', perfilRow.id)
+
+      if (regionaisErr) {
+        console.error('[server/api/dashboard/metas] Erro ao buscar regionais do coordenador:', regionaisErr)
+        return { success: false, error: 'Erro ao buscar regionais do coordenador', data: null }
+      }
+
+      const regionalIds = (regionais || []).map(r => r.id)
+
+      if (regionalIds.length === 0) {
+        return { success: true, data: [] } // Coordenador sem regionais
+      }
+
+      // Se não foi especificada regional ou a especificada não pertence ao coordenador
+      if (!p_regional_id || !regionalIds.includes(Number(p_regional_id))) {
+        // Busca metas de todas as regionais do coordenador
+        const { data, error } = await admin
+          .from('metas_progresso')
+          .select('*')
+          .eq('periodo', p_periodo)
+          .in('regional_id', regionalIds)
+
+        if (error) {
+          console.error('[server/api/dashboard/metas] error:', error)
+          return { success: false, error: error.message || 'Erro ao buscar metas', data: null }
+        }
+
+        return { success: true, data: data || [] }
+      }
+      // Se foi especificada uma regional válida do coordenador, mantém o filtro
+    }
 
     let query = admin.from('metas_progresso').select('*').eq('periodo', p_periodo)
     if (p_regional_id) query = query.eq('regional_id', p_regional_id)

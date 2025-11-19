@@ -31,7 +31,48 @@ export default eventHandler(async (event) => {
     if (!allowed.includes(perfilNome)) return { success: false, error: 'Sem permissão', data: null }
 
     const body = await readBody(event) || {}
-    const { p_periodo, p_regional_id } = body
+    let { p_periodo, p_regional_id } = body
+
+    // Se for Coordenador, busca as regionais que ele coordena
+    if (perfilNome === 'Coordenador') {
+      const { data: regionais, error: regionaisErr } = await admin
+        .from('regionais')
+        .select('id')
+        .eq('coordenador_id', perfilRow.id)
+
+      if (regionaisErr) {
+        console.error('[server/api/dashboard/desempenho] Erro ao buscar regionais do coordenador:', regionaisErr)
+        return { success: false, error: 'Erro ao buscar regionais do coordenador', data: null }
+      }
+
+      const regionalIds = (regionais || []).map(r => r.id)
+
+      if (regionalIds.length === 0) {
+        return { success: true, data: [] } // Coordenador sem regionais
+      }
+
+      // Se não foi especificada regional ou a especificada não pertence ao coordenador, usa todas as regionais dele
+      if (!p_regional_id || !regionalIds.includes(Number(p_regional_id))) {
+        // Para múltiplas regionais, busca os dados de cada uma
+        if (!p_periodo) {
+          return { success: false, error: 'Parâmetro p_periodo ausente', data: null }
+        }
+
+        const { data: desempenhoData, error: desempenhoErr } = await admin
+          .from('desempenho_consultores')
+          .select('*')
+          .eq('periodo', p_periodo)
+          .in('regional_id', regionalIds)
+
+        if (desempenhoErr) {
+          console.error('[server/api/dashboard/desempenho] Erro ao buscar desempenho:', desempenhoErr)
+          return { success: false, error: desempenhoErr.message || 'Erro ao buscar desempenho', data: null }
+        }
+
+        return { success: true, data: desempenhoData || [] }
+      }
+      // Se foi especificada uma regional válida do coordenador, mantém o filtro
+    }
 
     const rpcArgs: Record<string, any> = {}
     if (p_periodo) rpcArgs.p_periodo = p_periodo
