@@ -355,39 +355,60 @@ const { data: dashboardData, pending } = useAsyncData('dashboard-data-coordenado
 }, { watch: [profile, dateRange, selectedRegional] });
 
 const { data: desempenhoConsultores } = await useAsyncData('desempenho-consultores-coordenador', async () => {
-  const regionalIds = regionais.value?.map(r => r.id) || [];
-  if (regionalIds.length === 0) return [];
-
-  // CORREÇÃO: A busca de desempenho deve ser feita pelo mês da meta (selectedPeriod), não pelo intervalo de produção (dateRange).
   if (!selectedPeriod.value) return [];
   const firstDayOfMonth = `${selectedPeriod.value}-01`;
 
-  let query = supabase.from('desempenho_consultores').select('consultor_nome, loja_nome, atingido_cnc, meta_individual_cnc, atingido_card, meta_individual_card, atingido_consignado, meta_individual_consignado, atingido_fgts, meta_individual_fgts').eq('periodo', firstDayOfMonth);
-  
-  if (selectedRegional.value) {
-    query = query.eq('regional_id', selectedRegional.value);
-  } else {
-    query = query.in('regional_id', regionalIds);
+  try {
+    const sessionResp = await supabase.auth.getSession();
+    const token = sessionResp?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const body = { p_periodo: firstDayOfMonth, p_regional_id: selectedRegional.value || null };
+    const res = await $fetch('/api/dashboard/desempenho', { method: 'POST', body, headers });
+    if (!res || res.success === false) {
+      const msg = res?.error || 'Erro ao buscar desempenho do servidor';
+      console.error('❌ [DashboardCoordenador] Erro ao buscar desempenho consultores (server):', msg);
+      if (process.client) toast.add({ title: 'Erro ao buscar desempenho', description: msg, color: 'red' });
+      return [];
+    }
+
+    return res.data || [];
+  } catch (err) {
+    console.error('❌ [DashboardCoordenador] Exceção ao buscar desempenho consultores:', err);
+    if (process.client) toast.add({ title: 'Erro ao buscar desempenho', description: err?.message || String(err), color: 'red' });
+    return [];
   }
-  
-  const { data } = await query;
-  return data || [];
-}, { watch: [selectedPeriod, selectedRegional, regionais] }); // CORREÇÃO: Observa a variável correta
+}, { watch: [selectedPeriod, selectedRegional] });
 
 // --- BUSCA DE CONSULTORES (para ranking de usuários) ---
 const { data: consultores } = await useAsyncData('consultores-ranking-coordenador', async () => {
   if (!selectedPeriod.value) return [];
   const firstDayOfMonth = `${selectedPeriod.value}-01`;
-  const regionalIds = regionais.value?.map(r => r.id) || [];
-  if (regionalIds.length === 0) return [];
-  let query = supabase.from('desempenho_consultores').select('consultor_id, consultor_nome, loja_id, loja_nome, regional_id, nome_regional, atingido_cnc, atingido_card, atingido_card_beneficio, atingido_consignado, atingido_fgts').eq('periodo', firstDayOfMonth).in('regional_id', regionalIds);
-  if (selectedRegional.value) query = query.eq('regional_id', selectedRegional.value);
-  const { data } = await query;
-  return (data || []).map(c => ({
-    ...c,
-    total_producao: (c.atingido_cnc || 0) + (c.atingido_card || 0) + (c.atingido_card_beneficio || 0) + (c.atingido_consignado || 0) + (c.atingido_fgts || 0)
-  }));
-}, { watch: [selectedPeriod, selectedRegional, regionais] });
+
+  try {
+    const sessionResp = await supabase.auth.getSession();
+    const token = sessionResp?.data?.session?.access_token || null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const body = { p_periodo: firstDayOfMonth, p_regional_id: selectedRegional.value || null };
+    const res = await $fetch('/api/dashboard/desempenho', { method: 'POST', body, headers });
+    if (!res || res.success === false) {
+      const msg = res?.error || 'Erro ao buscar consultores no servidor';
+      console.error('❌ [DashboardCoordenador] Erro ao buscar consultores (server):', msg);
+      if (process.client) toast.add({ title: 'Erro ao buscar consultores', description: msg, color: 'red' });
+      return [];
+    }
+
+    return (res.data || []).map(c => ({
+      ...c,
+      total_producao: (c.atingido_cnc || 0) + (c.atingido_card || 0) + (c.atingido_card_beneficio || 0) + (c.atingido_consignado || 0) + (c.atingido_fgts || 0)
+    }));
+  } catch (err) {
+    console.error('❌ [DashboardCoordenador] Exceção ao buscar consultores:', err);
+    if (process.client) toast.add({ title: 'Erro ao buscar consultores', description: err?.message || String(err), color: 'red' });
+    return [];
+  }
+}, { watch: [selectedPeriod, selectedRegional] });
 
 // --- NOVA BUSCA DE DADOS PARA METAS ---
 const { data: metasProgresso, pending: metasPending } = useAsyncData('metas-progresso-coordenador', async () => {

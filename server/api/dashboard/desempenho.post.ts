@@ -27,7 +27,7 @@ export default eventHandler(async (event) => {
 
     const perfilObj = Array.isArray(perfilRow.perfis) ? perfilRow.perfis[0] : perfilRow.perfis
     const perfilNome = perfilObj?.nome || null
-    const allowed = ['Master', 'Diretoria', 'Gerência']
+    const allowed = ['Master', 'Diretoria', 'Gerência', 'Coordenador']
     if (!allowed.includes(perfilNome)) return { success: false, error: 'Sem permissão', data: null }
 
     const body = await readBody(event) || {}
