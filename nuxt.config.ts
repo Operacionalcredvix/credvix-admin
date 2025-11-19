@@ -15,6 +15,15 @@ export default defineNuxtConfig({
     }
   },
 
+  nitro: {
+    experimental: {
+      openAPI: false
+    },
+    externals: {
+      inline: ['@supabase/supabase-js']
+    }
+  },
+
   runtimeConfig: {
     // Chaves privadas que só estão disponíveis no lado do servidor
     supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY,
