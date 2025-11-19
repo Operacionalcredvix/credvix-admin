@@ -5,6 +5,13 @@ export default eventHandler(async (event) => {
   try {
     const admin = await serverSupabaseServiceRole(event)
 
+    // Extrai token Bearer do header Authorization
+    const authHeader = event.node.req.headers?.authorization || ''
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader || ''
+    if (!token) {
+      return { success: false, error: 'Token de autenticação ausente', data: null }
+    }
+
     // Valida token e recupera o usuário
     const { data: userData, error: userErr } = await admin.auth.getUser(token)
     if (userErr || !userData?.user) {
