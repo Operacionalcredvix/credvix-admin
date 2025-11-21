@@ -2,21 +2,35 @@
 // composables/useSessionHeartbeat.ts
 import { onMounted, onUnmounted } from 'vue';
 
-const HEARTBEAT_INTERVAL = 60 * 1000; // 1 minuto
+const HEARTBEAT_INTERVAL = 120 * 1000; // 2 minutos
 const TOKEN_EXPIRY_THRESHOLD = 5 * 60; // 5 minutos
+
+// Estado global para garantir apenas uma instância ativa
+let globalIntervalId = null;
+let isChecking = false;
+let instanceCount = 0;
 
 export function useSessionHeartbeat() {
   const user = useSupabaseUser();
   const client = useSupabaseClient();
   const router = useRouter();
-  let intervalId;
 
   async function checkSession() {
-    if (!user.value) return;
+    if (!user.value || isChecking) return;
     
-    // Verifica se há comando de logout forçado pendente
+    isChecking = true;
+    
     try {
-      const { data: comandoLogout } = await client.rpc('verificar_comando_logout');
+      // Verifica se há comando de logout forçado pendente
+      const { data: comandoLogout, error } = await client.rpc('verificar_comando_logout');
+      
+      // Se houver erro de conexão, apenas loga e continua
+      if (error) {
+        console.debug('[Heartbeat] Erro ao verificar comando de logout (será tentado novamente):', error.message);
+        isChecking = false;
+        return;
+      }
+      
       if (comandoLogout && comandoLogout.length > 0) {
         const comando = comandoLogout[0];
         
@@ -53,26 +67,53 @@ export function useSessionHeartbeat() {
     }
     
     // Verifica expiração do token (comportamento original)
-    const sessionRes = client.auth.getSession ? await client.auth.getSession() : null;
-    if (!sessionRes || !sessionRes.data || !sessionRes.data.session) return;
-    const expiresAt = sessionRes.data.session.expires_at;
-    const now = Math.floor(Date.now() / 1000);
-    const timeLeft = expiresAt - now;
-    if (timeLeft < TOKEN_EXPIRY_THRESHOLD) {
-      // Tenta renovar o token
-      try {
-        await client.auth.refreshSession();
-      } catch (e) {
-        // Se falhar, força logout
-        router.push('/login');
+    try {
+      const sessionRes = client.auth.getSession ? await client.auth.getSession() : null;
+      if (!sessionRes || !sessionRes.data || !sessionRes.data.session) {
+        isChecking = false;
+        return;
       }
+      
+      const expiresAt = sessionRes.data.session.expires_at;
+      const now = Math.floor(Date.now() / 1000);
+      const timeLeft = expiresAt - now;
+      
+      if (timeLeft < TOKEN_EXPIRY_THRESHOLD) {
+        // Tenta renovar o token
+        try {
+          await client.auth.refreshSession();
+        } catch (e) {
+          // Se falhar, força logout
+          router.push('/login');
+        }
+      }
+    } finally {
+      isChecking = false;
     }
-  }  onMounted(() => {
-    // Executa imediatamente e depois agenda o intervalo
-    checkSession();
-    intervalId = setInterval(checkSession, HEARTBEAT_INTERVAL);
+  }
+
+  onMounted(() => {
+    instanceCount++;
+    
+    // Apenas a primeira instância cria o intervalo global
+    if (!globalIntervalId) {
+      console.debug('[Heartbeat] Iniciando heartbeat global');
+      checkSession();
+      globalIntervalId = setInterval(checkSession, HEARTBEAT_INTERVAL);
+    } else {
+      console.debug('[Heartbeat] Reutilizando heartbeat existente');
+    }
   });
+
   onUnmounted(() => {
-    if (intervalId) clearInterval(intervalId);
+    instanceCount--;
+    
+    // Apenas limpa o intervalo quando não há mais nenhuma instância ativa
+    if (instanceCount <= 0 && globalIntervalId) {
+      console.debug('[Heartbeat] Parando heartbeat global');
+      clearInterval(globalIntervalId);
+      globalIntervalId = null;
+      instanceCount = 0;
+    }
   });
 }
