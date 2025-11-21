@@ -17,7 +17,7 @@
           <template #panel="{ close }">
             <div class="max-w-xs p-3 bg-white dark:bg-gray-800 rounded shadow-md text-gray-800 dark:text-gray-200 text-sm">
               <div class="font-semibold">Importação via BI — Banco BMG</div>
-              <p class="text-xs text-gray-500 mt-1">Este upload espera um ficheiro exportado a partir do painel BI do Banco BMG. Antes de importar, confirme que o ficheiro segue o layout padrão utilizado pelo BI (colunas para franquia/loja, consultor, data, quantidade, etc.).</p>
+              <p class="text-xs text-gray-500 mt-1">Este upload espera um ficheiro exportado a partir do painel BI do Banco BMG. Os valores importados serão somados aos valores existentes no sistema.</p>
               <div class="mt-3 flex justify-end">
                 <UButton size="xs" color="gray" variant="ghost" @click="close">Fechar</UButton>
               </div>
@@ -28,14 +28,18 @@
     </header>
 
     <div class="space-y-4">
+      <UFormGroup label="Período" name="periodo" required>
+        <UInput type="month" v-model="selectedPeriod" placeholder="Selecione o período" />
+      </UFormGroup>
+      
       <input ref="fileInput" type="file" accept=".xlsx,.xls,.csv" class="hidden" @change="onFile" />
       <div class="flex items-center gap-3">
-        <UButton @click="trigger" icon="i-heroicons-arrow-up-tray">Selecionar arquivo</UButton>
+        <UButton @click="trigger" icon="i-heroicons-arrow-up-tray" :disabled="!selectedPeriod">Selecionar arquivo</UButton>
         <span v-if="fileName" class="text-sm text-gray-600">{{ fileName }}</span>
       </div>
     </div>
 
-    <UModal v-model="isPreviewOpen" size="lg">
+    <UModal v-model="isPreviewOpen" size="xl">
       <template #header>
         <div class="flex items-center justify-between w-full">
           <h2 class="text-lg font-bold">Pré-visualização — Dia a Dia Lojas</h2>
@@ -46,21 +50,28 @@
         <div v-if="previewErrors.length" class="mb-4 p-2 bg-amber-50 rounded">
           <p class="font-medium text-sm">Erros encontrados no ficheiro:</p>
           <ul class="text-xs list-disc pl-5">
-            <li v-for="err in previewErrors" :key="err.row">Linha {{ err.row }}: {{ (err.reasons || err.reasons || []).join(', ') }}</li>
+            <li v-for="err in previewErrors" :key="err.row">Linha {{ err.row }}: {{ (err.reasons || []).join(', ') }}</li>
           </ul>
         </div>
 
         <div class="mb-4">
           <p class="text-sm text-gray-600">Linhas para importar: {{ previewRows.length }}</p>
+          <p class="text-xs text-gray-500 mt-1">Os valores importados serão somados aos valores existentes no sistema</p>
         </div>
 
-        <div style="max-height: 50vh; overflow:auto;">
-          <table class="w-full text-sm table-auto">
+        <div style="max-height: 60vh; overflow:auto;">
+          <table class="w-full text-xs table-auto">
             <thead>
               <tr class="text-left text-xs text-gray-500">
                 <th class="p-2">#</th>
                 <th class="p-2">Loja</th>
-                <th class="p-2">Consultor</th>
+                <th class="p-2">CNC<br/><span class="text-xs text-gray-400">Atual → +Novo</span></th>
+                <th class="p-2">Card Benef.<br/><span class="text-xs text-gray-400">Atual → +Novo</span></th>
+                <th class="p-2">BMG Card<br/><span class="text-xs text-gray-400">Atual → +Novo</span></th>
+                <th class="p-2">FGTS<br/><span class="text-xs text-gray-400">Atual → +Novo</span></th>
+                <th class="p-2">Consignado<br/><span class="text-xs text-gray-400">Atual → +Novo</span></th>
+                <th class="p-2">CP Todos<br/><span class="text-xs text-gray-400">Atual → +Novo</span></th>
+                <th class="p-2">Antecipação<br/><span class="text-xs text-gray-400">Atual → +Novo</span></th>
                 <th class="p-2">Erros</th>
               </tr>
             </thead>
@@ -68,7 +79,55 @@
               <tr v-for="r in previewRows" :key="r.rowNumber" class="border-t">
                 <td class="p-2">{{ r.rowNumber }}</td>
                 <td class="p-2">{{ r.lojaName || r.franquia || '—' }}</td>
-                <td class="p-2">{{ r.consultorRaw || '—' }}</td>
+                <td class="p-2">
+                  <div class="flex flex-col text-xs">
+                    <span class="text-gray-500">{{ formatCurrency(r.existing?.atingido_cnc || 0) }}</span>
+                    <span class="font-semibold text-green-700">+{{ formatCurrency(r.parsed?.cnc_liberado || 0) }}</span>
+                    <span class="text-gray-400 text-[10px]">Meta: {{ formatCurrency(r.parsed?.meta_cnc || r.existing?.meta_cnc || 0) }}</span>
+                  </div>
+                </td>
+                <td class="p-2">
+                  <div class="flex flex-col text-xs">
+                    <span class="text-gray-500">{{ formatCurrency(r.existing?.atingido_card_beneficio || 0) }}</span>
+                    <span class="font-semibold text-green-700">+{{ formatCurrency(r.parsed?.card_beneficio_liberado || 0) }}</span>
+                    <span class="text-gray-400 text-[10px]">Meta: {{ formatCurrency(r.parsed?.meta_card_beneficio || r.existing?.meta_card_beneficio || 0) }}</span>
+                  </div>
+                </td>
+                <td class="p-2">
+                  <div class="flex flex-col text-xs">
+                    <span class="text-gray-500">{{ formatCurrency(r.existing?.atingido_card || 0) }}</span>
+                    <span class="font-semibold text-green-700">+{{ formatCurrency(r.parsed?.bmg_card_liberado || 0) }}</span>
+                    <span class="text-gray-400 text-[10px]">Meta: {{ formatCurrency(r.parsed?.meta_bmg_card || r.existing?.meta_card || 0) }}</span>
+                  </div>
+                </td>
+                <td class="p-2">
+                  <div class="flex flex-col text-xs">
+                    <span class="text-gray-500">{{ formatCurrency(r.existing?.atingido_fgts || 0) }}</span>
+                    <span class="font-semibold text-green-700">+{{ formatCurrency(r.parsed?.fgts_liberado || 0) }}</span>
+                    <span class="text-gray-400 text-[10px]">Meta: {{ formatCurrency(r.parsed?.meta_fgts || r.existing?.meta_fgts || 0) }}</span>
+                  </div>
+                </td>
+                <td class="p-2">
+                  <div class="flex flex-col text-xs">
+                    <span class="text-gray-500">{{ formatCurrency(r.existing?.atingido_consignado || 0) }}</span>
+                    <span class="font-semibold text-green-700">+{{ formatCurrency(r.parsed?.consignado_liberado || 0) }}</span>
+                    <span class="text-gray-400 text-[10px]">Meta: {{ formatCurrency(r.parsed?.meta_consignado || r.existing?.meta_consignado || 0) }}</span>
+                  </div>
+                </td>
+                <td class="p-2">
+                  <div class="flex flex-col text-xs">
+                    <span class="text-gray-500">{{ formatCurrency(r.existing?.atingido_cp_pra_todos || 0) }}</span>
+                    <span class="font-semibold text-green-700">+{{ formatCurrency(r.parsed?.cp_pra_todos_liberado || 0) }}</span>
+                    <span class="text-gray-400 text-[10px]">Meta: {{ formatCurrency(r.parsed?.meta_cp_pra_todos || r.existing?.meta_cp_pra_todos || 0) }}</span>
+                  </div>
+                </td>
+                <td class="p-2">
+                  <div class="flex flex-col text-xs">
+                    <span class="text-gray-500">{{ formatCurrency(r.existing?.atingido_antecipacao || 0) }}</span>
+                    <span class="font-semibold text-green-700">+{{ formatCurrency(r.parsed?.antecipacao_liberado || 0) }}</span>
+                    <span class="text-gray-400 text-[10px]">Meta: {{ formatCurrency(r.parsed?.meta_antecipacao || r.existing?.meta_antecipacao || 0) }}</span>
+                  </div>
+                </td>
                 <td class="p-2 text-xs text-red-600">{{ (r.errors || []).join('; ') }}</td>
               </tr>
             </tbody>
@@ -92,13 +151,24 @@ import { useSupabaseClient } from '#imports'
 const supabase = useSupabaseClient()
 const fileInput = ref(null)
 const fileName = ref('')
-const trigger = () => fileInput.value?.click()
+const selectedPeriod = ref('')
+const trigger = () => {
+  if (!selectedPeriod.value) {
+    toast.add({ title: 'Aviso', description: 'Selecione o período antes de importar', color: 'orange' })
+    return
+  }
+  fileInput.value?.click()
+}
 const toast = useToast()
 
 const isPreviewOpen = ref(false)
 const previewRows = ref([])
 const previewErrors = ref([])
 const saving = ref(false)
+
+const formatCurrency = (value) => {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0)
+}
 
 const onFile = async (e) => {
   const f = e.target.files && e.target.files[0]
@@ -139,7 +209,11 @@ const onFile = async (e) => {
     const token = session?.data?.session?.access_token || null
     const headers = token ? { Authorization: `Bearer ${token}` } : {}
 
-    const res = await $fetch('/api/importacoes/dia-a-dia-lojas/import-preview', { method: 'POST', headers, body: { rows } })
+    const res = await $fetch('/api/importacoes/dia-a-dia-lojas/import-preview', { 
+      method: 'POST', 
+      headers, 
+      body: { rows, periodo: selectedPeriod.value } 
+    })
     if (!res || res.success === false) {
       toast.add({ title: 'Erro', description: res?.error || 'Falha ao gerar preview', color: 'red' })
       return
@@ -169,17 +243,21 @@ const confirmImport = async () => {
     const token = session?.data?.session?.access_token || null
     const headers = token ? { Authorization: `Bearer ${token}` } : {}
 
-    // For import we will send the raw normalized rows (caller may adapt server-side)
-    const rowsToSend = previewRows.value.map((r) => r.raw || r)
+    // Send preview rows with parsed data
+    const rowsToSend = previewRows.value.filter(r => r.lojaId && !r.errors?.length)
 
-    const res = await $fetch('/api/importacoes/dia-a-dia-lojas/import', { method: 'POST', headers, body: { rows: rowsToSend } })
+    const res = await $fetch('/api/importacoes/dia-a-dia-lojas/import', { 
+      method: 'POST', 
+      headers, 
+      body: { rows: rowsToSend, periodo: selectedPeriod.value } 
+    })
     if (!res || res.success === false) {
       toast.add({ title: 'Erro', description: res?.error || 'Falha ao importar Dia a Dia', color: 'red' })
       return
     }
 
     const inserted = res.data?.insertedOrUpdated?.length || 0
-    toast.add({ title: 'Importação concluída', description: `${inserted} registos importados/atualizados.`, color: 'green' })
+    toast.add({ title: 'Importação concluída', description: `${inserted} registos importados/atualizados. Valores foram somados aos existentes.`, color: 'green' })
     isPreviewOpen.value = false
     fileName.value = ''
   } catch (err) {
