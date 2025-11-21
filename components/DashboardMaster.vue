@@ -125,7 +125,7 @@
   </UCard>
 
   <!-- Tabela de Desempenho Individual -->
-      <UCard v-if="desempenhoConsultores.length > 0" class="mb-8">
+      <UCard v-if="desempenhoConsultores && desempenhoConsultores.length > 0" class="mb-8">
         <template #header>
           <div class="flex items-center justify-between w-full">
             <div class="flex items-center gap-2">
@@ -376,7 +376,7 @@ const { data: desempenhoConsultores } = await useAsyncData('desempenho-consultor
     if (process.client) toast.add({ title: 'Erro ao buscar desempenho', description: err?.message || String(err), color: 'red' });
     return [];
   }
-}, { watch: [selectedPeriod, selectedRegional] });
+}, { watch: [selectedPeriod, selectedRegional], default: () => [] });
 
 // --- BUSCA DE CONSULTORES (para ranking de usuários) ---
 const { data: consultores } = await useAsyncData('consultores-ranking-master', async () => {
@@ -406,7 +406,7 @@ const { data: consultores } = await useAsyncData('consultores-ranking-master', a
     if (process.client) toast.add({ title: 'Erro ao buscar consultores', description: err?.message || String(err), color: 'red' });
     return [];
   }
-}, { watch: [selectedPeriod, selectedRegional] });
+}, { watch: [selectedPeriod, selectedRegional], default: () => [] });
 
 // --- NOVA BUSCA DE DADOS PARA METAS (via endpoint server para respeitar RLS) ---
 const { data: metasProgresso, pending: metasPending } = useAsyncData('metas-progresso-master', async () => {

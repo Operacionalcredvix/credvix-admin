@@ -14,7 +14,8 @@ const menuItems = [
       { label: 'Regionais', to: '/cadastros/regionais', icon: 'i-heroicons-map-pin' },
       { label: 'Funcionários', to: '/funcionarios', icon: 'i-heroicons-users' },
       { label: 'Lojas', to: '/lojas', icon: 'i-heroicons-building-storefront' },
-  { label: 'Sistemas por Funcionário', to: '/cadastros/sistemas-funcionarios', icon: 'i-heroicons-rectangle-stack', profiles: ['Master','Diretoria','Gerência','RH'] }
+      { label: 'Sistemas por Funcionário', to: '/cadastros/sistemas-funcionarios', icon: 'i-heroicons-rectangle-stack', profiles: ['Master','Diretoria','Gerência','RH'] },
+      { label: 'Comunicados Internos', to: '/admin/comunicados', icon: 'i-heroicons-megaphone', profiles: ['Master','RH','Financeiro','Administrativo'] }
     ]
   },
   {

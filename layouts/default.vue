@@ -204,6 +204,11 @@
       <!-- NOVO CABEÇALHO -->
       <header v-if="profile" class="flex justify-end items-center -mt-4 -mx-4 mb-8">
         <div class="flex items-center gap-4">
+           <!-- Badge de Comunicados -->
+           <ClientOnly>
+             <ComunicadosBadge />
+           </ClientOnly>
+           
            <!-- Badge de Notificações -->
            <ClientOnly>
              <NotificacoesBadge />

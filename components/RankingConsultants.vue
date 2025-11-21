@@ -33,7 +33,6 @@
 </template>
 
 <script setup>
-import { defineProps } from 'vue';
 const props = defineProps({
   consultants: { type: Array, default: () => [] },
   columns: { type: Array, default: () => [{ key: 'rank', label: 'Posição' }, { key: 'consultor_nome', label: 'Consultor' }, { key: 'total_producao', label: 'Produção Total' }] },

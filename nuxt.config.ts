@@ -2,6 +2,7 @@ import { defineNuxtConfig } from "nuxt/config";
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
+  compatibilityDate: '2025-11-19',
   devtools: { enabled: true },
 
   modules: [
@@ -12,6 +13,33 @@ export default defineNuxtConfig({
   vite: {
     optimizeDeps: {
       exclude: ['oxc-parser']
+    },
+    build: {
+      chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          manualChunks: (id) => {
+            // Separa node_modules em chunks menores para reduzir uso de memória
+            if (id.includes('node_modules')) {
+              if (id.includes('chart.js') || id.includes('vue-chartjs')) {
+                return 'vendor-charts';
+              }
+              if (id.includes('@supabase')) {
+                return 'vendor-supabase';
+              }
+              if (id.includes('@nuxt') || id.includes('nuxt')) {
+                return 'vendor-nuxt';
+              }
+              return 'vendor';
+            }
+          }
+        }
+      }
+    },
+    server: {
+      hmr: {
+        overlay: false
+      }
     }
   },
 
@@ -39,6 +67,14 @@ export default defineNuxtConfig({
             // Garante que a sessão seja armazenada no sessionStorage.
             // A sessão será encerrada quando o navegador/aba for fechado.
             persistSession: true
+          },
+          global: {
+            headers: {
+              'x-client-info': 'credvix-admin'
+            }
+          },
+          db: {
+            schema: 'public'
           }
         },
         redirectOptions: {

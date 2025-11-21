@@ -5,7 +5,13 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   // Garante que o perfil do utilizador está carregado
   if (!profile.value) {
-    await fetchProfile()
+    try {
+      await fetchProfile()
+    } catch (error) {
+      console.error('Middleware de Auth: Erro ao carregar perfil:', error)
+      // @ts-ignore - Nuxt auto-imports
+      return navigateTo('/login')
+    }
   }
 
   // Se mesmo após a tentativa, o perfil não carregar, nega o acesso por segurança.

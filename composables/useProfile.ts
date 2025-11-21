@@ -23,11 +23,22 @@ export const useProfile = () => {
     }
 
     try {
-  const session = await useSupabaseClient().auth.getSession();
-  const token = session?.data?.session?.access_token || null;
-  const headers = token ? { Authorization: `Bearer ${token}` } : ({} as Record<string, string>);
+      const session = await useSupabaseClient().auth.getSession();
+      const token = session?.data?.session?.access_token || null;
+      const headers = token ? { Authorization: `Bearer ${token}` } : ({} as Record<string, string>);
 
-  const res: any = await $fetch('/api/profile', { method: 'GET', headers });
+      // Adiciona timeout de 15 segundos (aumentado)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      const res: any = await $fetch('/api/profile', { 
+        method: 'GET', 
+        headers,
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
       if (!res || res.success === false) {
         console.error('[useProfile] Erro ao buscar perfil (server):', res?.error || 'Resposta inválida');
         profile.value = null;
