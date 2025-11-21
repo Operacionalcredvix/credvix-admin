@@ -1,12 +1,22 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 
+// Estado global compartilhado entre todas as instâncias
+const globalState = {
+  currentVersion: ref<string>(''),
+  latestVersion: ref<string>(''),
+  hasUpdate: ref(false),
+  isChecking: ref(false),
+  updateDismissed: ref(false),
+  checkInterval: ref<NodeJS.Timeout | null>(null)
+}
+
 export const useVersionCheck = () => {
-  const currentVersion = ref<string>('')
-  const latestVersion = ref<string>('')
-  const hasUpdate = ref(false)
-  const isChecking = ref(false)
-  const updateDismissed = ref(false)
-  const checkInterval = ref<NodeJS.Timeout | null>(null)
+  const currentVersion = globalState.currentVersion
+  const latestVersion = globalState.latestVersion
+  const hasUpdate = globalState.hasUpdate
+  const isChecking = globalState.isChecking
+  const updateDismissed = globalState.updateDismissed
+  const checkInterval = globalState.checkInterval
 
   // Checa a versão atual do sistema
   const checkVersion = async () => {
@@ -14,19 +24,23 @@ export const useVersionCheck = () => {
 
     try {
       isChecking.value = true
+      console.log('[VersionCheck] 🔍 Verificando versão...')
       
       const response = await $fetch<{ version: string }>('/api/system/version')
+      console.log('[VersionCheck] 📡 Resposta da API:', response)
       
       if (!response || !response.version) {
-        console.warn('[VersionCheck] Resposta inválida da API')
+        console.warn('[VersionCheck] ⚠️ Resposta inválida da API')
         return
       }
 
       latestVersion.value = response.version
+      console.log('[VersionCheck] 📦 Versão mais recente:', latestVersion.value)
 
       // Se não temos versão atual ainda, define como a atual
       if (!currentVersion.value) {
         currentVersion.value = response.version
+        console.log('[VersionCheck] 💾 Salvando versão inicial:', currentVersion.value)
         // Salva no localStorage para persistir entre reloads
         if (process.client) {
           localStorage.setItem('app_version', response.version)
@@ -34,13 +48,18 @@ export const useVersionCheck = () => {
         return
       }
 
+      console.log('[VersionCheck] 🔄 Comparando versões - Atual:', currentVersion.value, 'Nova:', latestVersion.value)
+      
       // Compara versões
       if (currentVersion.value !== latestVersion.value && !updateDismissed.value) {
         hasUpdate.value = true
-        console.log(`[VersionCheck] Nova versão disponível: ${latestVersion.value} (atual: ${currentVersion.value})`)
+        console.log(`[VersionCheck] 🚀 Nova versão disponível! ${latestVersion.value} (atual: ${currentVersion.value})`)
+        console.log('[VersionCheck] ✅ hasUpdate ativado:', hasUpdate.value)
+      } else {
+        console.log('[VersionCheck] ✓ Versão está atualizada')
       }
     } catch (error) {
-      console.error('[VersionCheck] Erro ao verificar versão:', error)
+      console.error('[VersionCheck] ❌ Erro ao verificar versão:', error)
     } finally {
       isChecking.value = false
     }
@@ -52,11 +71,14 @@ export const useVersionCheck = () => {
       clearInterval(checkInterval.value)
     }
 
+    console.log(`[VersionCheck] ⏰ Iniciando verificação automática (intervalo: ${intervalMinutes} min)`)
+    
     // Primeira verificação imediata
     checkVersion()
 
     // Verificações periódicas
     checkInterval.value = setInterval(() => {
+      console.log('[VersionCheck] ⏰ Executando verificação periódica...')
       checkVersion()
     }, intervalMinutes * 60 * 1000)
   }
@@ -71,7 +93,13 @@ export const useVersionCheck = () => {
 
   // Aceita a atualização e recarrega a página
   const acceptUpdate = () => {
+    console.log('[VersionCheck] ✅ Aceitando atualização...')
+    hasUpdate.value = false // Esconde o popup imediatamente
+    
     if (process.client) {
+      // Atualiza a versão no localStorage para a nova versão
+      localStorage.setItem('app_version', latestVersion.value)
+      
       // Limpa o cache e recarrega
       if ('caches' in window) {
         caches.keys().then(names => {
@@ -80,7 +108,9 @@ export const useVersionCheck = () => {
       }
       
       // Força reload sem cache
-      window.location.reload()
+      setTimeout(() => {
+        window.location.reload()
+      }, 300)
     }
   }
 

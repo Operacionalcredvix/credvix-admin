@@ -4,7 +4,7 @@
       <template #header>
         <div class="flex items-center gap-3">
           <div class="flex-shrink-0">
-            <UIcon name="i-heroicons-arrow-path" class="text-3xl text-primary-500 animate-spin-slow" />
+            <UIcon name="i-heroicons-arrow-path" class="text-3xl text-primary-500" />
           </div>
           <div class="flex-1">
             <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100">
@@ -78,12 +78,20 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 
 const { hasUpdate, currentVersion, latestVersion, acceptUpdate, dismissUpdate } = useVersionCheck()
 const isUpdating = ref(false)
 
+// Debug: monitora mudanças no hasUpdate
+watch(hasUpdate, (newVal) => {
+  console.log('[UpdateNotification] 📢 hasUpdate mudou para:', newVal)
+  console.log('[UpdateNotification] Versão atual:', currentVersion.value)
+  console.log('[UpdateNotification] Versão nova:', latestVersion.value)
+}, { immediate: true })
+
 const handleUpdate = () => {
+  console.log('[UpdateNotification] 🔄 Iniciando atualização...')
   isUpdating.value = true
   // Pequeno delay para feedback visual
   setTimeout(() => {
@@ -92,6 +100,7 @@ const handleUpdate = () => {
 }
 
 const handleDismiss = () => {
+  console.log('[UpdateNotification] ⏸️ Atualização adiada')
   dismissUpdate()
 }
 </script>
@@ -110,18 +119,5 @@ const handleDismiss = () => {
 
 .animate-slide-up {
   animation: slide-up 0.3s ease-out;
-}
-
-@keyframes spin-slow {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.animate-spin-slow {
-  animation: spin-slow 3s linear infinite;
 }
 </style>
