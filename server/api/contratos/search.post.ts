@@ -38,6 +38,7 @@ export default eventHandler(async (event) => {
     let query = admin.from('contratos').select(`
       id,
       data_contrato,
+      data_pagamento,
       valor_total,
       status,
       cliente_id,
@@ -97,8 +98,27 @@ export default eventHandler(async (event) => {
     if (loja_id) { query = query.eq('loja_id', loja_id); totalQuery = totalQuery.eq('loja_id', loja_id) }
     if (cliente_id) { query = query.eq('cliente_id', cliente_id); totalQuery = totalQuery.eq('cliente_id', cliente_id) }
     if (consultor_id) { query = query.eq('consultor_id', consultor_id); totalQuery = totalQuery.eq('consultor_id', consultor_id) }
-    if (startDate) { query = query.gte('data_contrato', startDate); totalQuery = totalQuery.gte('data_contrato', startDate) }
-    if (endDate) { query = query.lte('data_contrato', endDate); totalQuery = totalQuery.lte('data_contrato', endDate) }
+    
+    // Lógica inteligente de filtragem por data:
+    // - Contratos pagos: filtra por data_pagamento
+    // - Outros contratos: filtra por data_contrato
+    if (startDate || endDate) {
+      if (status === 'Pago') {
+        // Para contratos pagos, usa data_pagamento
+        if (startDate) { query = query.gte('data_pagamento', startDate); totalQuery = totalQuery.gte('data_pagamento', startDate) }
+        if (endDate) { query = query.lte('data_pagamento', endDate); totalQuery = totalQuery.lte('data_pagamento', endDate) }
+      } else if (status && status !== 'Pago') {
+        // Para outros status específicos, usa data_contrato
+        if (startDate) { query = query.gte('data_contrato', startDate); totalQuery = totalQuery.gte('data_contrato', startDate) }
+        if (endDate) { query = query.lte('data_contrato', endDate); totalQuery = totalQuery.lte('data_contrato', endDate) }
+      } else {
+        // Quando não há filtro de status (mostrar todos), precisamos usar OR logic
+        // Infelizmente Supabase não tem suporte direto para OR complexo aqui
+        // Então filtramos por data_contrato como padrão quando status não está definido
+        if (startDate) { query = query.gte('data_contrato', startDate); totalQuery = totalQuery.gte('data_contrato', startDate) }
+        if (endDate) { query = query.lte('data_contrato', endDate); totalQuery = totalQuery.lte('data_contrato', endDate) }
+      }
+    }
 
     // paginação
     const { data, error, count } = await query.order('data_contrato', { ascending: false }).range(from, to)

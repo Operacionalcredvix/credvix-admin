@@ -54,6 +54,11 @@
           <span>{{ new Date(row.data_contrato).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) }}</span>
         </template>
 
+        <template #data_pagamento-data="{ row }">
+          <span v-if="row.data_pagamento">{{ new Date(row.data_pagamento).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) }}</span>
+          <span v-else class="text-gray-400 text-xs">N/A</span>
+        </template>
+
         <template #valor_total-data="{ row }">
           <span>{{ formatCurrency(row.valor_total) }}</span>
         </template>
@@ -103,8 +108,13 @@ const route = useRoute();
 const selectedStatus = ref(null);
 const selectedLoja = ref(null);
 const selectedConsultor = ref(null);
-const startDate = ref(null);
-const endDate = ref(null);
+
+// Inicializa com o mês vigente
+const hoje = new Date();
+const primeiroDiaDoMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+const ultimoDiaDoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+const startDate = ref(primeiroDiaDoMes.toISOString().split('T')[0]);
+const endDate = ref(ultimoDiaDoMes.toISOString().split('T')[0]);
 const statusOptions = ['Em Análise', 'Reprovado', 'Pendente', 'Pago', 'Cancelado'];
 const page = ref(1);
 const pageCount = ref(15);
@@ -114,7 +124,8 @@ const totalValorContratos = ref(0);
 // --- COLUNAS DA TABELA ---
 const columns = [
   { key: 'clientes.nome_completo', label: 'Cliente' }, { key: 'produtos.nome', label: 'Produto' },
-  { key: 'data_contrato', label: 'Data' }, { key: 'valor_total', label: 'Valor Total' },
+  { key: 'data_contrato', label: 'Data Digitação' }, { key: 'data_pagamento', label: 'Data Pagamento' },
+  { key: 'valor_total', label: 'Valor Total' },
   { key: 'status', label: 'Status' }, { key: 'actions', label: 'Ações' }
 ];
 

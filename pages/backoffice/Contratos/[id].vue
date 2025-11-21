@@ -44,7 +44,7 @@
             </div>
             <div>
               <label>Data da digitação</label>
-              <p>{{ formatDate(contrato.data_digitacao) }}</p>
+              <p>{{ formatDate(contrato.data_contrato) }}</p>
             </div>
             <div>
               <label>Data de Pagamento</label>
@@ -70,8 +70,48 @@
       <div class="space-y-8">
         <UCard>
           <template #header><h3 class="font-semibold text-lg">Status do Contrato</h3></template>
-          <div class="flex items-center justify-center">
+          <div class="flex items-center justify-center mb-4">
             <UBadge :label="contrato.status" :color="statusColor(contrato.status)" size="lg" />
+          </div>
+          
+          <!-- Histórico de Status -->
+          <div v-if="historicoStatus && historicoStatus.length > 0" class="mt-6 border-t pt-4">
+            <h4 class="font-medium text-sm text-gray-700 mb-3">Histórico de Mudanças</h4>
+            <div class="space-y-3">
+              <div 
+                v-for="(hist, index) in historicoStatus" 
+                :key="hist.id"
+                class="flex items-start gap-3 text-sm"
+              >
+                <div class="flex-shrink-0 w-2 h-2 mt-1.5 rounded-full bg-primary-500"></div>
+                <div class="flex-1">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <UBadge 
+                      v-if="hist.status_anterior"
+                      :label="hist.status_anterior" 
+                      :color="statusColor(hist.status_anterior)" 
+                      size="xs"
+                    />
+                    <span v-if="hist.status_anterior" class="text-gray-400">→</span>
+                    <UBadge 
+                      :label="hist.status_novo" 
+                      :color="statusColor(hist.status_novo)" 
+                      size="xs"
+                    />
+                  </div>
+                  <p v-if="hist.motivo_status" class="text-gray-600 mt-1 text-xs">
+                    {{ hist.motivo_status }}
+                  </p>
+                  <div class="text-gray-500 text-xs mt-1">
+                    {{ formatDateTime(hist.created_at) }}
+                    <span v-if="hist.alterado_por_nome"> • por {{ hist.alterado_por_nome }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else-if="loadingHistorico" class="mt-4 text-center text-sm text-gray-500">
+            Carregando histórico...
           </div>
         </UCard>
 
@@ -152,6 +192,43 @@ const { data: contrato, pending } = await useAsyncData(`contrato-${contratoId}`,
   return data;
 });
 
+// --- CARREGAMENTO DO HISTÓRICO DE STATUS ---
+const loadingHistorico = ref(false);
+const historicoStatus = ref([]);
+
+const carregarHistorico = async () => {
+  if (!contratoId) return;
+  
+  loadingHistorico.value = true;
+  try {
+    const { data, error } = await supabase
+      .from('historico_status_contratos')
+      .select(`
+        *,
+        alterado_por_nome:funcionarios!alterado_por(nome_completo)
+      `)
+      .eq('contrato_id', contratoId)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    
+    // Formata os dados para facilitar o uso no template
+    historicoStatus.value = (data || []).map(item => ({
+      ...item,
+      alterado_por_nome: item.alterado_por_nome?.nome_completo || null
+    }));
+  } catch (error) {
+    console.error('Erro ao carregar histórico de status:', error);
+  } finally {
+    loadingHistorico.value = false;
+  }
+};
+
+// Carregar histórico quando o componente montar
+onMounted(() => {
+  carregarHistorico();
+});
+
 // --- FUNÇÕES DE FORMATAÇÃO ---
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return 'N/A';
@@ -162,6 +239,18 @@ const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
   // Adiciona timeZone UTC para evitar problemas com fuso horário
   return new Date(dateString).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+};
+
+const formatDateTime = (dateString) => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  return date.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 };
 
 const statusColor = (status) => {

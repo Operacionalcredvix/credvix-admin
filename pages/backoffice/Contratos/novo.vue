@@ -297,6 +297,11 @@ watch(() => formData.tabela, () => { formData.prazo = null; });
 watch(() => formData.status, async (newStatus) => {
   if (newStatus === 'Aprovado' || newStatus === 'Pago') {
     formData.motivo_status = '';
+    // Preencher data_pagamento automaticamente com a data atual se for Pago
+    if (newStatus === 'Pago' && !formData.data_pagamento) {
+      const hoje = new Date();
+      formData.data_pagamento = hoje.toISOString().split('T')[0];
+    }
   }
   await carregarMotivosSugeridos();
 });

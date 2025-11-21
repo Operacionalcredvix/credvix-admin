@@ -268,7 +268,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, watch } from 'vue';
 import { format } from 'date-fns';
 import { Bar, Doughnut } from 'vue-chartjs';
 import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement } from 'chart.js';
@@ -321,8 +321,11 @@ const { data: regionais } = await useAsyncData('regionais-filtro-master', async 
   return data || [];
 });
 
-const { data: dashboardData, pending } = useAsyncData('dashboard-data-master', async () => {
-  if (!profile.value?.user_id || !dateRange.start || !dateRange.end) return { stats: {}, statusChart: {}, lojasChart: {}, produtosChart: {} };
+const { data: dashboardData, pending, refresh: refreshDashboard } = useAsyncData('dashboard-data-master', async () => {
+  // CORREÇÃO: Usar id ao invés de user_id, pois o profile não retorna user_id
+  if (!profile.value?.id || !dateRange.start || !dateRange.end) {
+    return { stats: {}, statusChart: {}, lojasChart: {}, produtosChart: {} };
+  }
 
   try {
     // obtém token de sessão do cliente supabase para repassar ao servidor
@@ -337,20 +340,27 @@ const { data: dashboardData, pending } = useAsyncData('dashboard-data-master', a
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
     const res = await $fetch(`/api/dashboard/master?${params.toString()}`, { headers, method: 'GET' });
+    
     if (!res || res.success === false) {
       const msg = res?.error || 'Erro ao carregar dados do servidor';
-      console.error('❌ [DashboardMaster] Erro ao carregar dados (server):', msg);
       if (process.client) toast.add({ title: 'Erro ao carregar dados', description: msg, color: 'red' });
       return { stats: {}, statusChart: {}, lojasChart: {}, produtosChart: {} };
     }
 
     return res.data || { stats: {}, statusChart: {}, lojasChart: {}, produtosChart: {} };
   } catch (err) {
-    console.error('❌ [DashboardMaster] Exceção ao carregar dados do dashboard:', err);
     if (process.client) toast.add({ title: 'Erro ao carregar dados', description: err?.message || String(err), color: 'red' });
     return { stats: {}, statusChart: {}, lojasChart: {}, produtosChart: {} };
   }
 }, { watch: [profile, dateRange, selectedRegional] });
+
+// Watch explícito para forçar refresh quando profile carregar
+watch(() => profile.value?.id, (newId, oldId) => {
+  if (newId && !oldId) {
+    console.log('✅ [DashboardMaster] Profile carregou! Forçando refresh do dashboard...');
+    refreshDashboard();
+  }
+});
 
 const { data: desempenhoConsultores } = await useAsyncData('desempenho-consultores-master', async () => {
   if (!selectedPeriod.value) return [];

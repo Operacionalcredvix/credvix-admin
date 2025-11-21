@@ -321,6 +321,11 @@ watch(() => formData.tabela, () => {
 watch(() => formData.status, (newStatus) => {
   if (newStatus === 'Pago') {
     formData.motivo_status = '';
+    // Preencher data_pagamento automaticamente com a data atual se estiver vazia
+    if (!formData.data_pagamento) {
+      const hoje = new Date();
+      formData.data_pagamento = hoje.toISOString().split('T')[0];
+    }
   }
 });
 

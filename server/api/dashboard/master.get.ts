@@ -51,6 +51,7 @@ export default eventHandler(async (event) => {
     if (p_regional_id) rpcArgs.p_regional_id = p_regional_id
 
     const { data, error } = await admin.rpc('get_dashboard_data_master', rpcArgs)
+    
     if (error) {
       console.error('[server/api/dashboard/master] RPC error:', error)
       return { success: false, error: error.message || 'Erro ao executar RPC', data: null }
